@@ -1,0 +1,73 @@
+<!-- 
+   ===============================================================================
+   Vader Modular Fuzzer (VMF)
+   Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
+   vader@draper.com
+    
+   Effort sponsored by the U.S. Government under Other Transaction number
+   W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
+   Is authorized to reproduce and distribute reprints for Governmental purposes
+   notwithstanding any copyright notation thereon.
+    
+   The views and conclusions contained herein are those of the authors and
+   should not be interpreted as necessarily representing the official policies
+   or endorsements, either expressed or implied, of the U.S. Government.
+    
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License version 2 (only) as 
+   published by the Free Software Foundation.
+    
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+   GNU General Public License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with this program. If not, see http://www.gnu.org/licenses/.
+    
+   @license GPL-2.0-only https://spdx.org/licenses/GPL-2.0-only.html
+  ===============================================================================
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=EmulateIE8">
+    <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+    <META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+    
+</head>
+
+<body> 
+
+<p hidden id="ClusterId"></p>
+
+<div id="wb_Text1" style="position:relative;left:150px;top:0px;width:80px;height:16px;text-align:left;">
+<font style="font-size:12px" color="#000000" face="Verdana"><b>Title</b></font></div>    
+<input type="text" id='ScenarioTitle' style="position:relative;left:200px;top:-20px;width:250px;height:25px;z-index:9" name="title" value="">
+
+<label style="position:relative;" for="scenarioType"><i><b>Type</b></i></label> 
+<select name="scenarioType" id="scenarioType"> 
+    <option value="Fuzzer">Fuzzer</option> 
+    <option value="Analyzer">Analyzer</option> 
+    <option value="Minimizer">Minimizer</option> 
+</select>
+    
+<p id="wb_Text4" style="position:relative;left:10px;top:0px;"><font style="font-size:12px" color="#000000" face="Verdana"><b>Configuration Files</b></font></p>
+
+<div id="ScenarioConfigList" 
+style="resize: none;position:relative;left:5px;top:0px;width:300px;height:150px;border:1px #C0C0C0 solid;font-family:Verdana;font-size:12px;">
+</div>
+
+<div id="wb_Text5" style="position:relative;left:320px;top:-185px;"><font style="font-size:12px" color="#000000" face="Verdana"><b>Seed List</b></font></div>
+
+<div id="ScenarioSeedList" 
+style="resize: none;position:relative;left:320px;top:-170px;width:300px;height:150px;border:1px #C0C0C0 solid;font-family:Verdana;font-size:12px;">
+</div>
+
+<input type="submit" class="genericbutton" id="CreateScenario" name="CreateScenario" value="Create" 
+onclick="newScenario(event,$('#ScenarioTitle').val(),$('#SelectedId').get(0).innerHTML,$('#ScenarioConfigList').find('#clusterFiles').val(), $('#ScenarioSeedList').find('#clusterFiles').val(),$('#scenarioType :selected').text());" 
+style="position:relative;top:-120px;left:220px;width:120px;height:25px;font-family:Verdana;font-size:12px;z-index:3">
+
+</body>
+</html>

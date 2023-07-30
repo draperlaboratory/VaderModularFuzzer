@@ -1,0 +1,138 @@
+/* =============================================================================
+ * Vader Modular Fuzzer (VMF)
+ * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
+ * <vader@draper.com>
+ *  
+ * Effort sponsored by the U.S. Government under Other Transaction number
+ * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
+ * Is authorized to reproduce and distribute reprints for Governmental purposes
+ * notwithstanding any copyright notation thereon.
+ *  
+ * The views and conclusions contained herein are those of the authors and
+ * should not be interpreted as necessarily representing the official policies
+ * or endorsements, either expressed or implied, of the U.S. Government.
+ *  
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 (only) as 
+ * published by the Free Software Foundation.
+ *  
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *  
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *  
+ * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
+ * ===========================================================================*/
+#include "OutputScheduler.hpp"
+#include "RuntimeException.hpp"
+#include "Logging.hpp"
+
+using namespace vader;
+
+OutputScheduler::OutputScheduler()
+{
+    initialized = false;
+}
+
+OutputScheduler::~OutputScheduler()
+{
+    //Nothing needed
+}
+
+/**
+* @brief Configure the OutputScheduler with the set of output modules to execute
+* Controllers should call this method during initialization to provide the
+* full list of output modules that should be scheduled.  Initialization may only
+* be called once.
+* @param outputs the output modules that should be executed
+* @throws RuntimeException if the any module configuration is invalid or if initialization
+* is called more than once.
+*/
+void OutputScheduler::setOutputModules(std::vector<OutputModule*> outputs)
+{
+    if(!initialized)
+    {
+        for(OutputModule* m: outputs)
+        {
+            OutputModuleData data;
+            data.theModule = m;
+            data.lastRanTime = time(0);
+            data.type = m->getDesiredScheduleType();
+            data.rate = m->getDesiredScheduleRate();
+            data.testCaseCounter = data.rate;
+
+            //A schedule rate must be specified for CALL_ON_NUM_X scheduling types
+            if((OutputModule::CALL_ON_NUM_SECONDS == data.type)||
+                (OutputModule::CALL_ON_NUM_TEST_CASE_EXECUTIONS == data.type))
+            {
+                if(data.rate<=0)
+                {
+                    LOG_ERROR << m->getModuleName() << " has invalid desired schedule parameters";
+                    throw RuntimeException("getDesiredScheduleRate must return non-zero value", 
+                        RuntimeException::CONFIGURATION_ERROR);
+                }
+            }
+
+            moduleData.push_back(data);
+        }
+        initialized = true;
+    }
+    else
+    {
+        throw RuntimeException("Attempt to initialize OutputScheduler more than once", 
+            RuntimeException::USAGE_ERROR);
+    }
+}
+
+/**
+* @brief Run the output modules
+* This method will run each output module based on it's configured scheduling
+* parameters.  For the most effective scheduling, controllers should call this
+* method once per execution of the main fuzzing loop.
+* 
+* @param newTestCaseCount the number of new test cases that have been executed
+* @param storage the storage module to provide to the output modules that should be run
+* since the last call to runOutputModules()
+*/
+void OutputScheduler::runOutputModules(int newTestCaseCount, StorageModule& storage)
+{
+    for(unsigned int i=0; i<moduleData.size(); i++)
+    {
+        OutputModuleData& data = moduleData[i];
+        bool runModule = false;
+        if(OutputModule::CALL_ON_NUM_SECONDS == data.type)
+        {
+            time_t now = time(0);
+            double elapsed = difftime(now, data.lastRanTime);
+            if(elapsed >= data.rate)
+            {
+                runModule = true;
+                data.lastRanTime = now;
+            }
+        }
+        else if (OutputModule::CALL_ON_NUM_TEST_CASE_EXECUTIONS == data.type)
+        {
+            data.testCaseCounter = data.testCaseCounter - newTestCaseCount;
+            if(data.testCaseCounter <= 0)
+            {
+                runModule = true;
+                data.testCaseCounter = data.rate;
+            }
+        }
+        else if(OutputModule::CALL_EVERYTIME == data.type)
+        {
+            runModule = true;
+        }
+        //else type is CALL_ONLY_ON_SHUTDOWN, in which case the module's run method 
+        //is never called
+
+        if(runModule)
+        {
+            data.theModule->run(storage);
+        }
+    }
+
+}

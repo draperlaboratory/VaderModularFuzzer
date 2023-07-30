@@ -1,0 +1,419 @@
+/* =============================================================================
+ * Vader Modular Fuzzer (VMF)
+ * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
+ * <vader@draper.com>
+ *  
+ * Effort sponsored by the U.S. Government under Other Transaction number
+ * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
+ * Is authorized to reproduce and distribute reprints for Governmental purposes
+ * notwithstanding any copyright notation thereon.
+ *  
+ * The views and conclusions contained herein are those of the authors and
+ * should not be interpreted as necessarily representing the official policies
+ * or endorsements, either expressed or implied, of the U.S. Government.
+ *  
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 (only) as 
+ * published by the Free Software Foundation.
+ *  
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *  
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *  
+ * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
+ * ===========================================================================*/
+
+.data td  /* KPI Data in Tables */
+{
+    font-family:Courier!important;
+    font-weight: bold!important;
+    font-size:12px!important;
+}
+
+#corpusDiv
+{
+    width: 100%;
+	height: 400px;
+	position:relative;
+	top:40px;
+	display:block;
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+#clusterDiv
+{
+    width: 100%;
+    height: 450px;
+    position:relative;
+    top:10px;
+    display:block;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#cdmstable table
+{
+    width: 100%;
+}
+    
+#cdmstable tr
+{
+  font-family:Verdana;
+  font-size:12px;
+ }
+ 
+#cdmstable td
+{
+  font-family:Verdana;
+  font-size:12px;
+}
+ 
+#cdmstable th 
+{
+  font-weight: bold;
+  text-align: left;
+}
+
+#clusterfilestable table
+{
+  text-align:left;
+  border:1px solid black;
+}
+
+#clusterfilestable th
+{
+  text-align:left;
+  border:1px solid black;
+}
+
+#clusterfilestable td
+{
+  text-align:left;
+  border:1px solid black;
+}
+
+
+#scenarioslidertable td
+{
+  text-align:center;
+  font-size:14px;
+  border:1px solid black;
+}
+
+#scenarioslidertable th
+{
+  font-weight: bold;
+  text-align: center;
+  font-size:14px;
+  border:none;
+}
+
+#scenarioslidertable caption
+{
+  font-weight: bold;
+  font-style: italic;
+  text-align: center;
+  font-size:16px;
+}
+
+#upload
+{
+    position: relative;
+    border: black;
+    font: Courier;
+    font-size: 11px;
+    cursor: pointer;
+    background-color: #555;
+    color: white;   
+    border-radius: 10px;      
+}
+
+#scenarioName:hover 
+{ 
+   color:#d2422d;
+}
+
+/* The popup form - hidden by default */
+
+.form-popup 
+{
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  font-family:Garamond;
+  font-size:14px;
+  border: 5px solid #6470dd;
+  z-index: 9;
+}
+
+/* Add styles to the form container */
+.form-container 
+{
+  background-color: white;
+}
+
+.ui-datepicker
+{
+   font-family: Arial;
+   font-size: 13px;
+   z-index: 1003 !important;
+}
+
+
+ul 
+{
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #333;
+}
+
+li
+{
+  float: left;
+}
+
+li a 
+{
+  display: block;
+  color: white;
+  text-align: center;
+  padding-top: 15px;
+  padding-right: 15px;
+  padding-bottom: 5px;
+  padding-left: 15px;
+  width:70px;
+  text-decoration: none;
+}
+
+a:hover 
+{
+	text-decoration: none;	
+}
+
+li a:hover:not(.active) 
+{
+  background-color: #111;
+}
+
+.tooltip 
+{
+  position: relative;
+  display: inline-block;
+}
+
+.sctooltip 
+{
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip .tooltiptext
+{
+  visibility: hidden;
+  background-color: #111;
+  color: #fff;
+  position: relative;
+  font-family: Arial;
+  font-size: 8px;
+  z-index: 1;
+}
+
+.sctooltip .sctooltiptext
+{
+  visibility: hidden;
+  background-color: #ffffff;
+  color: DodgerBlue;
+  position: relative;
+  font-family: Arial;
+  left: 5px;  
+  font-size: 9px;
+  z-index: 1;
+}
+
+.tooltip:hover .tooltiptext
+{
+  visibility: visible;
+}
+
+.sctooltip:hover .sctooltiptext
+{
+  visibility: visible;
+}
+
+.genericDialogClass .ui-dialog-titlebar 
+{
+      background:#838383;
+}
+
+.genericbutton 
+{
+    border: black;
+    font: Courier !important;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 11px !important;
+    margin: 6px 4px;
+    cursor: pointer;
+    background-color: #555;
+    color: white;   
+    border-radius: 6px;  
+}
+
+.applybutton 
+{
+    border: black;
+    font: Courier !important;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 11px !important;
+    margin: 6px 4px;
+    cursor: pointer;
+    background-color: DodgerBlue;
+    color: white;   
+}
+.addscenariobutton 
+{
+    font: Courier !important;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    cursor: pointer;
+    background-color: white;
+    color: white;   
+    border: none;
+}
+button[disabled]
+{
+  border: 1px solid #999999;
+  background-color: #cccccc;
+  color: #666666;
+  cursor: no-drop
+}
+
+/* Split the screen in half */
+
+.icon-bar
+{
+    position: absolute;
+    width: 100%;
+    font-size:12px;
+    color:#000000;
+}
+
+.split 
+{
+  position: absolute;
+  height: 100%;
+  z-index: 1;
+  top: 0;
+  padding-bottom: 2px;
+}
+
+/* Control the left side */
+.left 
+{
+  position: absolute;
+  left: 0;
+  width: 25%;
+  background-color: white;
+  
+}
+
+/* Control the right side */
+.right 
+{
+  position: absolute;
+  height: 100%;
+  right: 0%;
+  width: 75%;
+  background-color: white;
+  overflow-x: auto;
+  overflow-y: auto;
+  font-family:Georgia;
+  font-size:12px;
+}
+
+#container 
+{
+  width: 100%;
+  top: 0;
+  right: 0;
+  left: 0;
+  bottom: 0;
+}
+
+#top_div 
+{	
+  position: absolute;
+  height:100%;
+  top: 0;  
+  right: 0;
+  left: 0;
+  bottom: 0;
+}
+#bottom_div 
+{	
+  position: absolute;
+  height:93%;
+  top: 5%;
+  right: 0;
+  left: 0;
+  bottom: 0;
+  overflow-x: scroll;
+  overflow-y: scroll;
+   
+}
+
+/* this controls the list of cluster files shown in a new scenario */
+
+#clusterFiles
+{
+  font-family:Ariel Black;
+  font-size:12px;
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  background-color: #edf3fe;
+}
+
+
+.slidecontainer 
+{
+  width: 100%; /* Width of the outside container */
+}
+
+/* The slider itself */
+.slider
+{
+  -webkit-appearance: none;  /* Override default CSS styles */
+  width: 75%; /* Full-width */
+  margin: 5px;
+  height: 15px; /* Specified height */
+  background: #d3d3d3; /* Grey background */
+  outline: none; /* Remove outline */
+  opacity: 0.7; /* Set transparency (for mouse-over effects on hover) */
+  -webkit-transition: .2s; /* 0.2 seconds transition on hover */
+  transition: opacity .2s;
+}
+
+.slider::-webkit-slider-thumb 
+{
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  background: black;
+  cursor: pointer;
+}
+

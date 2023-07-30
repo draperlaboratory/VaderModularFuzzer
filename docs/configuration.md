@@ -1,0 +1,234 @@
+# Configuration File Format
+
+## Introduction
+
+The VMF configuration file is a YAML file. This YAML file provides a structure to the configuration of the fuzzer and its modules.
+
+## Top level sections
+
+A VMF configuration file consists of the following top-level sections: 
+* [`vmfVariables`](#vmfVariables) - provides default values for all variable expansions.
+* [`vmfFramework`](#vmfFramework) - provides VMF framework configuration
+* [`vmfModules`](#vmfModules) - provides module configuration information
+* [`vmfDistributed`](#vmfDistributed) - provides distributed fuzzing configuration
+
+The keys for specific core modules are documented in [Core modules README](/docs/coremodules/core_modules_readme.md) and [Core modules configuration](/docs/coremodules/core_modules_configuration.md).
+
+## General guidelines
+
+By convention, keys are **inCamelCase**. Toplevel keys are prefixed with **vmf** to prevent namespace conflicts.
+
+### Standard YAML types
+
+The standard YAML value types are:
+* `<boolean>` - true/True/TRUE or false/False/FALSE
+* `<int>` - 64 bit integer with conventional encoding of base-10 (signed), octal (unsigned), hex (unsigned)
+* `<float>` - floating-point approximation of real numbers. Supports multiple encodings including canonical (6.8523015e+5), exponential (685.230_15e+03), 
+fixed (685_230.15), and sexagesimal (190:20:30.15). Special values for not-a-number (`.nan`), positive infinity (`.inf`), and negative infinity (`-.inf`)
+* `<string>` - no special interpretation
+* `<mapping>` - an unordered collection of key,value pairs
+* `<list>` - an ordered collection of values (must include at least one other type)
+
+### VMF-specific types
+
+Value types specific to VMF:
+* `<blank>` - no value is required to be specified, behavior described in comments of key
+* `<enum>` - set of ints or strings representing keywords or flags (value-list in comments of key)
+* `<path>` - local filesystem path to a file or directory
+
+## <a id="vmfVariables"></a>Section: `vmfVariables`
+
+This section provides a space to define YAML anchors that can be referenced in other sections. Configuration files can use YAML anchors and aliases to avoid repeating the same information multiple times.
+
+* Anchors are specified by `&` before the anchor name
+* Aliases use `*` to reference an anchor name
+
+By convention, anchor names are in UPPER_CASE with underscores.
+
+The following fragment shows a common use case: 
+
+```yaml
+vmfVariables:
+  - &SUT_ARGV ["test/haystackSUT/haystack", "@@"]
+
+vmfFramework:
+  outputBaseDir: output
+  logLevel: 1
+
+AFLForkserverExecutor:
+  sutArgv: *SUT_ARGV
+
+StringsInitialization:
+  sutArgv: *SUT_ARGV
+```
+
+## <a id="vmfFramework"></a>Section: `vmfFramework`
+
+This section provides the basic configuration for the VMF framework. 
+
+### `vmfFramework.outputBaseDir`
+
+Value type: `<path>`
+
+Status: Optional
+
+Default value: local directory 
+
+Usage: Specifies the directory that all VMF outputs will be put into, including log files and test case data. 
+
+### `vmfFramework.logLevel`
+
+Value type: `<enum>`
+
+Status: Optional
+
+Default value: 3 
+
+Enum values:
+* 0 - Debug
+* 1 - Info
+* 2 - Warning
+* 3 - Error
+
+Usage: Specifies the level of detail in log messages.
+
+### `vmfFramework.additionalPluginsDir`
+
+Value type: `<list of paths>`
+
+Status: Optional
+
+Default value: empty 
+
+Usage: A list of directories that contain loadable VMF plugins (.so files)
+
+## <a id="vmfModules"></a>Section: `vmfModules`  
+
+This section provides the list of modules and their associated hierarchy that should be used in the VMF fuzzer.
+
+### `vmfModules.storage.className`
+
+Value type: <string>
+
+Status: Required
+
+Default value: empty
+
+Usage: The classname of the StorageModule that VMF should use
+
+### `vmfModules.storage.id`
+
+Value type: <string>
+
+Status: Optional
+
+Default value: empty
+
+Usage: An optional alternate id for the StorageModule.
+
+### `vmfModules.controller.className`
+
+Value type: <string>
+
+Status: Required
+
+Default value: empty
+
+Usage: The classname of the top-level ControllerModule that VMF should use
+
+### `vmfModules.controller.children`
+
+Value type: <list>
+
+Status: Optional (though almost always needed)
+
+Default value: empty
+
+Usage: The list of submodules for this controller.  Each submodule must contain a "className" and may optionally contain an "id".
+
+For example:
+```yaml
+vmfModules:
+  controller:
+    className: IterativeController
+    children:
+      - className: DirectoryBasedSeedGen
+      - id: MainExecutor #optional id 
+        className: AFLForkserverExecutor
+```
+
+### `vmfModules.controller.id`
+
+Value type: <string>
+
+Status: Optional
+
+Default value: empty
+
+Usage: An optional alternate id for the top-level ControllerModule.
+
+### `vmfModules.<className or ID>.children`
+
+Value type: <list>
+
+Status: Optional
+
+Default value: empty
+
+Usage: An optional list of submodules for a particular module.  The module must be a submodule of the specified "controller" module or have parent modules that are children of the "controller" module.  If the module was declared with an "id" then "<className or ID>" will be replaced by the id.  Otherwise, "<className or ID>" will be the classname of the module.
+
+Each submodule must contain a "className" and may optionally contain an "id".
+
+## <a id="vmfDistributed"></a>Section: `vmfDistributed`  
+
+The configuration parameters needed for running VMF in distributed mode.  This section may be omitted completely for standalone mode.
+
+### `vmfDistributed.serverURL`
+
+Value type: <string>
+
+Status: Required (for distributed mode)
+
+Default value: Empty
+
+Usage: The URL for the distibuted fuzzing server (CDMS).
+
+### `vmfDistributed.clientName`
+
+Value type: <string>
+
+Status: Optional
+
+Default value: "VMF_instance"
+
+Usage: A human readable name for the individual VMF instance being run in distributed mode.
+
+### `vmfDistributed.retryTimeout`
+
+Value type: <int>
+
+Status: Optional
+
+Default value: 30000 (30s)
+
+Usage: If VMF encounters a network error, this is the number of milliseconds that it will wait before trying again.  We recommend not using a small number for this value, as network errors may occur at the very start of fuzzing if a large number of test cases are found.
+
+### `vmfDistributed.retryCount`
+
+Value type: <int>
+
+Status: Optional
+
+Default value: 10
+
+Usage: If VMF encounters a network error, this is the number of time that VMF will retry before failing.
+
+### `vmfDistributed.taskingPollRate`
+
+Value type: <int>
+
+Status: Optional
+
+Default value: 10000 (10s)
+
+Usage: This is the number of milliseconds that VMF will sleep between requests to the server for tasking.  We recommend not setting this to a small number as this leads to bombarding the server when VMFs have not yet been tasked to do anything.

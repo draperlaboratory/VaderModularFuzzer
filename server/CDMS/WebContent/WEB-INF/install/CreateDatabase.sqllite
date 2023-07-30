@@ -1,0 +1,123 @@
+/* =============================================================================
+ * Vader Modular Fuzzer (VMF)
+ * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
+ * <vader@draper.com>
+ *  
+ * Effort sponsored by the U.S. Government under Other Transaction number
+ * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
+ * Is authorized to reproduce and distribute reprints for Governmental purposes
+ * notwithstanding any copyright notation thereon.
+ *  
+ * The views and conclusions contained herein are those of the authors and
+ * should not be interpreted as necessarily representing the official policies
+ * or endorsements, either expressed or implied, of the U.S. Government.
+ *  
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 (only) as 
+ * published by the Free Software Foundation.
+ *  
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *  
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *  
+ * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
+ * ===========================================================================*/
+ 
+CREATE TABLE IF NOT EXISTS `ConfigProperty`
+(
+  `ConfigPropertyId`    INTEGER      NOT NULL PRIMARY KEY  AUTOINCREMENT,
+  `Name`                TEXT 	     NOT NULL DEFAULT '',
+  `Value`               TEXT 	     NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS `Cluster`
+(
+  `Id`                  INTEGER		NOT NULL   PRIMARY   KEY  AUTOINCREMENT,
+  `Name`                TEXT    	NOT NULL   DEFAULT   '',
+  `Description`         TEXT                   DEFAULT   '',
+  'Edit'                TEXT                   DEFAULT   '', 
+  `State`               TEXT        NOT NULL   DEFAULT   ''
+);
+
+CREATE TABLE IF NOT EXISTS `Scenario`
+(
+  `Id`                  INTEGER		NOT NULL   PRIMARY   KEY  AUTOINCREMENT,
+  `ClusterId`           INTEGER     NOT NULL,
+  `Name`                TEXT    	NOT NULL   DEFAULT   '',
+  `Type`                TEXT                   DEFAULT   '',
+  `Capacity`            INTEGER     NOT NULL   DEFAULT   0,
+  `FuzzerCount`         INTEGER     NOT NULL   DEFAULT   0,
+  `State`               TEXT        NOT NULL   DEFAULT   '',
+  FOREIGN KEY (ClusterId)   REFERENCES Cluster(Id)           ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `VMF`
+(
+  `Uid`                  INTEGER	NOT NULL   PRIMARY   KEY  AUTOINCREMENT,
+  `Pid`                  INTEGER	NOT NULL   DEFAULT   0,
+  `ClusterId`            INTEGER	NOT NULL   DEFAULT   0,
+  `ScenarioId`           INTEGER	NOT NULL   DEFAULT   0,
+  `Name`                 TEXT    	   		   DEFAULT   '',
+  `Host`                 TEXT    	NOT NULL   DEFAULT   '',
+  `Kpi`   				 TEXT          		   DEFAULT   '',
+  `Status`               INTEGER	  		   DEFAULT   0,
+  `Reason`               TEXT	   			   DEFAULT   '',
+   FOREIGN KEY (ClusterId)   REFERENCES Cluster(Id)           ON DELETE CASCADE,
+   FOREIGN KEY (ScenarioId)  REFERENCES Scenario(Id)          ON DELETE CASCADE
+ );
+ 
+CREATE TABLE IF NOT EXISTS `TestCase`
+(
+  `Id`                  INTEGER		NOT NULL   PRIMARY   KEY  AUTOINCREMENT,
+  `ClusterId`           INTEGER     NOT NULL,
+  `ScenarioId`          INTEGER     NOT NULL,
+  `VmfId`               INTEGER     NOT NULL,
+  `TimeStamp`           INTEGER                DEFAULT   0,
+  `Filename`            TEXT    	           DEFAULT   '',
+  `Tags`   				TEXT                   DEFAULT   '',
+  FOREIGN KEY (ClusterId)   REFERENCES Cluster(Id)           ON DELETE CASCADE,
+  FOREIGN KEY (ScenarioId)  REFERENCES Scenario(Id)          ON DELETE CASCADE,
+  FOREIGN KEY (VmfId)       REFERENCES VMF(Uid)              ON DELETE CASCADE
+ );
+
+CREATE TABLE IF NOT EXISTS `KPI`
+(
+  `Id`                  INTEGER     NOT NULL   PRIMARY   KEY  AUTOINCREMENT,
+  `ClusterId`           INTEGER     NOT NULL,
+  `ScenarioId`          INTEGER     NOT NULL,
+  `VmfId`               INTEGER     NOT NULL,
+  `Json`                TEXT                   DEFAULT   '',
+  FOREIGN KEY (ClusterId)   REFERENCES Cluster(Id)           ON DELETE CASCADE,
+  FOREIGN KEY (ScenarioId)  REFERENCES Scenario(Id)          ON DELETE CASCADE,
+  FOREIGN KEY (VmfId)       REFERENCES VMF(Uid)              ON DELETE CASCADE
+ );
+
+CREATE TABLE IF NOT EXISTS `Corpus`
+(
+  `Id`                  INTEGER     NOT NULL   PRIMARY   KEY  AUTOINCREMENT,
+  `ClusterId`           INTEGER     NOT NULL,
+  `ScenarioId`          INTEGER     NOT NULL,
+  `TimeStamp`           INTEGER                DEFAULT   0,
+   FOREIGN KEY (ClusterId)   REFERENCES Cluster(Id)           ON DELETE CASCADE,
+   FOREIGN KEY (ScenarioId)  REFERENCES Scenario(Id)          ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `CorpusToTestCase`
+(
+  `Id`                  INTEGER     NOT NULL   PRIMARY   KEY  AUTOINCREMENT,
+  `CorpusId`            INTEGER     NOT NULL,
+  `TestCaseId`          INTEGER     NOT NULL,
+   FOREIGN KEY (CorpusId)    REFERENCES Corpus(Id)            ON DELETE CASCADE,
+   FOREIGN KEY (TestCaseId)  REFERENCES TestCase(Id)          ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS index_ScenarioId  ON Scenario(Id);
+CREATE INDEX IF NOT EXISTS index_VmfId       ON VMF(Uid);
+CREATE INDEX IF NOT EXISTS index_TestCaseId  ON TestCase(Id);
+CREATE INDEX IF NOT EXISTS index_KPIId       ON KPI(Id);
+
+

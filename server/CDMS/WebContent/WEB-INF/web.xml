@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!-- 
+   ===============================================================================
+   Vader Modular Fuzzer (VMF)
+   Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
+   <vader@draper.com>
+    
+   Effort sponsored by the U.S. Government under Other Transaction number
+   W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
+   Is authorized to reproduce and distribute reprints for Governmental purposes
+   notwithstanding any copyright notation thereon.
+    
+   The views and conclusions contained herein are those of the authors and
+   should not be interpreted as necessarily representing the official policies
+   or endorsements, either expressed or implied, of the U.S. Government.
+    
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License version 2 (only) as 
+   published by the Free Software Foundation.
+    
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+   GNU General Public License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with this program. If not, see <http://www.gnu.org/licenses/>.
+    
+   @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
+  ===============================================================================
+-->
+<web-app xmlns="http://java.sun.com/xml/ns/javaee"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd"
+      version="3.0">
+        
+ <context-param>
+  <param-name>logFileBaseName</param-name>
+  <param-value>CDMS</param-value>
+ </context-param>
+
+ <context-param>
+  <param-name>storagePath</param-name>
+  <param-value>/opt/cdms</param-value>
+ </context-param>
+ 
+ <context-param>
+  <param-name>ServerPort</param-name>
+  <param-value>9000</param-value>
+ </context-param>
+ 
+ <context-param>
+  <param-name>ServerReceiveBufferSize</param-name>
+  <param-value>8192</param-value>
+ </context-param>
+
+ <listener>
+  <listener-class>com.draper.application.AppStartStopListener</listener-class>
+ </listener>
+ 
+ <servlet>
+  <description>Servlet to manage Campaign</description>
+  <display-name>CampaignServlet</display-name>
+  <servlet-name>CampaignServlet</servlet-name>
+  <servlet-class>com.draper.servlets.CampaignServlet</servlet-class>
+ </servlet>
+ 
+ <servlet>
+  <description>Servlet to Manage Corpus</description>
+  <display-name>CorpusServlet</display-name>
+  <servlet-name>CorpusServlet</servlet-name>
+  <servlet-class>com.draper.servlets.CorpusServlet</servlet-class>
+ </servlet>
+ 
+ <servlet>
+  <description>Servlet to manage KPI data</description>
+  <display-name>KPIServlet</display-name>
+  <servlet-name>KPIServlet</servlet-name>
+  <servlet-class>com.draper.servlets.KPIServlet</servlet-class>
+ </servlet>
+ 
+ <servlet>
+ 	<description>Servlet to manage Registrations</description>
+ 	<display-name>RegistrationServlet</display-name>
+ 	<servlet-name>RegistrationServlet</servlet-name>
+ 	<servlet-class>com.draper.servlets.RegistrationServlet</servlet-class>
+ </servlet>
+ 
+ <servlet>
+ 	<description></description>
+ 	<display-name>AdminServlet</display-name>
+ 	<servlet-name>AdminServlet</servlet-name>
+ 	<servlet-class>com.draper.servlets.AdminServlet</servlet-class>
+ 	
+ 	<multipart-config>
+    <location></location>
+    <max-file-size>20848820</max-file-size>
+    <max-request-size>418018841</max-request-size>
+    <file-size-threshold>1048576</file-size-threshold>
+    </multipart-config>
+
+ </servlet>
+ 
+ <servlet-mapping>
+  <servlet-name>CampaignServlet</servlet-name>
+  <url-pattern>/campaign/*</url-pattern>
+ </servlet-mapping>
+ 
+ <servlet-mapping>
+  <servlet-name>CorpusServlet</servlet-name>
+  <url-pattern>/corpus/*</url-pattern>
+ </servlet-mapping>
+ 
+ <servlet-mapping>
+  <servlet-name>KPIServlet</servlet-name>
+  <url-pattern>/kpi/*</url-pattern>
+ </servlet-mapping>
+ 
+ <servlet-mapping>
+ 	<servlet-name>RegistrationServlet</servlet-name>
+ 	<url-pattern>/registration/*</url-pattern>
+ </servlet-mapping>
+ 
+ <servlet-mapping>
+ 	<servlet-name>AdminServlet</servlet-name>
+ 	<url-pattern>/admin/*</url-pattern>
+ </servlet-mapping>
+ 
+ <session-config>
+  <session-timeout>45</session-timeout>
+ </session-config>
+ 
+ <welcome-file-list>
+  <welcome-file>home.jsp</welcome-file>
+ </welcome-file-list>
+ 
+ <login-config>
+  <auth-method>BASIC</auth-method>
+ </login-config>
+ 
+</web-app>

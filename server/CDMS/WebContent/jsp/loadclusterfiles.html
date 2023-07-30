@@ -1,0 +1,50 @@
+<!-- 
+   ===============================================================================
+   Vader Modular Fuzzer (VMF)
+   Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
+   vader@draper.com
+    
+   Effort sponsored by the U.S. Government under Other Transaction number
+   W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
+   Is authorized to reproduce and distribute reprints for Governmental purposes
+   notwithstanding any copyright notation thereon.
+    
+   The views and conclusions contained herein are those of the authors and
+   should not be interpreted as necessarily representing the official policies
+   or endorsements, either expressed or implied, of the U.S. Government.
+    
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License version 2 (only) as 
+   published by the Free Software Foundation.
+    
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+   GNU General Public License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with this program. If not, see http://www.gnu.org/licenses/.
+    
+   @license GPL-2.0-only https://spdx.org/licenses/GPL-2.0-only.html
+  ===============================================================================
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+
+<html>
+
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=EmulateIE8">
+    <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+    <META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+</head>
+
+<body> 
+
+<div id='fileTable' style='position:relative;left:10px;'></div>
+
+<form  id="clusterform" style='position:relative;font-size:12px;left:10px;;top:30px;' enctype='multipart/form-data' method='POST' action='#' onsubmit="uploadClusterFiles(event,$('#SelectedId').get(0).innerHTML)"> 
+    <input id="upload" style='position:relative;' type='file' name='files[]' multiple onchange = "handleFileList(event,null);">   
+    <button disabled id="uploadbutton" style='position:relative' class='genericbutton' type='submit'>Upload</button><br>
+</form>    
+</body>
+</html>

@@ -1,0 +1,10 @@
+vmfModules:
+  storage: 
+    className: SimpleStorage
+  controller: 
+    className: RunOnceController
+    children:
+    - className: DirectoryBasedSeedGen
+    - className: AFLForkserverExecutor
+    - className: AFLFeedback
+    - className: StatsOutput

@@ -1,0 +1,21 @@
+#This configuration file will configure a distributed VMF Instance to perform
+#corpus minimization across the cluster level corpus
+vmfModules:
+  storage:
+    className: SimpleStorage
+  controller:
+    className: RunOnceController
+    children:
+      - className: ServerCorpusInitialization
+      - className: AFLForkserverExecutor
+      - className: AFLFeedback
+      - className: ServerCorpusMinOutput
+  ServerCorpusMinOutput:
+    children:
+      - className: CorpusMinimization
+  CorpusMinimization:
+    children:
+      - className: AFLForkserverExecutor
+CorpusMinimization:
+  frequencyInMinutes: 0
+  minimizeOnShutdown: false #ServerCorpusMinOutput will call upon this module to run

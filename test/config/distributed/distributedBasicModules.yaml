@@ -1,0 +1,28 @@
+vmfModules:
+  storage:
+    className: SimpleStorage
+  controller:
+    className: IterativeController
+    children:
+      - className: ServerSeedInitialization
+      - className: GeneticAlgorithmInputGenerator
+      - className: AFLForkserverExecutor
+      - className: AFLFeedback
+      - className: StatsOutput
+      - className: ServerCorpusOutput
+  GeneticAlgorithmInputGenerator:
+    children:
+      - className: AFLFlipBitMutator
+      - className: AFLFlip2BitMutator
+      - className: AFLFlip4BitMutator
+      - className: AFLFlipByteMutator
+      - className: AFLFlip2ByteMutator
+      - className: AFLFlip4ByteMutator
+      - className: AFLRandomByteAddSubMutator
+      - className: AFLRandomByteMutator
+      - className: AFLDeleteMutator
+      - className: AFLCloneMutator
+      - className: AFLSpliceMutator
+      
+StatsOutput:
+  sendToServer: true

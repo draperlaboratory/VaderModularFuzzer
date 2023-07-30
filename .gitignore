@@ -1,0 +1,17 @@
+.vs/
+.vs/*
+*/.vs/*
+*.class
+*.obj
+*.*~
+*.exe
+*/VaderWin/.vs/*
+out/
+output/
+output_test/
+x64/
+classes/
+*/classes/
+build/
+targets/
+.vscode/

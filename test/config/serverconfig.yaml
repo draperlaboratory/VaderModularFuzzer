@@ -1,0 +1,13 @@
+# Commented out values are optional, and are listed with their default values
+# vmfFramework.logLevel is also optional, but is commented in for better demonstration purposes
+vmfDistributed:
+  serverURL: http://127.0.0.1:8080
+# clientName: VMF_instance
+# retryTimeout: 30000 #Number of milliseconds between retries, in case of network error.
+# retryCount: 10 #Number of time to retry if a network error occurs.
+# taskingPollRate: 10000 #Number of milliseconds between requests to the server for new tasking.
+
+#vmfFramework:
+#  logLevel : 1 #0=DEBUG, 1=INFO, 2=WARNING, 3=ERROR  (Default)
+#  outputBaseDir: output
+#  additionalPluginsDir: []

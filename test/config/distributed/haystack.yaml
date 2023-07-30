@@ -1,0 +1,13 @@
+# This should be run from vmf_install (all paths are relative to the vmf_install directory)
+
+# VMF Variable parameters
+# Such as SUT args and input directory path
+
+vmfVariables:
+  - &SUT_ARGV ["test/haystackSUT/haystack"]
+
+# Modules and their specific parameters
+AFLForkserverExecutor:
+  sutArgv: *SUT_ARGV
+
+

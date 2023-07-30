@@ -1,0 +1,59 @@
+#! /bin/sh
+
+PROJECT_ROOT=$1
+INSTALL_ROOT=$2
+EXTERNAL_PRJ=$PROJECT_ROOT
+cd $PROJECT_ROOT
+
+[ ! -d "$INSTALL_ROOT" ] && mkdir $INSTALL_ROOT
+[ ! -d "$INSTALL_ROOT/include" ] && mkdir $INSTALL_ROOT/include
+[ ! -d "$INSTALL_ROOT/lib" ] && mkdir $INSTALL_ROOT/lib
+[ ! -d "$INSTALL_ROOT/bin" ] && mkdir $INSTALL_ROOT/bin
+[ ! -d "$INSTALL_ROOT/include/AFLplusplus" ] && mkdir $INSTALL_ROOT/include/AFLplusplus
+
+cp $EXTERNAL_PRJ/AFLplusplus/include/* $INSTALL_ROOT/include/AFLplusplus
+cp $EXTERNAL_PRJ/AFLplusplus/custom_mutators/radamsa/*.h $INSTALL_ROOT/include/AFLplusplus
+cp $EXTERNAL_PRJ/AFLplusplus/custom_mutators/radamsa/radamsa-mutator.so $INSTALL_ROOT/lib/libradamsa.so
+
+python3 <<EOF
+# based on https://lief-project.github.io/doc/latest/tutorials/08_elf_bin2lib.html
+FUNCTIONS_TO_EXPORT = [
+    "afl_fsrv_init",
+    "afl_fsrv_deinit",
+    "afl_fsrv_write_to_testcase",
+    "afl_fsrv_run_target",
+    "afl_fsrv_start",
+    "afl_shm_init",
+    "afl_shm_deinit",
+    "simplify_trace",
+    "has_new_bits",
+    "get_map_size",
+    "afl_state_init",
+    "count_bytes",
+    "count_non_255_bytes",
+    "classify_counts",
+    "has_new_bits_unclassified",
+    "init_count_class16",
+    "get_cur_time_us"
+]
+import lief
+import sys
+from pathlib import Path
+
+bin_path = Path("$EXTERNAL_PRJ/AFLplusplus/afl-fuzz")
+print(f"Parsing {bin_path.name}...", file=sys.stderr)
+bin = lief.parse(str(bin_path))
+function_addr_mapping = {
+    sym.name: sym.value for sym in bin.symbols if sym.type == lief.ELF.SYMBOL_TYPES.FUNC
+}
+for function_name in FUNCTIONS_TO_EXPORT:
+    print(f"Adding export {function_name}...", file=sys.stderr)
+    addr = function_addr_mapping[function_name]
+    bin.add_exported_function(addr, function_name)
+print("Fixing PIE flag...", file=sys.stderr)
+bin[lief.ELF.DYNAMIC_TAGS.FLAGS_1].remove(lief.ELF.DYNAMIC_FLAGS_1.PIE)
+output_path = "$INSTALL_ROOT/lib/libaflpp.so"
+print(f"Saving modified {bin_path.name} as {output_path}...", file=sys.stderr)
+bin.write(output_path)
+
+EOF

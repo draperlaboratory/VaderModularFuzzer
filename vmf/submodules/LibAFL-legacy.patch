@@ -1,0 +1,36 @@
+diff -u ../../../submodules/LibAFL-legacy/include/alloc-inl.h ./alloc-inl.h
+--- ../../../submodules/LibAFL-legacy/include/alloc-inl.h	2022-06-30 12:06:41.086758842 -0400
++++ ./alloc-inl.h	2022-07-26 12:30:33.818128195 -0400
+@@ -699,7 +699,7 @@
+   }
+ 
+   /* alloc */
+-  new_buf = realloc(new_buf, next_size);
++  new_buf = (struct afl_alloc_buf *)realloc(new_buf, next_size);
+   if (unlikely(!new_buf)) { return NULL; }
+ 
+   new_buf->complete_size = next_size;
+diff -u ../../../submodules/LibAFL-legacy/include/common.h ./common.h
+--- ../../../submodules/LibAFL-legacy/include/common.h	2022-06-30 12:06:41.086758842 -0400
++++ ./common.h	2022-07-26 12:30:33.818128195 -0400
+@@ -64,7 +64,7 @@
+ 
+   int i = 0;
+ 
+-  char **ret = calloc(1, (argc + 1) * sizeof(char *));
++  char **ret = (char **)calloc(1, (argc + 1) * sizeof(char *));
+   if (!ret) { return NULL; }
+ 
+   for (i = 0; i < argc; i++) {
+diff -u ../../../submodules/LibAFL-legacy/include/types.h ./types.h
+--- ../../../submodules/LibAFL-legacy/include/types.h	2022-06-30 12:06:41.090758842 -0400
++++ ./types.h	2022-07-26 12:30:33.818128195 -0400
+@@ -163,7 +163,7 @@
+                                                                                      \
+     /*printf("Allocating " #init_type " with decl_params " #decl_params */           \
+     /*" and call params " #call_params " and size %ld\n", sizeof(init_type##_t) );*/ \
+-    init_type##_t *ret = calloc(1, sizeof(init_type##_t));                           \
++  init_type##_t *ret = (init_type##_t *)calloc(1, sizeof(init_type##_t)); \
+     if (!ret) { return NULL; }                                                       \
+     if (init_type##_init(call_params) != AFL_RET_SUCCESS) {                          \
+                                                                                      \
