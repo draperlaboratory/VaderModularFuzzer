@@ -57,6 +57,9 @@ private:
         OutputModule* theModule;
     };
 
+    void loadModuleScheduleRates();
+
+    bool modulesSet;
     bool initialized;
     std::vector<OutputModuleData> moduleData;
 

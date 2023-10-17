@@ -13,14 +13,14 @@
 
 In the past, it was necessary to initialize submodules containing build dependencies.  This is only
 necessary now if you need to build those dependencies.  You can get started with VMF without this step,
-as long as you have a standard Ubuntu 18.04 or 20.04 distribution of Linux.  
+as long as you have a standard Ubuntu 18.04, 20.04, or 22.04 distribution of Linux.  
 
 See [external](external/README.md) and [submodules](submodules/README.md) for details.  See
 [docs/external_projects.md/#klee](docs/external_projects.md/#klee) for more information on klee installation.
 
 ### VMF Compatibility
 
-As of now, VMF can be run on the Ubuntu 18.04 or 20.04 distributions of Linux, or in Docker.
+As of now, VMF can be run on the Ubuntu 18.04, 20.04, and 22.04 distributions of Linux, or in Docker.
 
 For more information about VMF's dependencies, and the included packages, see
 [External Projects](docs/external_projects.md)
@@ -33,8 +33,9 @@ If you are new to fuzzing, read these documents:
  - [Intro to Fuzzing](docs/intro_to_fuzzing.md): A basic overview of what fuzzing is and how it works.
  - [Glossary](docs/glossary.md): Definitions for common fuzzing & VMF terminology.
 
-If you want to use VMF to fuzz your own SUT, read this document:
+If you want to use VMF to fuzz your own System Under Test (SUT), read these documents:
  - [Getting Started with VMF](docs/getting_started.md): More details on running VMF and creating configuration files.
+ - [Core Modules](docs/coremodules/core_modules_readme.md): More details on the provided VMF core modules.
 
 If you want to use VMF in distributed mode, with multiple VMF instances working together to fuzz a SUT, read this document:
 - [Getting Started with Distributed Fuzzing](docs/distributed_fuzzing.md): How to setup and run in distributed mode.
@@ -114,6 +115,6 @@ In order to build VMF, the packages mentioned in the `Installed Packages` sectio
 
 ## License
 
-VMF is licensed under GNU General Public License Version 3
+VMF is licensed under GNU General Public License Version 2
 See [LICENSE](LICENSE)
 

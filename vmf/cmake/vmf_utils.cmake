@@ -35,6 +35,7 @@
 # Results in DEBIAN_VERSION being set to:
 #  "buster" for Ubuntu 18
 #  "bullseye" for Ubuntu 20
+#  "bookworm" for Ubuntu 22
 #
 function(get_debian_version var)
   file(READ "/etc/debian_version" version)

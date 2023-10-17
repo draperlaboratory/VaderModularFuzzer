@@ -20,7 +20,7 @@ ctest --VV
 ```
 
 ## Adding new Unit Tests to `CMake`
-To test modules within the VMF repository, additional tests may be added to the existing [/test/CMakeLists.txt](/test/CMakeLists.txt).
+To test modules within the VMF repository, additional tests may be added to the existing [/test/unittest/CMakeLists.txt](/test/unittest/CMakeLists.txt).
 
 Alternatively a new CMake file may be created.  Keep in mind that the following three things are needed to run the Google Test framework:
 

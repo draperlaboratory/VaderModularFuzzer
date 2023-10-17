@@ -42,8 +42,6 @@ import java.util.StringTokenizer;
 
 import javax.servlet.http.HttpServletRequest;
 
-import org.json.JSONObject;
-
 /***********************************************************************************
  * Class for common convenient URL utility functions.
  */
@@ -145,26 +143,6 @@ public class UrlUtil
        return paramList;
    }
        
-   /***********************************************************************************
-    * Checks for a null access and returns an empty string in its place for
-    * JSON parsing
-    */
-   public static String getValue(JSONObject obj, String field)
-   {
-	   	String ret = null;
-	   	
-		if( false == obj.isNull(field) )
-		{
-			ret = obj.getString(field);
-		}
-		else
-		{
-			ret = new String("");
-		}
-
-		return ret;
-   }
-   
 	/***********************************************************************************
 	 * Read the response off of the connection
 	 */

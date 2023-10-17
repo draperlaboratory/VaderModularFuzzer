@@ -132,6 +132,7 @@ TEST_F(OutputSchedulerTest, TestErrorHandling) {
     try
     {
         scheduler2.setOutputModules(testModules);
+        scheduler2.runOutputModules(0,*storage); //rates are not checked until the first call to run modules
         FAIL() << "Expected exception for invalid configuration";
     }
     catch(RuntimeException e)

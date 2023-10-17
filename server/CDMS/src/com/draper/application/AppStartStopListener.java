@@ -47,6 +47,7 @@ import com.draper.utilities.Logger;
 import com.draper.utilities.UiUtil;
 import com.ibatis.common.resources.Resources;
 import com.ibatis.sqlmap.client.SqlMapClientBuilder;
+import com.ibatis.sqlmap.client.SqlMapClient;
 
 public class AppStartStopListener implements ServletContextListener
 {
@@ -75,10 +76,10 @@ public class AppStartStopListener implements ServletContextListener
             //---------------------------------------------------------------------------------------
             // Initialize the SQL map 
             
-            Reader       reader  = Resources.getResourceAsReader(AppConfig.sqlMapConfig);
-            AppConfig.sqlMap     = SqlMapClientBuilder.buildSqlMapClient(reader);
+            Reader        reader  = Resources.getResourceAsReader(AppConfig.sqlMapConfig);
+            SqlMapClient  sqlMap  = SqlMapClientBuilder.buildSqlMapClient(reader);
 
-            DatabaseService.Instance().Init(AppConfig.sqlMap);  
+            DatabaseService.Instance().Init(sqlMap);  
             
             //---------------------------------------------------------------------------------------
             // Initialize the Logger.

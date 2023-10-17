@@ -28,6 +28,7 @@ Currently, we support prebuilt versions of the external libraries for
 the following operating system versions:
 	* Ubuntu 18 (buster)
 	* Ubuntu 20 (bullseye)
+	* Ubuntu 22 (bookworm)
 
 The subdirectories here are named using the official release names of
 the Ubuntu systems they support.  Those names are discoverable on

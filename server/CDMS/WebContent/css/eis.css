@@ -27,6 +27,11 @@
  * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
  * ===========================================================================*/
 
+.ui-dialog-titlebar-close /* hide the X on the top right of all dialogs */
+{
+    visibility: hidden;
+}
+
 .data td  /* KPI Data in Tables */
 {
     font-family:Courier!important;

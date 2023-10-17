@@ -41,7 +41,7 @@ class VaderUtil
 public:
     static void createDirectory(const char* path);
     static bool directoryExists(std::string dir);
-    static void createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, std::string directory);
+    static int createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, std::string directory);
     static void writeBufferToFile(std::string baseDir, std::string fileName, char* buffer, int size);
     static std::string getExecutablePath();
     static int selectWeightedRandomValue(int min, int max);

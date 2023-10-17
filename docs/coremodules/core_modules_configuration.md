@@ -6,6 +6,7 @@ Each module may have a configuration section for keys that are specific to that 
 
 Initialization modules
 * [`DirectoryBasedSeedGen`](#DirectoryBasedSeedGen)
+* [`GramatronBasedSeedGen`](#GramatronBasedSeedGen)
 * [`KleeInitialization`](#KleeInitialization)
 * [`StringsInitialization`](#StringsInitialization)
 * [`ServerSeedInitialization`](#ServerSeedInitialization)
@@ -41,6 +42,26 @@ Usage: Relative or absolute path to the directory containing seed test cases tha
 DirectoryBasedSeedGen:
   inputDir: /test/someapplication/seeds
 ```
+
+## <a id="GrammarBasedSeedGen"></a>Section: `GrammarBasedSeedGen`
+
+Configuration information specific to the Grammar-based Seed Generator module.
+
+### `GrammarBasedSeedGen.PDAPAth`
+
+Value type: `<path>`
+
+Status: Required
+
+Usage: Relative or absolute path to the json-based pushdown automata definition for the grammar to be used during fuzzing.
+
+### `GrammarBasedSeedGen.numTestCases`
+
+Value type: `<int>`
+
+Status: Required
+
+Usage: Number of test cases to generate for the initial seed corpus before starting the fuzzing loop.
 
 ## <a id="KleeInitialization"></a>Section: `KleeInitialization`
 
@@ -261,8 +282,8 @@ Usage: Provides a relative weighting factor for the normalized execution speed o
 ```yaml
 AFLFeedback:
   useCustomWeights: true    # First change this to true to enable custom weights***
-  sizeWeight: 1.0           # sizeWeight should be 0.0-10.0 (0.0 will remove this factor)
-  speedWeight: 5.0          # speedWeight should be 0.0-10.0 (0.0 will remove this factor)
+  sizeWeight: 1.0           # sizeWeight should be 0.0-10.0 (0.0 will remove this factor. Must be nonnegative.) 
+  speedWeight: 5.0          # speedWeight should be 0.0-10.0 (0.0 will remove this factor. Must be nonnegative.) 
 ```
 ## <a id="AFLFavoredFeedback"></a>Section: `AFLFavoredFeedback`
 
@@ -285,8 +306,8 @@ Usage: Provides a simple multiplier for the whole fitness value for favored test
 AFLFavoredFeedback:
   useCustomWeights: true    # Enable custom weights
   favoredWeight: 5.0        # favoredWeight should be >1.0
-  sizeWeight: 1.0           # sizeWeight should be 0.0-10.0 (0.0 will remove this factor)
-  speedWeight: 5.0          # speedWeight should be 0.0-10.0 (0.0 will remove this factor)
+  sizeWeight: 1.0           # sizeWeight should be 0.0-10.0 (0.0 will remove this factor. Must be nonnegative.)
+  speedWeight: 5.0          # speedWeight should be 0.0-10.0 (0.0 will remove this factor. Must be nonnegative.)
 ```
 
 ## <a id="CorpusMinimization"></a>Section: `CorpusMinimization`

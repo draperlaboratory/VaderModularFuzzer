@@ -44,7 +44,7 @@ class VaderApplication
 {
 public:
 
-    #define VERSION_NUMBER "3.0.0"
+    #define VERSION_NUMBER "3.1.0"
 
     VaderApplication();
     ~VaderApplication();

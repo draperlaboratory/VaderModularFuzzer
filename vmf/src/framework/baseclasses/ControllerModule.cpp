@@ -45,15 +45,23 @@ ControllerModule::ControllerModule(std::string name) :
 void ControllerModule::init(ConfigInterface& config)
 {
     //Note: These parameters are really only needed for distributed fuzzing mode
-    performCorpusUpdate = false;
     lastCorpusUpdate = std::chrono::system_clock::now();
+    initialCorpusSyncComplete = false;
     corpusUpdateRateMins = config.getIntParam(getModuleName(),"corpusUpdateRateMins", 5);
+    corpusInitialUpdateMins = config.getIntParam(getModuleName(), "corpusInitialUpdateMins", 5);
     if(corpusUpdateRateMins<1)
     {
         LOG_WARNING << "Distributed Fuzzing -- Minimum corpus update increased to 1 minute";
         corpusUpdateRateMins = 1;
     }
     LOG_INFO << "Distributed Fuzzing -- Minimum corpus update rate is " << corpusUpdateRateMins;
+
+    if(corpusInitialUpdateMins<1)
+    {
+        LOG_WARNING << "Distributed Fuzzing -- Initial corpus update time increased to 1 minute";
+        corpusInitialUpdateMins = 1;
+    }
+    LOG_INFO << "Distributed Fuzzing -- Initial corpus update time is " << corpusInitialUpdateMins;
 
     std::vector<std::string> defaultTags = {"RAN_SUCCESSFULLY"};
     std::vector<std::string> updateTags = config.getStringVectorParam(getModuleName(),"corpusUpdateTags", defaultTags);
@@ -77,15 +85,22 @@ void ControllerModule::handleCommand(StorageModule& storage, bool isDistributed,
     {
         if(ControllerCmdType::NEW_CORPUS == cmd)
         {
-            //See if enough time has passed
+            //Determine how long it has been since the last corpus update
             std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed = now - lastCorpusUpdate;
             int elapsedMin = (int)elapsed.count()/60;
-            if(elapsedMin >= corpusUpdateRateMins)
+
+            //See if enough time has passed that we should perform a corpus update
+            int threshold = corpusUpdateRateMins;
+            if(!initialCorpusSyncComplete){
+                //Use a different time threshold for the first corpus update
+                threshold = corpusInitialUpdateMins;
+            }
+            if(elapsedMin >= threshold)
             {
                 LOG_DEBUG << "Performing corpus update.";
                 CDMSClient* client = CDMSClient::getInstance();
-                performCorpusUpdate = false;
+                initialCorpusSyncComplete = true;
                 lastCorpusUpdate = now;
                 json11::Json json = client->getCorpusUpdates(tags);
                 //A new test case is created for each test case on the file list, with the

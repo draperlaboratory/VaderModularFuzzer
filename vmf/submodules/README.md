@@ -38,7 +38,7 @@ breakage if you build on a system that has 'gflags' installed, check
 in the build artifacts, and then try to use them on a system that does
 not have 'gflags' installed.  If possible, build on a Ubuntu system
 that is known to have only the prerequisite packages that VMF
-advertises as requirements.  One way to ensure this is to maintain a
-VM for Ubuntu 18 and Ubuntu 20 that is used purely as a build
+advertises as requirements.  One way to ensure this is to maintain
+separate VMs for Ubuntu 18, 20, and 22 that are used purely as a build
 environment, so you do not accidentally install packages for other
 projects or purposes and affect the third party library builds.

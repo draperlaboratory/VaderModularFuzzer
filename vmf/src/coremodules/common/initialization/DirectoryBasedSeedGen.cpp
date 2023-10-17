@@ -90,5 +90,8 @@ void DirectoryBasedSeedGen::registerStorageNeeds(StorageRegistry& registry)
 
 void DirectoryBasedSeedGen::run(StorageModule& storage)
 {
-    VaderUtil::createNewTestCasesFromDir(storage, testCaseKey, fdir);
+    int numCreated = VaderUtil::createNewTestCasesFromDir(storage, testCaseKey, fdir);
+    if(numCreated<=0){
+        LOG_WARNING << "No test cases were found in the input directory";
+    }
 }

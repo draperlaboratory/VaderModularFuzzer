@@ -1,0 +1,22 @@
+vmfModules:
+  storage: #a storage module must be specified
+    className: SimpleStorage
+  controller: #a controller module must be specified
+    className: IterativeController
+    children:
+      - className: GramatronBasedSeedGen
+      - className: MOPTInputGenerator
+      - className: AFLForkserverExecutor
+      - className: AFLFavoredFeedback
+      - className: CorpusMinimization
+      - className: SaveCorpusOutput
+      - className: StatsOutput
+  MOPTInputGenerator:
+    children:
+      - className: GramatronRandomMutator
+      - className: GramatronSpliceMutator
+      - className: GramatronRecursiveMutator
+      - className: GramatronGenerateMutator
+  CorpusMinimization:
+    children:
+      - className: AFLForkserverExecutor

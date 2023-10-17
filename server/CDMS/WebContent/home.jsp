@@ -48,18 +48,19 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
 
 <title>CDMS<%=AppConfig.softwareVersion%></title>
 
-<link rel="shortcut icon" href="<%=UrlUtil.appRoot(request)%>emerald.jpg">
-<link href="<%=UrlUtil.appRoot(request)%>css/themes/humanity/theme.css" rel="stylesheet">
-<link rel="stylesheet" href="<%=UrlUtil.appRoot(request)%>css/eis.css" type="text/css">
-<link rel="stylesheet" href="<%=UrlUtil.appRoot(request)%>css/w3.css" type="text/css">
+<link   rel="shortcut icon" href="<%=UrlUtil.appRoot(request)%>icons/emerald.jpg">
+
+<link   rel="stylesheet" href="<%=UrlUtil.appRoot(request)%>css/theme.css"         type="text/css">
+<link   rel="stylesheet" href="<%=UrlUtil.appRoot(request)%>css/eis.css"           type="text/css">
+<link   rel="stylesheet" href="<%=UrlUtil.appRoot(request)%>css/w3.css"            type="text/css">
+<link   rel="stylesheet" href="<%=UrlUtil.appRoot(request)%>css/jquery-ui.min.css" type="text/css">
+
 <script type="text/javascript" src="<%=UrlUtil.appRoot(request)%>js/jquery-latest.min.js"></script>
 <script type="text/javascript" src="<%=UrlUtil.appRoot(request)%>js/jquery-ui.js"></script>
-<link href="<%=UrlUtil.appRoot(request)%>css/jquery-ui.min.css" rel="stylesheet">
-<script src="<%=UrlUtil.appRoot(request)%>js/jquery.tablesorter.min.js"></script>
-<script src="<%=UrlUtil.appRoot(request)%>js/jquery.tablesorter.widgets.js"></script>
-<script src="<%=UrlUtil.appRoot(request)%>js/jquery.metadata.js"></script>
-<script src="<%=UrlUtil.appRoot(request)%>js/eis.js"></script>
-<script src="<%=UrlUtil.appRoot(request)%>js/jquery.TableCSVExport.js"></script>
+<script type="text/javascript" src="<%=UrlUtil.appRoot(request)%>js/jquery.tablesorter.min.js"></script>
+<script type="text/javascript" src="<%=UrlUtil.appRoot(request)%>js/jquery.tablesorter.widgets.js"></script>
+<script type="text/javascript" src="<%=UrlUtil.appRoot(request)%>js/jquery.TableCSVExport.js"></script>
+<script type="text/javascript" src="<%=UrlUtil.appRoot(request)%>js/eis.js"></script>
  
 <script type="text/javascript">
 
@@ -296,7 +297,7 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
                                   "<tr><td></td><td></td><td></td></tr>",
                                   "<tr><td width='90%'><b><i><span id='cTITLE" + data[i].clusterId +"'>" + data[i].title  + "</span></i></b></td>",
                                   "<td>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp</td>",
-                                  "<td><a href='#' onclick='stopCluster(event);'><img class='logo' src='stop.png' alt='Stop' width='12' height='12'></a></td></tr>",
+                                  "<td><a href='#' onclick='stopCluster(event);'><img class='logo' src='icons/stop.png' alt='Stop' width='12' height='12'></a></td></tr>",
                                   "</table>",
 								  "</div>",
 							      "<table style='width:100%'  class='campaigndates w3-block w3-light-gray w3-small'>",
@@ -386,7 +387,7 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
                                   "<td id='availfuzzers'></td>" +
                                   "<td>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp</td>" +
            	                      "<td><button type='button' id='addscenariobutton' class='addscenariobutton sctooltip'>" +
-           	                      "<img class='logo' id='astipimage' src='addscenario.png' width='20' height='20'><span id='tipaddsc' class='sctooltiptext'>Add Scenario</span></button</td>" +
+           	                      "<img class='logo' id='astipimage' src='icons/addscenario.png' width='20' height='20'><span id='tipaddsc' class='sctooltiptext'>Add Scenario</span></button</td>" +
                                   "</tr></table>" +
                                   "</div>");       
          $("#SelectionResults").append($fuzzerManagment);   
@@ -490,7 +491,7 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
                     var actooltip       = document.getElementById("tipaddsc");                  
                     actooltip.innerHTML = "Collapse";                    
                     var image           = document.getElementById("astipimage");
-                    image.src           = "minus.png"
+                    image.src           = "icons/minus.png"
                } 
                else 
                {
@@ -498,7 +499,7 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
                     var actooltip       = document.getElementById("tipaddsc");                  
                     actooltip.innerHTML = "Add Scenario";
                     var image           = document.getElementById("astipimage");
-                    image.src           = "addscenario.png"
+                    image.src           = "icons/addscenario.png"
                }
                return true;
            });
@@ -1073,11 +1074,11 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
 		<div id="top_div">
 			<div class="icon-bar">
 				<ul>				
-				 <li><a class="tooltip" href="#home" onclick="getClusters();"> <img class="logo" src="home.png" alt="Home" width="25" height="25"><span class="tooltiptext">  Home</span></a></li>
-				 <li><a class="tooltip" href="#home" onclick="loadhtml('jsp/createcluster.html');"> <img class="logo" src="newItem.png" alt="Add Cluster" width="25" height="25"><span class="tooltiptext">Add&nbspCluster</span></a></li>
-				 <li><a class="tooltip" href="#home" onclick="shutdown(event);"><img class="logo" src="shutdown.png"  alt="Shutdown"    width="25" height="25"><span class="tooltiptext">Shutdown</span></a></li>
-				 <li><a class="tooltip" href="#home" onclick="exporttocsv();"> <img class="logo" src="export.png"    alt="Export"      width="25" height="25"><span class="tooltiptext">Export</span></a></li>
-		 		 <li><a class="tooltip" href="#home" onclick="loadhtml('jsp/settings.html');"><img class="logo" src="settings.png"  alt="Settings"  width="25" height="25"><span class="tooltiptext">Settings</span></a></li>
+				 <li><a class="tooltip" href="#home" onclick="getClusters();"> <img class="logo" src="icons/home.png" alt="Home" width="25" height="25"><span class="tooltiptext">  Home</span></a></li>
+				 <li><a class="tooltip" href="#home" onclick="loadhtml('jsp/createcluster.html');"> <img class="logo" src="icons/newItem.png" alt="Add Cluster" width="25" height="25"><span class="tooltiptext">Add&nbspCluster</span></a></li>
+				 <li><a class="tooltip" href="#home" onclick="shutdown(event);"><img class="logo" src="icons/shutdown.png"  alt="Shutdown"    width="25" height="25"><span class="tooltiptext">Shutdown</span></a></li>
+				 <li><a class="tooltip" href="#home" onclick="exporttocsv();"> <img class="logo" src="icons/export.png"    alt="Export"      width="25" height="25"><span class="tooltiptext">Export</span></a></li>
+		 		 <li><a class="tooltip" href="#home" onclick="loadhtml('jsp/settings.html');"><img class="logo" src="icons/settings.png"  alt="Settings"  width="25" height="25"><span class="tooltiptext">Settings</span></a></li>
 				</ul>				
 			</div>	
 		</div>	

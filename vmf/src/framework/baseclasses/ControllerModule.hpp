@@ -147,14 +147,17 @@ protected:
     /// The test case handle, use to write test cases (for distributed fuzzing)
     int testCaseKey;
 
-    /// The minimum number of minutes that must pass before accepting another corpus update command
+    /// The number of minutes that must pass before the initial corpus synchronization between fuzzer instances
+    int corpusInitialUpdateMins;
+
+    /// The minimum number of minutes that must pass before accepting another corpus update command on a continuous basis
     int corpusUpdateRateMins;
 
     /// The timestamp of the last corpus update
     std::chrono::system_clock::time_point lastCorpusUpdate;
 
-    /// Flag determining whether a corpus update should be performed
-    bool performCorpusUpdate;
+    /// Flag determining if the initial corpus update has been completed
+    bool initialCorpusSyncComplete;
 
 };
 }

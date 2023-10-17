@@ -18,7 +18,7 @@ This "Getting Started" document is a more in-depth version of VMF's basic usage 
 
 ## Running VMF Configurations
 
-The configuration files [basicModules.yaml](/test/config/basicModules.yaml) and [defaultModules.yaml](/test/config/defaultModules.yaml) are intended to be reusable across different SUTs, and can be run with either [haystack_file.yaml](/test/config/haystack_file.yaml) or [haystack_stdin.yaml](/test/config/haystack_stdin.yaml). 
+The configuration files [basicModules.yaml](/test/config/basicModules.yaml) and [defaultModules.yaml](/test/config/defaultModules.yaml) are intended to be reusable across different SUTs, and can be run with either [haystack_file.yaml](../test/haystackSUT/haystack_file.yaml) or [haystack_stdin.yaml](../test/haystackSUT/haystack_stdin.yaml). 
 
 [defaultModules.yaml](/test/config/defaultModules.yaml) or [basicModules.yaml](/test/config/basicModules.yaml) can be used to fuzz a SUT of your choosing as well by combining it with a new configuration file that contains the SUT specific parameters contained in the haystack specific .yaml files.
 
@@ -55,13 +55,13 @@ For our simple test application, we include a pre-compiled version of our haysta
 
 VMF ships with `Vader::AFLForkserverExecutor` as its default executor. To use this executor, the SUT/harness must be compatible with AFL's forkserver execution model. If you are unfamiliar with this execution model, see [the `#Fuzz-Harness` section in `Intro to Fuzzing`](/docs/intro_to_fuzzing.md#Fuzz-Harness). 
 
-***Note: VMF 2.4 only supports SUTs that execute as native linux applications (bare-metal and virtualized environments are not supported in this release)***
+***Note: VMF currently only supports SUTs that execute as native linux applications (bare-metal and virtualized environments are not supported in this release)***
 
-The AFL++ compiler must be also installed in order to build the SUT/harness. You can install the `afl++` or `afl++-clang` Ubuntu packages or build AFL++ from source. Use `afl-gcc`to compile the SUT/harness as follows:
+The AFL++ compiler must be also installed in order to build the SUT/harness. You can install the `afl++` or `afl++-clang` Ubuntu packages or build AFL++ from source. Use `afl-gcc` to compile the SUT/harness as follows:
 
 ```bash
 # Compiling a simple C application to work with Vader::AFLForkserverExecutor
-afl-gcc test/haystack.c -o test/haystack
+afl-gcc test/haystackSUT/haystack.c -o test/haystackSUT/haystack
 
 # Compiling a simple C application to work with Vader::AFLForkserverExecutor
 afl-gcc yourCode.cpp -o yourCode
@@ -76,9 +76,9 @@ echo performance | tee cpu*/cpufreq/scaling_governor
 ```
 
 ## Example VMF Configuration
-VMF is a configuration driven fuzzer.  The VMF configuration file specifies which fuzzing modules to combine together for a fuzzing campaign.  The provided example configuration files are used to fuzz a simple System Under Test (SUT), the provided [/test/haystack.c](/test/haystack.c) program.
+VMF is a configuration driven fuzzer.  The VMF configuration file specifies which fuzzing modules to combine together for a fuzzing campaign.  The provided example configuration files are used to fuzz a simple System Under Test (SUT), the provided [/test/haystackSUT/haystack.c](../test/haystackSUT/haystack.c) program.
 
-This particular VMF fuzzer is constructed with the following basic set of modules, as defined in [test/config/basicModules.yaml](test/config/basicModules.yaml):
+This particular VMF fuzzer is constructed with the following basic set of modules, as defined in [test/config/basicModules.yaml](../test/config/basicModules.yaml):
 - A storage module (SimpleStorage)
 - A single controller module
     - IterativeController
@@ -97,19 +97,19 @@ This particular VMF fuzzer is constructed with the following basic set of module
 Each of these modules work together, exchanging information via storage, which provides a centralized in-memory storage of the set of test cases that the fuzzer is working with (i.e. the "corpus").
 
 ### Initialization
-The InterativeController calls the DirectoryBasedSeedGen initialization module just once.  It creates an initial set of test cases, using the input files found in [test/test-input](test/test-input).
+The InterativeController calls the DirectoryBasedSeedGen initialization module just once.  It creates an initial set of test cases, using the input files found in [test/haystackSUT/test-input](../test/haystackSUT/test-input).
 
-![System Diagram](/docs/img/VaderOverview_4.png)
+![System Diagram](./img/VaderOverview_4.png)
 
 ### Main Fuzzing Loop
 The IteratorController then loops through the input generator, executor, and output modules over and over to execute the SUT with a huge number of inputs.
 
 The input generator uses the provided mutator modules to modify or mutate an existing test case, making small changes to the data buffer that are provided to the SUT.  The executor runs each of these test cases on the SUT and observes the resulting output to determine if the test case covered new lines of code and produced interesting results such as crashes.  It records what it learns in storage.
 
-![System Diagram](/docs/img/VaderOverview_5.png)
+![System Diagram](./img/VaderOverview_5.png)
 
 ## Default VMF Configuration
-The slightly more complex configuration in [test/config/defaultModules.yaml](test/config/defaultModules.yaml) is the recommended starting point for fuzzing a real SUT.  It adds a few more modules to the basic configuration.
+The slightly more complex configuration in [test/config/defaultModules.yaml](../test/config/defaultModules.yaml) is the recommended starting point for fuzzing a real SUT.  It adds a few more modules to the basic configuration.
 Specifically, the following modules are added:
 - MOPTInputGenerator (instead of GeneticAlgorithmInputGenerator)
 - AFLFavoredFeedback (instead of AFLFeedback)
@@ -120,7 +120,7 @@ The first two modules provide better performing versions of the basic capabiliti
 Additionally, a number of commented out modules are provided for conviently reconfiguring VMF for your needs.  These are discussed in detail in [Reconfiguring VMF](#reconfiguring-vmf).
 
 ## Reconfiguring VMF
-The [test/config/defaultModules.yaml](test/config/defaultModules.yaml) configuration file can be easily modified to enable some additional modules in this VMF configuration.
+The [test/config/defaultModules.yaml](../test/config/defaultModules.yaml) configuration file can be easily modified to enable some additional modules in this VMF configuration.
 
 ### Strings Initialization
 As a quick example of VMF's configuration, you may comment in the line that reference "StringInitialization" to add an additional Initialization module to the configuration.  This Initialization modules will extract any ascii strings from the SUT and use these to generate a large set of additional initial test cases.
@@ -170,7 +170,7 @@ vmfModules:
 
 
 ### Configuration Parameters
-At the bottom of the [test/config/defaultModules.yaml](test/config/defaultModules.yaml) configuration file, there are a number of module specific configuration options that can be adjusted to change the behavior of the modules.  See also the more detailed module by module documentation in [docs/coremodules/core_modules_readme.md](docs/coremodules/core_modules_readme.md) for additional parameters that can be adjusted.
+At the bottom of the [test/config/defaultModules.yaml](../test/config/defaultModules.yaml) configuration file, there are a number of module specific configuration options that can be adjusted to change the behavior of the modules.  See also the more detailed module by module documentation in [docs/coremodules/core_modules_readme.md](/docs/coremodules/core_modules_readme.md) for additional parameters that can be adjusted.
 
 #### Fuzzer Runtime
 By changing the runTimeInMinutes parameter to a non-zero value, you can configure the fuzzer to shutdown automatically after a specified amount of time has passed.  Note that this parameter is specified as a whole number of minutes, and that the fuzzer may not shutdown precisely after this time has passed, as it will finish it's current fuzzing loop and perform any shutdown processing first.

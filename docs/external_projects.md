@@ -18,7 +18,7 @@ The most common, and potentially complicated example of project inclusion in
 VMF is the `git` submodule. The projects included in this way are built as
 external dependencies by the `CMake` build system, and their build artifacts
 required by VMF are installed into the `external` subdirectory of VMF's
-repository.  See [/submodules/README](../submodules/README.md) for more information 
+repository.  See [vmf/submodules/README](../vmf/submodules/README.md) for more information 
 on building the submodules, and [build_system.md](build_system.md) for information
 on how to add a new submodule to VMF.
 
@@ -40,12 +40,14 @@ There are two kinds of inclusion currently being performed:
 | [restclient-cpp](https://github.com/mrtazz/restclient-cpp) | 0.5.2-c4683b21        | [MIT](https://github.com/mrtazz/restclient-cpp/blob/master/LICENSE) |
 | [json11](https://github.com/dropbox/json11)         | head-2df9473f                | [MIT](https://github.com/dropbox/json11/blob/master/LICENSE.txt) |
 
+
 ### Projects included at a source level
 
 | Project                                                       | Version   | License |
 | ------------------------------------------------------------- | --------- | ------- |
 | [LibAFL-legacy](https://github.com/AFLplusplus/LibAFL-legacy) | 8b399178 | [Apache 2.0](https://github.com/AFLplusplus/LibAFL-legacy/blob/dev/LICENSE) |
-| [Klee ktest] | 1.0 | [University of Illinois/NCSA Open Source License](https://github.com/klee/klee/blob/master/LICENSE.TXT) |
+| [Klee ktest](https://github.com/klee/klee/) | 1.0 | [University of Illinois/NCSA Open Source License](https://github.com/klee/klee/blob/master/LICENSE.TXT) |
+| [uthash](http://troydhanson.github.io/uthash/) |   2.1.0          | [BSD Revised](http://troydhanson.github.io/uthash/license.html)
 
 ## Installed Packages
 
@@ -103,28 +105,18 @@ Build artifacts for these dependencies are included as Java Archive (.jar) files
 
 | Project                                              | Version           | License    |
 | ---------------------------------------------------- | ----------------- | ---------- |
-| [CsvJDBC](https://github.com/simoc/csvjdbc)          | 0.10              | LGPL v2.1+ |
-| [Gson](https://github.com/google/gson)               | gson-parent-2.8.6 | [Apache 2.0](https://github.com/google/gson/blob/gson-parent-2.8.6/LICENSE)   |
-| [ibatis](https://github.com/mybatis/ibatis-2)        | 2.3.4.726         | [Apache 2.0](https://github.com/mybatis/ibatis-2/blob/master/LICENSE)         |
-| [json](https://github.com/stleary/JSON-java)         | 20170516          | [Customized MIT](https://github.com/stleary/JSON-java/blob/20170516/LICENSE)  |
-| [opencsv](https://sourceforge.net/projects/opencsv)  | 4.1               | [Apache 2.0](https://sourceforge.net/p/opencsv/source/ci/master/tree/LICENSE) |
-| [slf4j-api](https://github.com/qos-ch/slf4j)         | 1.7.36            | [MIT](https://github.com/qos-ch/slf4j/blob/v_1.7.36/slf4j-api/LICENSE.txt)    |
-| [sqlite-jdbc](https://github.com/xerial/sqlite-jdbc) | 3.18.0            | [Apache 2.0](https://github.com/xerial/sqlite-jdbc/blob/3.18.0/LICENSE)       |
+| [Gson](https://github.com/google/gson)               | gson-parent-2.10.1 | [Apache 2.0](https://github.com/google/gson/blob/gson-parent-2.10.1/LICENSE)   |
+| [ibatis](https://github.com/mybatis/ibatis-2)        | 2.5.0              | [Apache 2.0](https://github.com/mybatis/ibatis-2/blob/master/LICENSE)         |
+| [sqlite-jdbc](https://github.com/xerial/sqlite-jdbc) | 3.43.0.0           | [Apache 2.0](https://github.com/xerial/sqlite-jdbc/blob/3.43.0.0/LICENSE)       |
 
 ### Projects included at a source level
 
 | Project                                                       | Version    | License |
 | ------------------------------------------------------------- | ---------- | ------- |
-| [JQuery](https://github.com/jquery/jquery/tree/1.3.1)         | 1.3.1      | Dual licensed under the [MIT](https://github.com/jquery/jquery/blob/1.3.1/MIT-LICENSE.txt) and [GPL](https://github.com/jquery/jquery/blob/1.3.1/GPL-LICENSE.txt) licenses |
-| [JQuery](https://github.com/jquery/jquery/tree/3.3.1)         | 3.3.1	     | [MIT](https://github.com/jquery/jquery/blob/3.3.1/LICENSE.txt)     |
+| [JQuery](https://github.com/jquery/jquery/tree/3.7.1)         | 3.7.1     | [MIT](https://github.com/jquery/jquery/blob/3.7.1/LICENSE.txt)|
 | [JQuery UI](https://github.com/jquery/jquery-ui/tree/1.8.1)   | 1.8.1	     | Dual licensed under the [MIT](https://github.com/jquery/jquery-ui/blob/1.8.1/MIT-LICENSE.txt) and [GPL](https://github.com/jquery/jquery-ui/blob/1.8.1/GPL-LICENSE.txt) licenses |
-| [JQuery UI](https://github.com/jquery/jquery-ui/tree/1.8.11)  | 1.8.11	   | Dual licensed under the [MIT](https://github.com/jquery/jquery-ui/blob/1.8.11/MIT-LICENSE.txt) and [GPL](https://github.com/jquery/jquery-ui/blob/1.8.11/GPL-LICENSE.txt) licenses |
-| [JQuery UI](https://github.com/jquery/jquery-ui/tree/1.12.1)  | 1.12.1	   | [MIT](https://github.com/jquery/jquery-ui/blob/1.12.1/LICENSE.txt) |
-| [JQuery UI](https://github.com/jquery/jquery-ui/tree/1.13.1)  | 1.13.1	   | [MIT](https://github.com/jquery/jquery-ui/blob/1.13.1/LICENSE.txt) |
-| [Json.js](http://www.JSON.org/js.html)                        | 2010-03-27 | Public domain                                                      |
-| [Sizzle](https://github.com/jquery/sizzle)                    | 0.9.3	     | Released under the MIT, BSD, and GPL Licenses                      |
-| [Metadata](https://github.com/jquery-archive/jquery-metadata) | head	     | Dual licensed under the MIT and GPL licenses                       |
-| [TableCSVExport](https://github.com/ZachWick/TableCSVExport)  | head	     | MIT                                                                |
+| [JQuery UI](https://github.com/jquery/jquery-ui/tree/1.13.2)  | 1.13.2	   | [MIT](https://github.com/jquery/jquery-ui/blob/1.13.2/LICENSE.txt) |                     |
+| [TableCSVExport](https://github.com/ZachWick/TableCSVExport)  | head	     | MIT  |
 | [Tablesorter](https://github.com/Mottie/tablesorter)          | 2.31.1	   | Dual licensed under MIT or GPL licenses                            |
 | [W3 CSS](https://www.w3schools.com/w3css/w3css_downloads.asp) | 4.15	     | Public domain                                                      |
 

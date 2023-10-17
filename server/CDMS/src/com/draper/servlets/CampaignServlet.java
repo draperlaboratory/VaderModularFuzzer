@@ -330,7 +330,7 @@ public class CampaignServlet extends ControllerServlet
                 scenarioui.setActiveFuzzers(sb.getFuzzerCount());
                 scenarioui.setCapacity(sb.getCapacity());
                
-                String action = "<a href='#' onclick='deleteScenario(event,"+sb.getId()+ ",\"" + sb.getName()+"\");'><img class='logo' src='delete.png' alt='Delete' width='15' height='15'></a>";
+                String action = "<a href='#' onclick='deleteScenario(event,"+sb.getId()+ ",\"" + sb.getName()+"\");'><img class='logo' src='icons/delete.png' alt='Delete' width='15' height='15'></a>";
  
                 scenarioui.setAction(action);
                 scenarioList.add(scenarioui);

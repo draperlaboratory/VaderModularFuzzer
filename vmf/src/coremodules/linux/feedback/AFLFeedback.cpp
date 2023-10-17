@@ -59,8 +59,15 @@ void AFLFeedback::init(ConfigInterface& config)
     sizeFitnessWeight = config.getFloatParam(getModuleName(), "sizeWeight", 1.0);
     speedFitnessWeight = config.getFloatParam(getModuleName(), "speedWeight", 5.0);
 
-    if(useCustomWeights)
+    if(useCustomWeights) 
+    {
+        if(sizeFitnessWeight < 0.0 || speedFitnessWeight < 0.0) 
+        {
+            throw RuntimeException("One or more Custom Fitness Weights for feedback is invalid",
+                    RuntimeException::USAGE_ERROR);
+        }
         LOG_INFO << "Fitness weights: speed = " << speedFitnessWeight << ", size = " << sizeFitnessWeight;
+    }
     else   
         LOG_INFO << "Using AFL++ style Fitness algorithm";
 }
@@ -198,5 +205,13 @@ float AFLFeedback::computeFitness(StorageModule& storage, StorageEntry* e)
         fitness *= (avgTestCaseSize / size); 
 
     }
+
+    if (fitness < 0.0)
+    {
+        LOG_ERROR << "Bad fitness value: " << fitness;  
+        throw  RuntimeException("Fitness should never be negative. Check log output for overflow: ", 
+                    RuntimeException::UNEXPECTED_ERROR);
+    }
+
     return fitness;
 }

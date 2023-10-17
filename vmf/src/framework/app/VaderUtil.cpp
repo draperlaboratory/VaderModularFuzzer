@@ -97,9 +97,12 @@ bool VaderUtil::directoryExists(std::string dir)
  * @param storage the storage object
  * @param testCaseKey the handle for the "TEST_CASE" field
  * @param directory the directory to read
+ * @returns the number of new test cases that were created
  */
-void VaderUtil::createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, std::string directory)
+int VaderUtil::createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, std::string directory)
 {
+    int newTestCaseCount = 0;
+
     if(directory.back() != '/')
     {   directory.append("/"); }
 
@@ -143,7 +146,7 @@ void VaderUtil::createNewTestCasesFromDir(StorageModule& storage, int testCaseKe
                 StorageEntry* newEntry = storage.createNewEntry();
                 char* buff = newEntry->allocateBuffer(testCaseKey, size);
                 inFile.read(buff, size);
-
+                newTestCaseCount++;
             }
             else
             {
@@ -154,6 +157,8 @@ void VaderUtil::createNewTestCasesFromDir(StorageModule& storage, int testCaseKe
         }
     }
     closedir(dirp);
+
+    return newTestCaseCount;
 }
 
 /**

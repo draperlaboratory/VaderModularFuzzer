@@ -78,7 +78,7 @@ void StatsOutput::init(ConfigInterface& config)
 StatsOutput::StatsOutput(std::string name) :
     OutputModule(name)
 {
-
+    outputRate = 0;
 }
 
 StatsOutput::~StatsOutput()

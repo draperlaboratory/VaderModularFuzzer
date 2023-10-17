@@ -28,8 +28,6 @@
  * ===========================================================================*/
 package com.draper.application;
 
-import com.ibatis.sqlmap.client.SqlMapClient;
-
 public class AppConfig
 {
     public static String   	    serverIdentificationInfo;
@@ -37,7 +35,6 @@ public class AppConfig
     public static String        sqlMapConfig = "com/draper/services/database/sqlmap.config";
     public static String        webservicePath;
     public static String        storagePath;
-    public static String        softwareVersion     = "3.0.0";
+    public static String        softwareVersion     = "3.1.0";
     public static int           invalidId           = -1;
-    public static SqlMapClient  sqlMap;
 }

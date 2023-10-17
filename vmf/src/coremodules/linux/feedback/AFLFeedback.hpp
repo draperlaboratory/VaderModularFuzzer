@@ -87,8 +87,8 @@ protected:
     float maxExecTime; ///< The maximum exection time (for all test cases that have been evaluated)
     float avgTestCaseSize; ///< The average size (for all test cases that have been evaluated)
     float maxTestCaseSize; ///< The maximum size (for all test cases that have been evaluated)
-    float sizeFitnessWeight; ///< A configurable weight to apply to the size factor in computing fitness
-    float speedFitnessWeight; ///< A configurable weight to apply to the size factor in computing fitness
+    float sizeFitnessWeight; ///< A configurable weight to apply to the size factor in computing fitness. Must be >=0.0
+    float speedFitnessWeight; ///< A configurable weight to apply to the size factor in computing fitness. Must be >=0.0
     int numTestCases; ///< The total number of test cases that have been evaluated
     int mapSize; ///< The map size
 

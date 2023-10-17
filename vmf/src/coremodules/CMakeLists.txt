@@ -48,12 +48,20 @@ add_library(CoreModules SHARED
     linux/output/CorpusMinimization.cpp
     common/formatter/CRC32Formatter.cpp
     common/initialization/DirectoryBasedSeedGen.cpp
+    common/initialization/GramatronBasedSeedGen.cpp
     common/initialization/ServerCorpusInitialization.cpp
     common/initialization/ServerSeedInitialization.cpp
     common/inputgeneration/GeneticAlgorithmInputGenerator.cpp
     common/inputgeneration/MOPTInputGenerator.cpp    
     common/inputgeneration/MOPT.cpp
     common/inputgeneration/MOPTSwarm.cpp
+    common/mutator/Gramatron.cpp
+    common/mutator/GramatronHelpers.cpp
+    common/mutator/GramatronPDA.cpp
+    common/mutator/GramatronRandomMutator.cpp
+    common/mutator/GramatronSpliceMutator.cpp
+    common/mutator/GramatronRecursiveMutator.cpp
+    common/mutator/GramatronGenerateMutator.cpp
     common/output/SaveCorpusOutput.cpp
     common/output/ServerCorpusMinOutput.cpp
     common/output/ServerCorpusOutput.cpp
@@ -71,8 +79,9 @@ target_link_libraries(CoreModules
 target_include_directories(CoreModules PUBLIC
 ${PROJECT_SOURCE_DIR}/vmf/src/framework/baseclasses
 ${PROJECT_SOURCE_DIR}/vmf/src/framework/app
+${PROJECT_SOURCE_DIR}/vmf/src/coremodules/util
 ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/formatter
-${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/initilization
+${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/initialization
 ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/inputgeneration
 ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/mutator
 ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/output

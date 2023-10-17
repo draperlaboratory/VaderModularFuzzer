@@ -34,23 +34,23 @@ This document describes how to develop new modules within VMF.
 ## Module Types
 First determine while type of module you are trying to write.  Conceptually, the VMF fuzzer is divided into the following processing steps:
 
-![System Diagram](/docs/img/VaderOverview_10.png)
+![System Diagram](./img/VaderOverview_10.png)
 
 
 See [docs/design.md](/docs/design.md) for additional explanations of each of the VMF module types.
 
 Each module must extend from it's corresponding parent based class:
-- [include/common/ExecutorModule.hpp](include/common/ExecutorModule.hpp)
-- [include/common/FeedbackModule.hpp](include/common/FeedbackModule.hpp)
-- [include/common/FormatterModule.hpp](include/common/FormatterModule.hpp)
-- [include/common/InitializationModule.hpp](include/common/InitializationModule.hpp)
-- [include/common/InputGeneratorModule.hpp](include/common/InputGeneratorModule.hpp)
-- [include/common/MutatorModule.hpp](include/common/MutatorModule.hpp)
-- [include/common/OutputModule.hpp](include/common/OutputModule.hpp)
+- [vmf/src/framework/baseclasses/ExecutorModule.hpp](../vmf/src/framework/baseclasses/ExecutorModule.hpp)
+- [vmf/src/framework/baseclasses/FeedbackModule.hpp](../vmf/src/framework/baseclasses/FeedbackModule.hpp)
+- [vmf/src/framework/baseclasses/FormatterModule.hpp](../vmf/src/framework/baseclasses/FormatterModule.hpp)
+- [vmf/src/framework/baseclasses/InitializationModule.hpp](../vmf/src/framework/baseclasses/InitializationModule.hpp)
+- [vmf/src/framework/baseclasses/InputGeneratorModule.hpp](../vmf/src/framework/baseclasses/InputGeneratorModule.hpp)
+- [vmf/src/framework/baseclasses/MutatorModule.hpp](../vmf/src/framework/baseclasses/MutatorModule.hpp)
+- [vmf/src/framework/baseclasses/OutputModule.hpp](../vmf/src/framework/baseclasses/OutputModule.hpp)
 
 Both Storage Module and Controller Module may also be extended, but this is much less common:
-- [include/common/ControllerModule.hpp](include/common/ControllerModule.hpp)
-- [include/common/storageModule.hpp](include/common/StorageModule.hpp)
+- [vmf/src/framework/baseclasses/ControllerModule.hpp](../vmf/src/framework/baseclasses/ControllerModule.hpp)
+- [vmf/src/framework/baseclasses/storageModule.hpp](../vmf/src/framework/baseclasses/StorageModule.hpp)
 
 Also consider whether the feature you are trying to add necessitates an entirely new module as opposed to a subclass of an existing related module.
 
@@ -59,7 +59,7 @@ By convention, when naming your module, use the first part of the base class nam
 # Common Module Methods
 
 ## Example Module
-This section uses a new mutator module (MyMutator) as an example to discuss common module methods.  Full source code for MyMutator is included at [/samples/module/MyMutator.hpp](/samples/module/MyMutator.hpp) and [/samples/module/MyMutator.cpp](/samples/module/MyMutator.cpp)
+This section uses a new mutator module (MyMutator) as an example to discuss common module methods.  Full source code for MyMutator is included at [vmf/src/samples/module/MyMutator.hpp](../vmf/src/samples/module/MyMutator.hpp) and [vmf/src/samples/module/MyMutator.cpp](../vmf/src/samples/module/MyMutator.cpp)
 
 The example header file for MyMutator.hpp is provided method.  Within this header file are methods that are common to all module types, as well as the one method that is required specifically for Mutator Modules (createTestCase). Each of these common methods will be discussed in detail in this section.
 
@@ -92,9 +92,11 @@ public:
 All modules are packaged into a library of related modules that are loaded by VMF at runtime.  VMF provides a library of initial modules called "Core Modules", but multiple libraries can be loaded by VMF.  Libraries that are not the "Core Modules" are called "Extension Packs".
 
 ### Adding to the Core Module Library
-New core modules should have their .hpp file added under [include/modules/](include/modules).   Add the .cpp file under [src/modules/](src/modules).
+New core modules should be placed in the appropriate subdirectory of [vmf/src/coremodules/](../vmf/src/coremodules/).  Coremodules contains subdirectories for modules that compile under all supported platforms (coremodules/common) and those that are operating system specific (e.g. coremodules/linux).  Within those directory, there are further subdirectories that organize modules by type -- the .hpp and .cpp files for each new module should be added in the appropriate subdirectory.  For example, a mutator module that cross compiles for supported platforms should be located under [vmf/src/coremodules/common/mutator](../vmf/src/coremodules/common/mutator).
 
-Add the .cpp filename to [src/modules/CMakelists.txt](src/modules/CMakelists.txt).  If any new third party libraries are needed to support your module, they will need to be added to the overall build system (see [docs/build_system.md](/docs/build_system.md)).
+If the module needs any supporting classes, those should be named with a name that is similar to the module and they should be placed alongside the module classes that need them.
+
+Add the .cpp filename(s) to [vmf/src/coremodules/CMakelists.txt](../vmf/src/coremodules/CMakelists.txt).  If any new third party libraries are needed to support your module, they will need to be added to the overall build system (see [docs/build_system.md](/docs/build_system.md)).
 
 ### Developing a New Extension Pack
 To develop a module as part of a new extension pack, look at the example structure in `vmf_install\samples\modules`.  This provides an example makefile for modules that are developed as add ones to VMF.  Such modules will be built as a shared library that can be added onto VMF, simply by installing the build library into 'vmf_install\plugins'.
@@ -168,7 +170,7 @@ You may add your own new keys or tags as well.
 
 
 ## Adding the Module to the ModuleFactory
-All  modules will need to register their module with the [ModuleFactory](src/modules/ModuleFactory.cpp).  To do this simply add a call to the REGISTER_MODULE macro at the top of the new modules .cpp file.  The name provided to the macro *must* match the class name.
+All  modules will need to register their module with the [ModuleFactory](../vmf/src/framework/app/ModuleFactory.cpp).  To do this simply add a call to the REGISTER_MODULE macro at the top of the new modules .cpp file.  The name provided to the macro *must* match the class name.
 
 ```c++
 /*
@@ -180,7 +182,7 @@ REGISTER_MODULE(MyMutator);
 ```
 
 ## Adding the Module to the VMF Configuration File
-To get VMF to build your module, you need to add it to a VMF configuration file.  You can use the example configuration file  [test/config/defaultModules.yaml](test/config/defaultModules.yaml) or [test/config/basicModules.yaml](test/config/basicModules.yaml) as a starting point.  You will need to add your new module to the "vmfModules" section, under the appropriate parent module.
+To get VMF to build your module, you need to add it to a VMF configuration file.  You can use the example configuration file  [test/config/defaultModules.yaml](../test/config/defaultModules.yaml) or [test/config/basicModules.yaml](../test/config/basicModules.yaml) as a starting point.  You will need to add your new module to the "vmfModules" section, under the appropriate parent module.
 
 Most modules will go directly under "controller".  Mutator modules belong instead under the input generator module (in the basic modules configuration the input generator is GeneticAlgorithmInputGenerator).  
 
@@ -230,7 +232,7 @@ Some common metadata keys used in the VMF core modules:
 - "TOTAL_HUNG_CASES" : Same as "TOTAL_CRASHED_CASES" but for test cases that hand or timeout.
 
 # Using Storage
-The StorageModule stores objects of type [StorageEntry](include/common/StorageEntry.hpp).  Each StorageEntry is associated with a single test case.  What information is stored about each test case is configurable at runtime based on the modules that are loaded into VMF.  Once each module specifies it's storage needs, the exact number of data fields in each StorageEntry is known.  Think of the StorageEntries like a spreadsheet: the registerStorageNeeds method specifies what columns to have in the spreasheet, and each row of the spreadsheet contains data for a single test case.  StorageEntries can contain data fields of type integer, float, or data buffer (where data buffer is commonly used to store the test case itself).
+The StorageModule stores objects of type [StorageEntry](../vmf/src/framework/baseclasses/StorageEntry.hpp).  Each StorageEntry is associated with a single test case.  What information is stored about each test case is configurable at runtime based on the modules that are loaded into VMF.  Once each module specifies it's storage needs, the exact number of data fields in each StorageEntry is known.  Think of the StorageEntries like a spreadsheet: the registerStorageNeeds method specifies what columns to have in the spreasheet, and each row of the spreadsheet contains data for a single test case.  StorageEntries can contain data fields of type integer, float, or data buffer (where data buffer is commonly used to store the test case itself).
 
 ## Creating a New Storage Entry
 To add a new test case to storage, you must create a new storage entry.
@@ -273,9 +275,9 @@ Individual modules will wish to retrieve different subsets of test cases dependi
         StorageEntry* theEntry = newCrashedEntries->getNext();
 ```
 
-See [StorageModule.hpp](include/common/StorageModule.hpp) for a complete list of the accessor methods supported by storage.  All entries retrieved from long term storage are sorted by the primary key (for the VMF Core Module the primary key is FITNESS, but the sort by value is configurable).  New entries are not sorted, as they may not yet have a primary key value that has been set.
+See [StorageModule.hpp](../vmf/src/framework/baseclasses/StorageModule.hpp) for a complete list of the accessor methods supported by storage.  All entries retrieved from long term storage are sorted by the primary key (for the VMF Core Module the primary key is FITNESS, but the sort by value is configurable).  New entries are not sorted, as they may not yet have a primary key value that has been set.
 
-The Iterator that is returned from storage also supports retrieving storage entries by index.  See [Iterator.hpp](include/common/Iterator.hpp) for more information on this functions.
+The Iterator that is returned from storage also supports retrieving storage entries by index.  See [Iterator.hpp](../vmf/src/framework/baseclasses/Iterator.hpp) for more information on this functions.
 
 ```c++
 std::unique_ptr<Iterator> allEntries = storage.getEntries();
@@ -328,13 +330,13 @@ Note that the tagging is performed by the AFLFeedbackModule.  New Entries that a
 storage.tagEntry(e, crashedTag);
 ```
 
-See [StorageModule.hpp](include/common/StorageModule.hpp) for additional methods related to managing tags.
+See [StorageModule.hpp](../vmf/src/framework/baseclasses/StorageModule.hpp) for additional methods related to managing tags.
 
 # Module Type Specific Methods
 Each module type requires one or more additional methods that are specific to that module type.  High level documentation of these methods is provided here, but the header file for each module class provides more detailed parameter by parameter documentation.  See the links in [Module Types](#module-types).
 
 ## ControllerModule
-It is unusual to need to write a new ControllerModule.   Implementers of the ControllerModule must implement several methods that provide top level control of the fuzzing loop.   Consider implementing a subclass of IterativeController if possible, and at the very least use IterativeController as an example, as there are a number of functions that the Controller needs to perform within its methods.  The helper class [include/common/OutputScheduler.hpp](include/common/OutputScheduler.hpp) should be used to facilitate scheduling output modules at their desired rate.
+It is unusual to need to write a new ControllerModule.   Implementers of the ControllerModule must implement several methods that provide top level control of the fuzzing loop.   Consider implementing a subclass of IterativeController if possible, and at the very least use IterativeController as an example, as there are a number of functions that the Controller needs to perform within its methods.  The helper class [vmf/src/framework/baseclasses/OutputScheduler.hpp](../vmf/src/framework/baseclasses/OutputScheduler.hpp) should be used to facilitate scheduling output modules at their desired rate.
 
 ### Run()
 The run method will be called once, when the fuzzer is started.  The ControllerModule is expected to continue running until the stop() method is called.
@@ -438,15 +440,15 @@ The run method is the meat of the OutputModule.  This is the method in which the
 A pair of methods, getDesiredScheduleType and getDesiredScheduleRate, indicate the scheduling method that should be used by the output module.  getDesiredScheduleType must specify the type of scheduling for the module, and getDesiredScheduleRate provides any parameters needed for that scheduling type.
 
 To implement getDesiredScheduleType, simply return one of the valid enumerated schedule type values:
--**CALL_EVERYTIME**: The module will run on every pass through the main fuzzing loop. This is the value returned by the default implementation of getDesiredScheduleType. 
--**CALL_ON_NUM_SECONDS**: The module will be called at a period of at least getDesiredScheduleRate() seconds from the prior call.  For eample, if getDesiredScheduleRate() returns 5, then the module will be called approximately every 5s.
--**CALL_ON_NUM_TEST_CASE_EXECUTIONS**: The module will be called when at least getDesiredScheduleRate() more test cases have been executes since the prior call.  For example, if getDesiredScheduleRate() returns 10000, then this module will be called when approximately another 10,000 test cases have executed.
--**CALL_ONLY_ON_SHUTDOWN**: The module will not run as part of the main fuzzing loop, and will instead only run on shutdown.  **Make sure to override the shutdown() method** with this scheduling type, as only the shutdown() method is called at shutdown.  The run() method will never be called with this scheduling type.
++ **CALL_EVERYTIME**: The module will run on every pass through the main fuzzing loop. This is the value returned by the default implementation of getDesiredScheduleType. 
++ **CALL_ON_NUM_SECONDS**: The module will be called at a period of at least getDesiredScheduleRate() seconds from the prior call.  For eample, if getDesiredScheduleRate() returns 5, then the module will be called approximately every 5s.
++ **CALL_ON_NUM_TEST_CASE_EXECUTIONS**: The module will be called when at least getDesiredScheduleRate() more test cases have been executes since the prior call.  For example, if getDesiredScheduleRate() returns 10000, then this module will be called when approximately another 10,000 test cases have executed.
++ **CALL_ONLY_ON_SHUTDOWN**: The module will not run as part of the main fuzzing loop, and will instead only run on shutdown.  **Make sure to override the shutdown() method** with this scheduling type, as only the shutdown() method is called at shutdown.  The run() method will never be called with this scheduling type.
 
 The getDesiredScheduleRate method must be implemented for CALL_ON_NUM_TEST_CASE_EXECUTIONS and CALL_ON_NUMSECONDS in order to specify the desired schedule rate.  This method simply returns an integer value, and the default implementation returns 0.
 
 ## StorageModule
-It is extremely unusual to need to write a new StorageModule.  The major reason to do this would be because an alternate data structure is needed in storage for efficiency reasons.  StorageModule requires a large number of methods to support all of the storage functions.  See [StorageModule.hpp](include/common/StorageModule.hpp) for documentation of the methods needed.
+It is extremely unusual to need to write a new StorageModule.  The major reason to do this would be because an alternate data structure is needed in storage for efficiency reasons.  StorageModule requires a large number of methods to support all of the storage functions.  See [StorageModule.hpp](../vmf/src/framework/baseclasses/StorageModule.hpp) for documentation of the methods needed.
 
 # Using Config
 
@@ -462,7 +464,7 @@ MyModule:
     MyParam3: 4
 ```
 
-Next, you need to update your module code to read in the configuration option.  This should go in the init method of your module, which will be passed a ConfigInterface object.  Simply call the appropriate getXXXParam method on the ConfigInterface object.  See [ConfigInterface.hpp](include/common/ConfigInterface.hpp) for a complete list of supported data types.
+Next, you need to update your module code to read in the configuration option.  This should go in the init method of your module, which will be passed a ConfigInterface object.  Simply call the appropriate getXXXParam method on the ConfigInterface object.  See [ConfigInterface.hpp](../vmf/src/framework/app/ConfigInterface.hpp) for a complete list of supported data types.
 
 You must always include the call to getModuleName() which will identify your module instance for the purposes of
 retrieving it's configuration information.

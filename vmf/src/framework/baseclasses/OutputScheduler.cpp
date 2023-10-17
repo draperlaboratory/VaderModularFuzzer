@@ -35,6 +35,7 @@ using namespace vader;
 OutputScheduler::OutputScheduler()
 {
     initialized = false;
+    modulesSet = false;
 }
 
 OutputScheduler::~OutputScheduler()
@@ -53,38 +54,54 @@ OutputScheduler::~OutputScheduler()
 */
 void OutputScheduler::setOutputModules(std::vector<OutputModule*> outputs)
 {
-    if(!initialized)
+    if(!modulesSet)
     {
         for(OutputModule* m: outputs)
         {
             OutputModuleData data;
             data.theModule = m;
             data.lastRanTime = time(0);
-            data.type = m->getDesiredScheduleType();
-            data.rate = m->getDesiredScheduleRate();
-            data.testCaseCounter = data.rate;
-
-            //A schedule rate must be specified for CALL_ON_NUM_X scheduling types
-            if((OutputModule::CALL_ON_NUM_SECONDS == data.type)||
-                (OutputModule::CALL_ON_NUM_TEST_CASE_EXECUTIONS == data.type))
-            {
-                if(data.rate<=0)
-                {
-                    LOG_ERROR << m->getModuleName() << " has invalid desired schedule parameters";
-                    throw RuntimeException("getDesiredScheduleRate must return non-zero value", 
-                        RuntimeException::CONFIGURATION_ERROR);
-                }
-            }
 
             moduleData.push_back(data);
         }
-        initialized = true;
+        modulesSet = true;
     }
     else
     {
-        throw RuntimeException("Attempt to initialize OutputScheduler more than once", 
+        throw RuntimeException("Attempt to set modules in OutputScheduler more than once", 
             RuntimeException::USAGE_ERROR);
     }
+}
+
+/**
+ * @brief Helper method to complete output scheduler initialization.  This occurs
+ * the first time runOutputModules is called, because we want to delay calling the
+ * module schedule rate methods until after all modules are fully initialized.  Otherwise,
+ * depending on the initialization order, modules might not have had time to read their
+ * configuration parameters first.
+ */
+void OutputScheduler::loadModuleScheduleRates()
+{
+    for(OutputModuleData& data: moduleData)
+    {
+        OutputModule* m = data.theModule;
+        data.type = m->getDesiredScheduleType();
+        data.rate = m->getDesiredScheduleRate();
+        data.testCaseCounter = data.rate;
+
+        //A schedule rate must be specified for CALL_ON_NUM_X scheduling types
+        if((OutputModule::CALL_ON_NUM_SECONDS == data.type)||
+            (OutputModule::CALL_ON_NUM_TEST_CASE_EXECUTIONS == data.type))
+        {
+            if(data.rate<=0)
+            {
+                LOG_ERROR << m->getModuleName() << " has invalid desired schedule parameters";
+                throw RuntimeException("getDesiredScheduleRate must return non-zero value", 
+                    RuntimeException::CONFIGURATION_ERROR);
+            }
+        }
+    }
+    initialized = true;
 }
 
 /**
@@ -99,6 +116,18 @@ void OutputScheduler::setOutputModules(std::vector<OutputModule*> outputs)
 */
 void OutputScheduler::runOutputModules(int newTestCaseCount, StorageModule& storage)
 {
+
+    if(!modulesSet)
+    {
+        throw RuntimeException("Attempt to run OutputScheduler without setting modules", 
+            RuntimeException::USAGE_ERROR);
+    }
+    if(!initialized)
+    {
+        loadModuleScheduleRates();
+    }
+
+    //Now run the modules
     for(unsigned int i=0; i<moduleData.size(); i++)
     {
         OutputModuleData& data = moduleData[i];

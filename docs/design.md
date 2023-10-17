@@ -1,15 +1,15 @@
 # Top Level Design
 At the highest level, VMF is a configuration driven framework that loads a number of VMF "modules".  These modules communicate by reading and writing data to a StorageModule.  The ControllerModule is in charge of the control flow of the fuzzer.
 
-***Note: VMF 2.4 does not yet contain a user interface component***
+***Note: The only VMF user interface component that is provided today is the Distributed Fuzzing UI***
 
-![System Diagram](/docs/img/VaderOverview_3.png)
+![System Diagram](./img/VaderOverview_3.png)
 
 ## VMF Planned Extension Points
 The most common planned extension points for VMF are adding formatter modules (to help prepare a test case to be accepted by a SUT), executor and feedback modules (which run a test case on the SUT and evaluate the results, respectively) and mutator modules, which are helper modules for input generation.
 
 
-![Design Diagram](/docs/img/FinalDesign_2.png)
+![Design Diagram](./img/FinalDesign_2.png)
 
 | Module Type           | Typical Usage                                     | 
 | --------------------- | ------------------------------------------------- |
@@ -34,7 +34,7 @@ The initial implementations of StorageModule and Iterator are SimpleStorage and 
 
 The IterativeController is organized into a series of functions that break up the phases of fuzzing, such that someone could sub-class the controller to modify one of these behaviors.  The Controller will instantiate each of the major module types, based on the information in the configuration file.
 
-![Design Diagram](/docs/img/FinalDesign_3.png)
+![Design Diagram](./img/FinalDesign_3.png)
 
 ## Input Generation Modules
 The following sequence diagram depicts how the Controller interacts with InputGeneration modules.  The InputGenerator may use Mutator submodules for mutation-based input generation (e.g. the provided GeneticAlgorithmInputGenerator that is used in the default VMF configuration).
@@ -57,7 +57,7 @@ newEntry->setValue(fakeVariableKey,val);           //values can be set on each s
 int size = 128; //size in bytes
 char* buff = newEntry->allocateBuffer(testCaseKey, size);  //char* is used to set the data values
 ```
-![Design Diagram](/docs/img/FinalDesign_4.png)
+![Design Diagram](./img/FinalDesign_4.png)
 
 ## Initialization Modules
 Initialization modules run exactly once, when the fuzzer is first started up.  A common usage of Initialization modules is for creating an initial set of test cases (i.e. seed generation).  Initialization  modules that create new test cases would have the same kind of interaction with storage as a Mutator module.
@@ -102,7 +102,7 @@ crashedTag = registry.registerTag("CRASHED", StorageRegistry::WRITE_ONLY);
         storage.tagEntry(nextEntry, crashedTag);
     }
 ```
-![Design Diagram](/docs/img/FinalDesign_5.png)
+![Design Diagram](./img/FinalDesign_5.png)
 
 ## Output Modules
 Output modules are the least constrained in terms of their behavior.  They may interact with storage freely, though it is not expected that they would add additional test cases (as this is an input generation function).  These modules can provide output to the human operator or perform corpus management functions.
@@ -120,12 +120,12 @@ while(newCrashedEntries->hasNext())
 }
 ```
 
-![Design Diagram](/docs/img/FinalDesign_6.png)
+![Design Diagram](./img/FinalDesign_6.png)
 
 ## Configuration Files
 VMF uses a configuration file to determine which modules will execute, but the control-flow aspect of their execution is managed entirely by the controller module.  A brief example is provided below.  See [writing_new_modules.md](/docs/writing_new_modules.md) for more information on the structure of the VMF configuration files.
 
-![Design Diagram](/docs/img/FinalDesign_7.png)
+![Design Diagram](./img/FinalDesign_7.png)
 
 ## Storage Modules
 A more detailed explanation of the Storage Module is provided below.  This component can be updated in the future if a different data structure would better support optimized data retrieval for future fuzzing functions.  Conceptually storage is able to maintain a few things:
@@ -136,13 +136,13 @@ A more detailed explanation of the Storage Module is provided below.  This compo
 
 Importantly the exact contents of the storage entry is configurable at initialize by the set of modules that VMF has been configured to use.  Each module has a registration step that informs storage of it's data needs.  See [writing_new_modules.md](/docs/writing_new_modules.md) for more information on configuring storage.
 
-![Design Diagram](/docs/img/FinalDesign_8.png)
+![Design Diagram](./img/FinalDesign_8.png)
 
 ## Application Initialization
 A number of steps are performed automatically by VMF in order to initialize the system.  Detailed sequence diagrams are provided below.
 
 The VaderApplication class automatically loads any modules plugins, loads and initializes each of the modules in the configuration file, and retrieves the configured StorageModule and ControllerModules.
-![Design Diagram](/docs/img/FinalDesign_9.png)
+![Design Diagram](./img/FinalDesign_9.png)
 
 At initialization  time, the Controller Module retrieves any configured submodules.  At runtime, the Controller Module calls upon these submodules to perform each of the fuzzing steps.
-![Design Diagram](/docs/img/FinalDesign_10.png)
+![Design Diagram](./img/FinalDesign_10.png)

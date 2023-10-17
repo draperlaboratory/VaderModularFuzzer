@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The VMF configuration file is a YAML file. This YAML file provides a structure to the configuration of the fuzzer and its modules.
+The VMF configuration file is contained in one or more YAML file. These YAML files provides a structure to the configuration of the fuzzer and its modules.  Each top level YAML section (i.e. `vmfFramework`) must be contained within a single file, but otherwise the configuration parameters may be split into multiple files, as desired.  Note that all of the examples provided with VMF put the System Under Test (SUT) specific parameters into one file, and the other configuration sections in a second file.  See [getting_started.md](/docs/getting_started.md) for more information on our example configuration files and their organization.
 
 ## Top level sections
 
@@ -11,8 +11,27 @@ A VMF configuration file consists of the following top-level sections:
 * [`vmfFramework`](#vmfFramework) - provides VMF framework configuration
 * [`vmfModules`](#vmfModules) - provides module configuration information
 * [`vmfDistributed`](#vmfDistributed) - provides distributed fuzzing configuration
+* Any module specific parameters - these are listed in a section named by the module id or classname (see note below).
 
-The keys for specific core modules are documented in [Core modules README](/docs/coremodules/core_modules_readme.md) and [Core modules configuration](/docs/coremodules/core_modules_configuration.md).
+The parameters for specific core modules are documented in [Core modules README](/docs/coremodules/core_modules_readme.md) and [Core modules configuration](/docs/coremodules/core_modules_configuration.md).  
+
+Note that configuration options for individual modules are listed under the id of the module, if one was specified, or the classname is there was no id.  The storage and controller module always have the ids `storage` and `controller` respectively, so any configuration options are listed under those ids.
+
+For example:
+```yaml
+#Config options for the StatsOutput module (this is the classname of the module, and no id was specified)
+StatsOutput: 
+  sendToServer: true
+
+#Config options for the controller module (even though the classname is IterativeController)
+controller: 
+  corpusUpdateRateMins: 30
+  corpusInitialUpdateMins: 10
+
+#Config options for the storage module (even though the classname is SimpleStorage)
+storage:
+  sortByKey: FITNESS
+```
 
 ## General guidelines
 
@@ -38,7 +57,7 @@ Value types specific to VMF:
 
 ## <a id="vmfVariables"></a>Section: `vmfVariables`
 
-This section provides a space to define YAML anchors that can be referenced in other sections. Configuration files can use YAML anchors and aliases to avoid repeating the same information multiple times.
+This section provides a space to define YAML anchors that can be referenced in other sections. Configuration files can use YAML anchors and aliases to avoid repeating the same information multiple times.  This section may be omitted entirely if no YAML anchors or aliases are used in your VMF configuration.
 
 * Anchors are specified by `&` before the anchor name
 * Aliases use `*` to reference an anchor name
@@ -116,16 +135,6 @@ Default value: empty
 
 Usage: The classname of the StorageModule that VMF should use
 
-### `vmfModules.storage.id`
-
-Value type: <string>
-
-Status: Optional
-
-Default value: empty
-
-Usage: An optional alternate id for the StorageModule.
-
 ### `vmfModules.controller.className`
 
 Value type: <string>
@@ -156,16 +165,6 @@ vmfModules:
       - id: MainExecutor #optional id 
         className: AFLForkserverExecutor
 ```
-
-### `vmfModules.controller.id`
-
-Value type: <string>
-
-Status: Optional
-
-Default value: empty
-
-Usage: An optional alternate id for the top-level ControllerModule.
 
 ### `vmfModules.<className or ID>.children`
 

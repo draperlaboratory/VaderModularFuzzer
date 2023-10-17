@@ -48,7 +48,7 @@ set(CMAKE_CXX_COMPILER g++)
 #https://stackoverflow.com/questions/61278099/using-stdthread-in-shared-library-causes-sigsegv
 set(CMAKE_CXX_FLAGS -Wl,--no-as-needed)
 
-project(Vader VERSION 2.0
+project(Vader VERSION 3.1.0
     LANGUAGES CXX)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/vmf/cmake)
@@ -74,7 +74,7 @@ target_include_directories(vader PRIVATE
   ${PROJECT_SOURCE_DIR}/vmf/src/framework/baseclasses
   ${PROJECT_SOURCE_DIR}/vmf/src/framework/app
   ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/formatter
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/initilization
+  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/initialization
   ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/inputgeneration
   ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/mutator
   ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/output
@@ -133,9 +133,15 @@ INSTALL(DIRECTORY test DESTINATION
   PATTERN "*.cpp" EXCLUDE
   PATTERN "*.txt" EXCLUDE
   PATTERN "haystack" EXCLUDE
+  PATTERN "setup_jerryscript" EXCLUDE
   PATTERN "test_only" EXCLUDE
   PATTERN "test_only/*" EXCLUDE
   PATTERN "unittest" EXCLUDE
+)
+
+#install data directory
+INSTALL(DIRECTORY data DESTINATION 
+  DESTINATION ${CMAKE_INSTALL_PREFIX}
 )
 
 #install haystack example executable

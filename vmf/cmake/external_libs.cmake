@@ -39,6 +39,7 @@ include(vmf_utils)
 # We use the Debian version to distinguish which prebuilt-externals we use.
 # Ubuntu 18 has Debian version 'buster'
 # Ubuntu 20 has Debian version 'bullseye'
+# Ubuntu 22 has Debian version 'bookworm'
 #
 get_debian_version(DEBIAN_VERSION)
 
@@ -125,6 +126,10 @@ set_property(TARGET gtest_main APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${E
 #  INTERFACE
 #  ${EXTERNAL_INCLUDEDIR}
 #)
+
+set(PLOG_DIR ${EXTERNAL_INCLUDEDIR})
+add_library(plog INTERFACE)
+set_property(TARGET plog APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${PLOG_DIR})
 
 set(RESTCLIENT_LIB ${EXTERNAL_LIBDIR}/librestclient-cpp.so)
 add_library(restclient SHARED IMPORTED)

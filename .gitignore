@@ -8,6 +8,7 @@
 */VaderWin/.vs/*
 out/
 output/
+!vmf/src/coremodules/*/output/
 output_test/
 x64/
 classes/

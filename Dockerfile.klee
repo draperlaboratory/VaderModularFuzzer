@@ -14,7 +14,8 @@ RUN lsb_release -a | grep -q "18.04" && ( \
       echo "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-12 main" >> /etc/apt/sources.list && \
       curl -L https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - \
     ) || \
-    (lsb_release -a | grep -q "20.04") || (echo "Ubuntu 18.04 or 20.04 required!!!" >&2; exit 1)
+    (lsb_release -a | grep -q "20.04") || \
+    (lsb_release -a | grep -q "22.04") || (echo "Ubuntu 18.04, 20.04, or 22.04 required!!!" >&2; exit 1)
 
 RUN  apt-get update \
      && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --fix-missing \

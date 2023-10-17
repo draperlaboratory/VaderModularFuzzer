@@ -168,7 +168,10 @@ void KleeInitialization::run(StorageModule& storage)
     }
 
     // TURN BINARY FILES INTO TEST CASES
-    VaderUtil::createNewTestCasesFromDir(storage, testCaseKey, testCaseInputDir);
+    int numCreated = VaderUtil::createNewTestCasesFromDir(storage, testCaseKey, testCaseInputDir);
+    if(numCreated<=0){
+        LOG_WARNING << "Klee was unable to generate any new test cases";
+    }
 
     return;
 }

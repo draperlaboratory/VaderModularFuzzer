@@ -244,42 +244,56 @@ void IterativeController::calibrate(StorageModule& storage)
     {
         //Use the larger of 1MB or 100 times the largest seed
         std::unique_ptr<Iterator> storageIterator = storage.getNewEntries();
-        int maxSize = 0;
-        while(storageIterator->hasNext())
+        if(0==storageIterator->getSize())
         {
-            StorageEntry* nextEntry = storageIterator->getNext();
-            int size = nextEntry->getBufferSize(testCaseKey);
-            if(size > maxSize)
+            LOG_ERROR << "There are no seed test cases in storage to use in sizing the formatter buffer.";
+        }
+        else
+        {
+            int maxSize = 0;
+            while(storageIterator->hasNext())
             {
-                maxSize = size;
+                StorageEntry* nextEntry = storageIterator->getNext();
+                int size = nextEntry->getBufferSize(testCaseKey);
+                if(size > maxSize)
+                {
+                    maxSize = size;
+                }
             }
+            LOG_INFO << "Largest seed has size: " << maxSize;
+            maxSize = maxSize * 100;
+            if(FORMATTER_BUFF_SZ > maxSize)
+            {
+                maxSize = FORMATTER_BUFF_SZ;
+            }
+            LOG_INFO << "Formatter buffer has size: " << maxSize;
+            formatterBuffer = (char*)malloc(maxSize);
         }
-        LOG_INFO << "Largest seed has size: " << maxSize;
-        maxSize = maxSize * 100;
-        if(FORMATTER_BUFF_SZ > maxSize)
-        {
-            maxSize = FORMATTER_BUFF_SZ;
-        }
-        LOG_INFO << "Formatter buffer has size: " << maxSize;
-        formatterBuffer = (char*)malloc(maxSize);
     }
 
     //Now run each test case
     std::unique_ptr<Iterator> storageIterator = storage.getNewEntries();
-    while(storageIterator->hasNext())
+    if(storageIterator->getSize()>0)
     {
-        StorageEntry* nextEntry = storageIterator->getNext();
-        int size = nextEntry->getBufferSize(testCaseKey);
-        char* buffer = nextEntry->getBufferPointer(testCaseKey);
-        if(useFormatter)
+        while(storageIterator->hasNext())
         {
-            size = formatter->modifyTestCase(buffer, size, formatterBuffer, FORMATTER_BUFF_SZ);
-            buffer = formatterBuffer;
-        }
-        executor->runCalibrationCase(buffer,size);
+            StorageEntry* nextEntry = storageIterator->getNext();
+            int size = nextEntry->getBufferSize(testCaseKey);
+            char* buffer = nextEntry->getBufferPointer(testCaseKey);
+            if(useFormatter)
+            {
+                size = formatter->modifyTestCase(buffer, size, formatterBuffer, FORMATTER_BUFF_SZ);
+                buffer = formatterBuffer;
+            }
+            executor->runCalibrationCase(buffer,size);
 
+        }
+        executor->completeCalibration();
     }
-    executor->completeCalibration();
+    else
+    {
+        LOG_ERROR << "There are no seed test cases in storage to callibrate the executor with.";
+    }
 }
 
 

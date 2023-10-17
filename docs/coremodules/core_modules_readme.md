@@ -7,6 +7,10 @@ This document provides more detailed documentation for the VMF Core Modules.
 * [AFLForkserverExecutor](#aflforkserverexecutor)
 * [AFLFavoredFeedback](#aflfavoredfeedback)
 * [KleeInitialiation](#kleeinitialization)
+* [Gramatron](#gramatron)
+    + [Grammars](#grammars)
+    + [Gramatron Modules](#gramatron-modules)
+    + [Gramatron Usage](#gramatron-usage)
 * [CorpusMinimization](#corpusminimization)
 * [MOPT](#mopt)
 * [StatsOutput](#statsoutput)
@@ -29,6 +33,7 @@ The following core modules are provided along with VMF.  A brief summary of each
 |DirectoryBasedSeedGen|Initialization|Creates initial test cases based on contents of a directory|
 |StringsInitialization|Initialization|Uses the strings utility to create initial test cases|
 |KleeInitialization|Initialization|Uses Klee to create initial test cases|
+|GrammarBasedSeedGen|Initialization|Initialization module needed when using the Gramatron mutators|
 |GeneticAlgorithmInputGenerator|InputGenerator|Manages mutators by selecting a base test and which mutators to mutate it with|
 |MOPTInputGenerator|InputGenerator|Uses an optimized mutation algorithm to select mutators based on their prior performance**|
 |AFLFlipBitMutator|Mutator|Creates new test cases by flipping a random bit|
@@ -42,6 +47,10 @@ The following core modules are provided along with VMF.  A brief summary of each
 |AFLDeleteMutator|Mutator|Creates new test cases by deleting a random chunk|
 |AFLCloneMutator|Mutator|Creates new test cases by copying a random chunk|
 |AFLSpliceMutator|Mutator|Creates new test cases by splicing two test cases together|
+|GramatronGenerateMutator|Mutator|Generates new test cases from the configured grammar|
+|GramatronRandomMutator|Mutator|Generates test cases by regenerating from the grammar starting at a random location|
+|GramatronRecursiveMutator|Mutator|Generates test cases by expanding recursive features in a test case|
+|GramatronSpliceMutator|Mutator|Generates test cases by splicing two together in a grammar aware way|
 |RadamsaMutator|Mutator|Performs Randamsa style mutation of test case|
 |CRC32Formatter|Formatter|Adds a CRC32 checksum to a test case|
 |AFLExecutor|Executor|Executes SUT using AFL++ forkserver|
@@ -54,14 +63,19 @@ The following core modules are provided along with VMF.  A brief summary of each
 ### Storage Usage
 These are the core modules that read and write data in storage.  Note that ExecutorModules and StorageModules do not use storage (the StorageModule is storage, so it stores all of the fields and tags, but does not rely on any specific content being there).
 
-|Module Name|TEST_CASE (buffer)|TEST_CASE_FORMATTED (buffer)|FITNESS (float)|MUTATOR_ID (int)|CRASHED (tag)|HUNG (tag)|RAN_SUCCESSFULLY (tag)| FAVORED (tag) |
-|-----|-----|-----|-----|-----|----|----|----|----|
-|AFLFeedback|||Writes||Writes|Writes|Writes
+|Module Name|TEST_CASE (buffer)|TEST_CASE_FORMATTED (buffer)|FITNESS (float)|MUTATOR_ID (int)|CRASHED (tag)|HUNG (tag)|RAN_SUCCESSFULLY (tag)| FAVORED (tag) | TEST_CASE_AUT (buffer)|
+|-----|-----|-----|-----|-----|----|----|----|----|----|
+|AFLFeedback|||Writes||Writes|Writes|Writes|
 |AFLFavoredFeedback|||Writes||Writes|Writes|Writes|Reads/Writes|
 |AFL***Mutator|Writes|
 |CorpusMinimization|Reads|Reads|||||Reads
 |DirectoryBasedSeedGen|Writes
 |GeneticAlgorithmInputGenerator|||**||||Reads
+|GrammarBasedSeedGen|Writes||||||||Writes|
+|GramatronGenerateMutator|Writes||||||||Writes|
+|GramatronRandomMutator|Writes||||||||Reads/Writes|
+|GramatronRecursiveMutator|Writes||||||||Reads/Writes|
+|GramatronSpliceMutator|Writes||||||Reads||Reads/Writes|
 |IterativeController|Reads|Writes|
 |MOPTInputGenerator|||**|Reads/Writes|
 |RadamsaMutator|Reads/Writes|
@@ -76,7 +90,7 @@ These are the core modules that read and write data in storage.  Note that Execu
 ### Metadata Usage
 These are the core modules that read and write metadata in storage.
 |Module Name|TOTAL_TEST_CASES (int)|TOTAL_CRASHED_CASES (int)|TOTAL_HUNG_CASES (int)|TOTAL_BYTES_COVERED (int)|MAP_SIZE (int)
-| --------- | --- |------ |------| ----- | ---- |
+| --------- | --- |------ |------| ----- | ---- | 
 |AFLFeedback||Writes|Writes|Writes|Writes|
 |AFLFavoredFeedback||Writes|Writes|Writes|Writes|
 |IterativeController|Writes|
@@ -98,7 +112,7 @@ AFLFavoredFeedback supports adjusting the relative weights of the components use
 
 AFLFeedback and AFLFavoredFeedback compute fitness as a function of code coverage, execution speed, and test case size.  AFLFavoredFeeback adds an additional factor, "favored", that increases the fitness of the test cases that reach unique areas of the code.  By increasing the relative weights a particular value, you can alter the fitness computation to more heavily weight faster test cases (speedWeight), smaller test cases (sizeWeight), or favored test cases (favoredWeight).  
 
-Note: SizeWeight and speedWeight are both relative weights for which any value above 0.0 will apply additional weight to size or speed, respectively; setting either of these weights to 0 will remove the component from the computation entirely.  FavoredWeight is a simple multiplier for the whole fitness value for favored test cases, so only values above 1.0 will increase the weight of favored test cases (values of 1.0 and below will disabled the favored computation entirely, though it is preferable to just use the AFLFeedback module instead if favored computations are not desired).
+Note: SizeWeight and speedWeight are both relative weights for which any value above 0.0 will apply additional weight to size or speed, respectively; setting either of these weights to 0 will remove the component from the computation entirely and negative values are not allowed. FavoredWeight is a simple multiplier for the whole fitness value for favored test cases, so only values above 1.0 will increase the weight of favored test cases (values of 1.0 and below will disabled the favored computation entirely, though it is preferable to just use the AFLFeedback module instead if favored computations are not desired).
 
 This an area we are still experimenting with in VMF, but we have found reasonable values for sizeWeight and speedWeight to be in the range of 0.0-10.0.  What works best on one SUT may not work well for another, as they vary in how much they are effected by test case size or speed (some SUTS are significantly slower with certain inputs, others are more consistent).  Note the setting these too high will result in a decrease in code coverage by the fuzzer, because the coverage weight remains constant.  Setting them all to 0 will result in a fuzzer that only computes fitness based on code coverage.
 
@@ -108,8 +122,8 @@ Note that the fitness algorithm that uses custom weights is different than the f
 AFLFavoredFeedback:
   useCustomWeights: false    #****First change this to true to enable custom weights***
   favoredWeight: 5.0         #*** Now you may adjust any of the other weights.  favoredWeight should be >1.0 ***
-  sizeWeight: 1.0            #   sizeWeight should be 0.0-10.0 (0.0 will remove this factor)
-  speedWeight: 5.0           #   speedWeight should be 0.0-10.0 (0.0 will remove this factor)
+  sizeWeight: 1.0            #   sizeWeight should be 0.0-10.0 (0.0 will remove this factor. Must be nonnegative.)
+  speedWeight: 5.0           #   speedWeight should be 0.0-10.0 (0.0 will remove this factor. Must be nonnegative.)
 ```
 
 # KleeInitialization
@@ -136,6 +150,75 @@ cd ../..
 ```
 
 Additional initial test cases will be produced by the Klee Initialization module.
+
+# Gramatron
+
+Gramatron was the original research of Privast Shrivastava and Mathias Payer. Their work can be seen at the following references.
+* [`Gramatron Reseach Paper`](https://dl.acm.org/doi/pdf/10.1145/3460319.3464814)
+* [`Original Gramatron Source Repository`](https://github.com/HexHive/Gramatron)
+
+These modules have taken their work and fitted it to be a set of VMF modules.
+
+Currently, the user-defined grammar checking python scripts implemented in their code base are not implemented as VMF modules. If developers are looking to define their own grammars, it is recommended to look there for the testing scripts to test periodically as the grammars are being defined.
+
+## Grammars
+
+There are three grammars which are released with these modules.  They can be found in the source code under [data/grammars](../../data/grammars)
+
+* mruby
+* php
+* js 
+
+## Gramatron Modules
+
+The following modules are provided:
+* [`GrammarBasedSeedGen`](#GrammarBasedSeedGen)
+* [`GramatronGenerateMutator`](#GramatronGenerateMutator)
+* [`GramatronRandomMutator`](#GramatronRandomMutator)
+* [`GramatronSpliceMutator`](#GramatronSpliceMutator)
+* [`GramatronRecursiveMutator`](#GramatronRecursiveMutator)
+
+### <a id="GrammarBasedSeedGen"></a>Initialization: `GrammarBasedSeedGen`
+
+This initialization module is required to use the Gramatron mutators.
+
+### <a id="GramatronGenerateMutator"></a>Mutator: `GramatronGenerateMutator`
+
+This mutator uses the pushdown automata singleton class which is instatiated from the grammar defined in [`GrammarBasedSeedGen`](#GrammarBasedSeedGen) to generate new test cases and add them into storage. This mutator should always be enabled to keep the fuzzer from getting stuck by not exploring some parts of the grammar.
+
+### <a id="GramatronRandomMutator"></a>Mutator: `GramatronRandomMutator`
+
+This mutator pulls interesting test cases from storage and picks a random place in the automata walk representation of the test case to regenerate the end of the walk from.
+
+### <a id="GramatronSpliceMutator"></a>Mutator: `GramatronSpliceMutator`
+
+This mutator picks two random interesting test cases and attempts to find appropriate splice points in each test case to append the front of one test case to the tail of the other to make a new interesting test case to put into storage.
+
+### <a id="GramatronRecursiveMutator"></a>Mutator: `GramatronRecursiveMutator`
+
+This mutator picks a random test case and attempts to find recursive features of the test case to expand out. If no recursive features are found, it will do a random walk mutation instead.
+
+## Gramatron Usage
+To use the Gramatron modules, configure VMF to use the GrammerBasedSeedGen modules and one or more of the GramatronMutators.
+
+There is no custom input generator module for Gramatron, just custom grammar-aware mutator modules which may be used by whichever input generator module is configured.
+
+The following fragment shows a common use case:
+
+```yaml
+  controller: 
+    className: IterativeController
+    children:
+      - className: GramatronBasedSeedGen
+      - className: MOPTInputGenerator
+      ...
+  MOPTInputGenerator:
+    children:
+      - className: GramatronRandomMutator
+      - className: GramatronSpliceMutator
+      - className: GramatronRecursiveMutator
+      - className: GramatronGenerateMutator
+```
 
 # CorpusMinimization
 The Corpus Minimization module periodically scans the testcase corpus and removes testcases that are not contributing to coverage. For each hit-count bit in the coverage bitmap, the testcase with the highest fitness is selected and the rest are culled.
@@ -255,13 +338,18 @@ The StatsOutput module must have its `sendToServer` parameter set to true for di
 See [StatsOutput](#statsoutput) for more information on this setting.
 
 ### Controller Settings
-There are two configuration options built into the base ControllerModule class that support distributed fuzzing.  `corpusUpdateRateMins` sets a minimum rate for the controller to retrieve new corpus updates from the server.  The default value is to retrieve every 5min (and the minimum value is 1min, we recommend not going below 5min unless you are using a small number of VMFs).
+There are three configuration options built into the base ControllerModule class that support distributed fuzzing. 
+ All three configure how and when the controller retrieves corpus updates from the server (this means pulling in test cases that were generated by other VMF fuzzers in the cluster).
+ 
+ `corpusInitialUpdateMins` sets the minimum number of minutes that must pass before the controller will perform the first corpus update. `corpusUpdateRateMins` sets a minimum rate for the controller to retrieve subsequent corpus updates from the server.  The default value for both is 5min, which provides for effectively constant corpus exchange (the minimum values are 1min, we recommend not going below 5min unless you are using a very small number of VMFs).
 
 The `corpusUpdateTags` parameter controls which test case tags are retrieved by the controller.  The default value is ["RAN_SUCCESSFULLY"], which will retrieve only the test cases ran succesfully (i.e. didn't hang or crash).  This is the correct value if you are using VMF Core Modules for configuring your fuzzer.
 
-To set either parameter, set a value in the config section for the controller you are using.  For example, if you are using IterativeController:
+To set these parameters, set a value in the config section for the controller.  For example, if you are using IterativeController, and want the fuzzer to run for 3 hours before performing the first corpus update, and then do an update hourly after that, use the following settings:
 ```yaml
-  corpusUpdateRateMins: 60 #This would limit the rate to once an hour
+controller: #The controller module name is always "controller" and not a more class specific name
+  corpusInitialUpdateMins: 180 #The first corpus update should be 3 hours into fuzzing
+  corpusUpdateRateMins: 60 #Subsequence updates are once an hour
 ```
 
 
