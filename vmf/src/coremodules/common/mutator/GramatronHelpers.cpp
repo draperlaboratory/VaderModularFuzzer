@@ -45,15 +45,21 @@ Array* gen_input(PDA *pda_s, Array* input, int curr_state) {
         state_ptr = pda_s->state_ptr() + curr_state;
 
         // Get a random trigger based on the number of triggers/transition functions out of the automata current state
-        randval = rand() % (state_ptr->trigger_len);
-        trigger_ptr = (state_ptr->ptr) + randval;
+        // prevents division by zero errors from malformed grammars
+        if(state_ptr->trigger_len) {
+            randval = rand() % (state_ptr->trigger_len);
+            trigger_ptr = (state_ptr->ptr) + randval;
 
-        // Insert into the dynamic array (essentially the PDA walk)
-        insertArray(input, curr_state, trigger_ptr->term, trigger_ptr->term_len, randval);
+            // Insert into the dynamic array (essentially the PDA walk)
+            insertArray(input, curr_state, trigger_ptr->term, trigger_ptr->term_len, randval);
 
-        //update current state to the destination automata state of the chosen transition function
-        curr_state = trigger_ptr->dest;
-        offset += 1;
+            //update current state to the destination automata state of the chosen transition function
+            curr_state = trigger_ptr->dest;
+            offset += 1;
+        } else {
+            LOG_ERROR << "Grammar contains a non-final automata state which has no transition triggers ( State: " << curr_state << " )";
+            break;
+        }
     }
 
     //return PDA representation (pointer to first PDA state of states and transition functions traversed)
