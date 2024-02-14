@@ -316,6 +316,10 @@ ServerCorpusInitialization:
 ## ServerCorpusOutput
 The ServerCorpusOutput modules sends new interesting test cases to the server.  ***This module has to be present for a VMF Fuzzer to contribute test cases to the common corpus***.  This module has no configuration options.
 
+The `serverDelayTimeinSecs` parameter is used to control the minimum time that a VMF will wait between sending new test cases to the server.  The default value is 30s.
+
+The `serverDelayOverrideCount` parameter can be used to force a VMF to send data sooner than the `serverDelayTimeinSecs` parameter when a large number of test cases have accumulated (i.e. if the value is set to 500, then VMF will send data as soon as it has 500 test cases even if hasn't been 30s since it last sent data).  This setting is disabled by default, but is useful if the size of the test case zip file is a problem for the server (particular in the initial phases of fuzzing, when there are a lot of findings).
+
 ## ServerCorpusMinOutput 
 The ServerCorpusMinOutput module is used to perform server based corpus minimization.  This module is intended to be used with the RunOnceController.  It is not currently implemented to support periodic minimization.   This module requires a submodule that performs the actual minimization algorithm.  Currently VMF Core Modules includes only one appropriate submodule, [CorpusMinimization](#corpusminimization).  CorpusMinimization must be configured as follows to support ServerCorpusMinOutput.  This allows ServerCorpusMinimization to control when CorpusMinimization runs.
 

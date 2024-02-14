@@ -45,6 +45,15 @@ public class RegistrationMsg
         this.taskingComplete  = 0;
     }
     
+    public RegistrationMsg(String name, String host, int pid)
+    {
+        this.pid              = pid;
+        this.uid              = 0;
+        this.host             = host;
+        this.name             = name;
+        this.taskingComplete  = 0;
+    }
+    
 	public int getPid() 
 	{
 		return pid;

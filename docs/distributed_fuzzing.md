@@ -48,7 +48,7 @@ Now you will need to start up your VMF Fuzzers.  You may run as many VMF Fuzzers
 When first configuring the system, we recommend starting with a single VMF in order to first resolve any configuration errors.
 
 ## Configuring VMF Fuzzers
-Each VMF fuzzer must be configured to connect to CDMS.  A small configuration file contains the connection information needed.  VMF includes a sample configuration in [test/config/serverconfig.yaml](../test/config/serverconfig.yaml).
+Each VMF fuzzer must be configured to connect to CDMS.  A small configuration file contains the connection information needed.  VMF includes two sample configurations: [test/config/serverconfig.yaml](../test/config/serverconfig.yaml), which is appropriate for smaller distributed fuzzing setups, and [test/config/largeserverconfig.yaml](../test/config/largeserverconfig.yaml), which is appropriate for larger fuzzing setups.
 
 The only required parameter is the serverURL, which is the URL the VMF fuzzer should use in connecting to CDMS.  This configuration file should contain any `vmfDistributed` or `vmfFramework` parameters.  All other vmf parameters, such as the module to use, will be uploaded to CDMS using its user interface.  
 
@@ -62,6 +62,31 @@ vmfFramework:
 ```
 
 See [docs/configuration.md](configuration.md) for more information on each of the optional configuration values.
+
+### Tuning for Large Distributed Applications
+
+If you are configuring a large distributed fuzzing setup, you will likely need to set a few additional parameters.
+
+First, there are a number of parameters in your Tomcat configuration that may need to be adjusted.  
+- *maxThreads*: This variable is in the tomcat installation directory, conf/server.xml.  It specifies the maximum number of threads Tomcat can use.
+- *heap size*: If you are seeing out of memory errors, the heap size for the Java Virtual Machine (JVM) that Tomcat is running in will need to be increased.
+   - If you installed Tomcat as a service, then update the CATALINA_OPTS environment variable in `tomcat.service` within `/etc/systemd/system/`.
+   - If you installed Tomcat as a standalone executable, then in the Tomcat installation directory, create a bin/setenv.sh script, and add the following parameter:  
+      ```bash
+      export CATALINA_OPTS=-Xms1024m -Xmx2048m;
+      ```
+   - In either case, increase the memory allocation until the heap errors resolve.  You may need a heap that is 2GB or even 4GB.
+      - The first parameter -Xms is the intial heap size (1024MB in this case)
+      - The second parameter -Xmx is the maximum heap size (2048MB in this case)
+   - Tomcat will need to be restarted for the increased heap size to take effect.
+
+Secondly, there are a number of VMF configuration parameters that you may wish to adjust.
+
+- *vmfDistributed.taskingInitialRandomDelayMax*: this is disabled (-1) by default, but for large applications should be enabled (the recommended value in our `largeserverconfig.yaml` is 60000 milliseconds)
+- *ServerCorpusOutput.serverDelayTimeinSecs* - the default value is 30s.  This parameter controls the minimum time that a VMF will wait between sending new test cases to the server.
+- *ServerCorpusOutput.serverDelayOverrideCount* - this is disabled (-1) by default, but if enabled, this parameter can force the ServerCorpusOutput module to send data more quickly than the serverDelayTimeinSecs if a large number of test cases have accumulated already.  This is useful if the size of the test case zip file is a problem for the server (particular in the initial phases of fuzzing, when there are a lot of findings).
+
+See [docs/coremodules/core_modules_readme.md](coremodules/core_modules_readme.md) for more information on each of the optional configuration values for the distributed fuzzing modules.
 
 ## Starting VMF Fuzzers
 To start each VMF fuzzer, use the following command, providing a server configuration file that contains the correct `serverURL`.

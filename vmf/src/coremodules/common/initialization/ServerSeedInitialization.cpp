@@ -91,7 +91,7 @@ void ServerSeedInitialization::run(StorageModule& storage)
 
     //A new test case is created for each test case on the file list, with the
     //mutatorIdKey set to a special value so it is flagged as coming from the server
-    client->createNewTestCases(storage, json, testCaseKey, mutatorIdKey);
+    client->createNewTestCasesFromJson(storage, json, testCaseKey, mutatorIdKey);
     
 }
 

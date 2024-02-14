@@ -99,6 +99,12 @@ This will run VMF with a simple System Under Test (SUT) called haystack, providi
 
 To run VMF in distributed mode, you must first install the Campaign Data Management Server (CDMS).  See detailed directions in [docs/distributed_fuzzing.md](docs/distributed_fuzzing.md).  Once the server is installed, each individual VMF instance is started using the -d option, to indicated distributed mode.  A small configuration file is provided that contains the information needed to connect to the server.
 
+Note: The linux zip utility is also required for distributed mode.  If the command `which zip` does not return a path to the zip executable, you will need to first install zip on your system:
+```bash
+sudo apt install zip
+```
+To run VMF in distributed mode:
+
 ```bash
 cd vmf_install
 ./vader -d test/config/serverconfig.yaml

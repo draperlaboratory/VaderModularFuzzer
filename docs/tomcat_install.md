@@ -16,6 +16,7 @@
         + [Configuring CDMS Database and Storage Directory](#configuring-cdms-database-and-storage-directory)
         + [Configuring a Different Data Directory](#configuring-a-different-data-directory)
         + [Setting Up the CDMS Database](#setting-up-the-cdms-database)
+        + [Resetting the CDMS Database](#resetting-the-cdms-database)
 
 
 
@@ -259,3 +260,17 @@ Perform the following steps after deploying the .WAR file:
 3. If you are running tomcat as a service, make sure that the tomcat user has permissions to read and write to both the data directory and cdms.db.
 
 Restart tomcat, and go to http://127.0.0.1:8080/CDMS/, you should now see the CDMS UI.
+
+### Resetting the CDMS Database
+If you ever want to clear all of the contents of the CDMS database, or if you need to upgrade to a version of CDMS that requires a database schema change, use the following steps:
+
+1. Undeploy CDMS.war file.  See [Deploying the CDMS War File](#deploying-the-cdms-war-file) for directions on accessing the `Manager App`.  The 'undeploy' button is used to undeploy the war file.
+2. Clear the opt/cdms directory contents (or whatever location you are using for cdms data).  If you wish to retain this data, you may relocate it rather than clearing it.
+3. Put the emptycdms.db into opt/cdms (or your CMS data directory), and rename it to cdms.db
+4. Change the permissions on cdms.db to the tomcat user and group
+    ```bash
+    chown tomcat:tomcat cdmd.db
+    ```
+5. Redeploy CDMS.war using the `deploy` button in the `Manager App`
+
+

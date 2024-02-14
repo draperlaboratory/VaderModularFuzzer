@@ -30,10 +30,15 @@ package com.draper.services.corpus;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+
 import com.draper.application.AppConfig;
 import com.draper.services.c2.C2CommandEnum;
 import com.draper.services.c2.C2Msg;
@@ -124,6 +129,42 @@ public final class CorpusServices
             ScenarioConfigDir.mkdirs();
         } 
     }
+    
+    /****************************************************************************************
+     *  RetrieveUnfilteredCorpus 
+     *  TODO(VADER-819): Make this more efficient using Database SQL
+     *  This method will get all of the test cases in a cluster (with no filtering at all)
+     */
+    public synchronized String[] RetrieveUnfilteredCorpus(String clusterId) throws Exception
+    {  
+        
+        // Lookup the corpus for this Cluster
+        long timestamp = 0; //we don't filter by time in this call
+        ArrayList<TestCaseBean> testCases   = (ArrayList<TestCaseBean>)DatabaseService.Instance().getTestCases(Integer.parseInt(clusterId),timestamp);
+        ArrayList<String>       fileList    = new  ArrayList<String>();
+       
+        for( TestCaseBean testCase : testCases )
+        {                    
+            if( !testCase.getFilename().trim().isEmpty() )
+            {
+                fileList.add("cluster" + testCase.getClusterId() + "/scenario"  + testCase.getScenarioId() + "/" + testCase.getFilename() );
+            }
+            else
+            {
+                Logger.println(this, "EMPTY FileName In DB(" + testCase.getClusterId() + "," + testCase.getScenarioId() + "," + testCase.getId()+ ")" );
+            }
+        }
+        
+        String[] retArray = new String[fileList.size()];
+        int      index    = 0;
+        
+        for( String file : fileList )
+        {
+            retArray[index++] = file;
+        }
+        
+        return retArray;
+    }
       
     /****************************************************************************************
      *  RetrieveCorpus
@@ -152,22 +193,25 @@ public final class CorpusServices
                     
                     for( String token : tokens )
                     {
-                        if( testCase.getTags().contains(token) )
+                        if( testCase.getTags() != null )
                         {
-                            if( !testCase.getFilename().trim().isEmpty())
+                            if( testCase.getTags().contains(token) )                        
                             {
-                                fileList.add("cluster" + testCase.getClusterId() + "/scenario"  + testCase.getScenarioId() + "/" + testCase.getFilename() );     
-                            }
-                            else
-                            {
-                                Logger.println(this, "EMPTY FileName In DB(" + testCase.getClusterId() + "," + testCase.getScenarioId() + "," + testCase.getId()+ ")" );
+                                if( !testCase.getFilename().trim().isEmpty() )
+                                {
+                                    fileList.add("cluster" + testCase.getClusterId() + "/scenario"  + testCase.getScenarioId() + "/" + testCase.getFilename() );     
+                                }
+                                else
+                                {
+                                    Logger.println(this, "EMPTY FileName In DB(" + testCase.getClusterId() + "," + testCase.getScenarioId() + "," + testCase.getId()+ ")" );
+                                }
                             }
                         }
                     }
                 }
                 else
                 {
-                    if( !testCase.getFilename().trim().isEmpty())
+                    if( !testCase.getFilename().trim().isEmpty() )
                     {
                         fileList.add("cluster" + testCase.getClusterId() + "/scenario"  + testCase.getScenarioId() + "/" + testCase.getFilename() );
                     }
@@ -175,7 +219,6 @@ public final class CorpusServices
                     {
                         Logger.println(this, "EMPTY FileName In DB(" + testCase.getClusterId() + "," + testCase.getScenarioId() + "," + testCase.getId()+ ")" );
                     }
-
                 }
             }
         }
@@ -320,9 +363,69 @@ public final class CorpusServices
         // The Seeds are stored under the scenarioID 
         return fileList;
     }
-
+    
     /****************************************************************************************
-     * 
+     * Stores each of the test cases in the provided zip file.  Call notifyNewCorpus with the cluster id after this 
+     * to tell the VMF instances that new data is available.
+     */
+    public String  ExpandAndStoreTestCase(TestCaseMsg testcaseMsg) throws Exception
+    {
+        File             BaseDir = new File(this.getScenarioPath( Integer.parseInt(testcaseMsg.getClusterId()), Integer.parseInt(testcaseMsg.getScenarioId())));
+        String           zipFN   = BaseDir + File.separator + "V" + testcaseMsg.getVmfId()  + "_" +  System.currentTimeMillis() + ".zip";             
+        FileOutputStream fosZip  = new FileOutputStream(zipFN);
+
+        fosZip.write(testcaseMsg.getData());        
+        fosZip.close();
+  
+        // Read Zip File and Save the Test Cases in it
+        ZipFile zipFile = new ZipFile(zipFN);
+           
+        Enumeration<? extends ZipEntry> entries = zipFile.entries();
+            
+        while (entries.hasMoreElements())
+        {
+            ZipEntry entry = entries.nextElement();
+
+            if (!entry.isDirectory()) 
+            {
+                InputStream inputStream = zipFile.getInputStream(entry); 
+                {       
+                    int zipEntrySize = (int) entry.getSize();
+                    TestCaseMsg tcFileInZip = new TestCaseMsg(testcaseMsg, zipEntrySize );
+                    
+                    // Set the tags
+                    String fullFilename = new File(entry.getName()).getName();
+                    String tags = fullFilename.substring(fullFilename.indexOf("_TAGS_") + 6);
+                    tcFileInZip.setTags(tags);
+                    
+                    // Read the Zip File into the buffer
+                    
+                    int len = inputStream.readNBytes(tcFileInZip.getData(),0,zipEntrySize);
+                    
+                    if( len != zipEntrySize)
+                    {
+                        Logger.println( this, "Read["+len+"] misMatch Entry["+ zipEntrySize +"]:" + entry.getName() + " From ZipFile:" + zipFile.getName());
+                    }
+                    
+                    // This is Noisy in the log. Just for Debug
+                    //Logger.println( this, "Stored["+len+"] :" + entry.getName() + " From ZipFile:" + zipFile.getName() + " TAGS=" + tags);
+                                      
+                    fosZip.close();
+                       
+                    StoreTestCase(tcFileInZip);
+                 }
+            }
+        }
+        
+        zipFile.close();
+        
+        return zipFN;
+    }
+    
+    /****************************************************************************************
+     * Stores a test case to disk and to the database.  Call notifyNewCorpus with the cluster id after this 
+     * to tell the VMF instances that new data is available (this notification is not within this method so that
+     * a single call can be made for the zip file version of this method).
      */
     public synchronized void StoreTestCase(TestCaseMsg testcaseMsg ) throws Exception
     {
@@ -354,12 +457,16 @@ public final class CorpusServices
         
         tc.setFilename(FileBase);                 
         DatabaseService.Instance().updateTestCase(tc);
-        
-        // BroadCast C2 update to Cluster that there are new test Cases availiable
-        
+    }
+    
+    /**
+     * BroadCast C2 update to Cluster that there are new test Cases available
+     */
+    public void notifyNewCorpus(int clusterId)
+    {
         C2Msg  c2Msg  = new C2Msg();       
         
-        c2Msg.setClusterId( Integer.parseInt(testcaseMsg.getClusterId() ) );
+        c2Msg.setClusterId( clusterId );
         c2Msg.setCommandId(C2CommandEnum.NEW_CORPUS.Id()); 
 
         C2Services.Instance().BroadcastMessage(c2Msg);

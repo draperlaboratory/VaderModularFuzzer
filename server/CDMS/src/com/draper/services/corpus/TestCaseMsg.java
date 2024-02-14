@@ -30,19 +30,30 @@ package com.draper.services.corpus;
 
 public class TestCaseMsg
 {
-    private String   tags; // Json Array of tags
+    private String   tags    = ""; // Json Array of tags
     private String   clusterId;
     private String   scenarioId;
     private String   vmfId;
     private byte[]   data;
     private int      size;
+    private String   fileType = "";
     
     public TestCaseMsg(int size)
     {
-        setSize(size);
-        data = new byte[size];            
+        setSize(size);       
+        this.data = new byte[size];           
     }
-    
+ 
+    public TestCaseMsg(TestCaseMsg clone, int size)
+    {
+        this.tags           = clone.getTags();
+        this.clusterId      = clone.getClusterId();
+        this.scenarioId     = clone.getScenarioId();
+        this.vmfId          = clone.getVmfId();
+        this.size           = size;
+        this.data           = new byte[size];           
+    }
+  
     public int getSize()
     {
         return size;
@@ -98,5 +109,15 @@ public class TestCaseMsg
     public void setVmfId(String vmfId)
     {
         this.vmfId = vmfId;
+    }
+
+    public String getFileType()
+    {
+        return fileType;
+    }
+    
+    public void setFileType(String fileType)
+    {
+        this.fileType = fileType;
     }
 }

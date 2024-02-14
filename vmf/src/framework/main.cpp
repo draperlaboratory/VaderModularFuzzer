@@ -32,8 +32,6 @@
 
 #include <signal.h>
 #include <iostream>
-//#include <unistd.h>
-//#include <experimental/filesystem>
 
 
 //License repeated for automatic inclusion in doxygen documentation

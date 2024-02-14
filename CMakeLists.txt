@@ -28,12 +28,15 @@
 #===============================================================================
 cmake_minimum_required(VERSION 3.10.2)
 
-set(CMAKE_VERBOSE_MAKEFILE ON)
+#set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # Specify project related variables.
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+#Clang or g++ are supported
 set(CMAKE_CXX_COMPILER g++)
+#set(CMAKE_CXX_COMPILER clang++)
 
 # This is not an option that we want to enable.  Think twice about re-enabling it.
 # Three times, maybe.  And then don't do it.  If some legacy code needs it, put it there
@@ -48,7 +51,7 @@ set(CMAKE_CXX_COMPILER g++)
 #https://stackoverflow.com/questions/61278099/using-stdthread-in-shared-library-causes-sigsegv
 set(CMAKE_CXX_FLAGS -Wl,--no-as-needed)
 
-project(Vader VERSION 3.1.0
+project(Vader VERSION 3.2.0
     LANGUAGES CXX)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/vmf/cmake)

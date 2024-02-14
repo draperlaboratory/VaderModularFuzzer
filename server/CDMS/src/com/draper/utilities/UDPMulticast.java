@@ -84,7 +84,7 @@ public class UDPMulticast
     public static String Listen() throws Exception 
     {
         MulticastSocket     cSocket     = null;
-        String              data        = null;
+        String              data        = "";
         InetAddress         mcastaddr   = InetAddress.getByName("237.255.255.255");
         InetSocketAddress   group       = new InetSocketAddress(mcastaddr, 8888);
         NetworkInterface    netIf       = NetworkInterface.getByIndex(0);
@@ -100,6 +100,7 @@ public class UDPMulticast
             byte[]         recvBuf  = new byte[200];
             DatagramPacket packet   = new DatagramPacket(recvBuf, recvBuf.length);
             
+            cSocket.setSoTimeout(2000);
             cSocket.receive(packet);
 
             byte[] messageBytes  = new byte[packet.getLength()];     
@@ -114,6 +115,10 @@ public class UDPMulticast
             // Packet received
             Logger.println( ">>>Packet received from:  " + packet.getAddress().getHostAddress());
             Logger.println( ">>>Packet received data:  " + data + " :" + data.length() );
+        }
+        catch( java.net.SocketTimeoutException sto )
+        {
+            
         }
         catch (IOException ex)
         {

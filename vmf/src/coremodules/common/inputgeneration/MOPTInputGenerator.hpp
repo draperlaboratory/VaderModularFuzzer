@@ -58,7 +58,6 @@ private:
 
     MOPT* mopt;
     unsigned int testCasesRan;
-    bool mutateCrashingCases;
     int mutatorIdKey;
     int normalTag;
 

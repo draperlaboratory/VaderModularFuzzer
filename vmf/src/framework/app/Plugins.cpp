@@ -28,7 +28,7 @@
  * ===========================================================================*/
 
 #include <dlfcn.h>
-#include <experimental/filesystem>
+#include <filesystem>
 
 #include "Logging.hpp"
 #include "RuntimeException.hpp"
@@ -59,7 +59,7 @@ SharedLibrary::~SharedLibrary()
 
 void PluginLoader::loadAll(std::string pluginDirectory)
 {
-    namespace stdfs = std::experimental::filesystem;
+    namespace stdfs = std::filesystem;
 
     for (auto f: stdfs::directory_iterator(pluginDirectory))
     {

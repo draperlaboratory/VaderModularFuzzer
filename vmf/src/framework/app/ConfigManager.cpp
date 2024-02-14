@@ -34,8 +34,10 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 
 using namespace vader;
+
 
 /**
  * @brief Construct a new Config Manager object
@@ -78,8 +80,20 @@ void ConfigManager::resetModuleRegistry()
 }
 
 /**
- * @brief Parses the configuration files
- * 
+ * @brief Parses the passed configuration files
+ *
+ * @throws RuntimeException if there are any errors parsing the config files
+ */
+void ConfigManager::readConfig(std::vector<std::string> filenames)
+{
+    this->filenames = filenames;
+
+    readConfig();
+}
+
+/**
+ * @brief Parses the configuration files stored as a member variable
+ *
  * @throws RuntimeException if there are any errors parsing the config files
  */
 void ConfigManager::readConfig()
@@ -132,6 +146,32 @@ void ConfigManager::readConfig()
     try
     {
         theConfig = YAML::Load(theConfigAsString);
+    }
+    catch(const YAML::ParserException& e)
+    {
+        // Log exception info
+        LOG_FATAL << "Parse exception in " << e.what();
+
+        // Log offending line
+        int lineNum = e.mark.line;
+        std::istringstream iStringConfig(theConfigAsString);
+        std::string line;
+
+        for (int i = 0; i < lineNum + 1; i++)
+        {
+            std::getline(iStringConfig, line);
+        }
+
+        LOG_FATAL << "Referenced line: "  << line;
+
+        // Dump existing config for user as file
+        char dump_filename[] = "config_dump.yaml";
+        LOG_FATAL << "Writing a copy of aggregated config to " << std::filesystem::current_path() / (dump_filename);
+        std::ofstream fout(dump_filename);
+        fout << theConfigAsString;
+        fout.close();
+
+        throw RuntimeException("Error parsing YAML config file", RuntimeException::CONFIGURATION_ERROR);
     }
     catch(const std::exception& e)
     {
@@ -219,12 +259,13 @@ void ConfigManager::writeConfig(std::string outputFilePath)
 
 /**
  * @brief Instantiates the modules from the config file
- * 
+ *
  * @throws RuntimeException if there are any errors in construction the modules
  */
 void ConfigManager::loadModules()
 {
     YAML::Node modules = findRequiredConfig(ConfigInterface::VMF_MODULES_KEY);
+
     if(modules.Type() == YAML::NodeType::Map)
     {
         //Build storage module
@@ -263,7 +304,7 @@ void ConfigManager::loadModules()
     }
     else
     {
-        throw RuntimeException("Unable to parse list of modules from config file", 
+        throw RuntimeException("Unable to parse list of modules from config file",
                   RuntimeException::CONFIGURATION_ERROR);
     }
 
@@ -271,7 +312,7 @@ void ConfigManager::loadModules()
    for (const auto &module : moduleRegistry) {
 
         Module* m = module.second;
-        LOG_DEBUG << "   INITIALIZING: " << module.first;; 
+        LOG_DEBUG << "   INITIALIZING: " << module.first;
         m->init(*this);
     }
 }
@@ -473,6 +514,60 @@ Module* ConfigManager::getStorageModule()
     }
 }
 
+/**
+ * @brief Returns a string representation of a node
+ *
+ * @return std::string Single line representation of a node and its children
+ */
+std::string ConfigManager::getNodeAsString(const YAML::Node& node)
+{
+    // Return value
+    std::string nodeString = "";
+    // First pass at sequence
+    bool sequencefirstPass = true;
+
+    switch (node.Type())
+    {
+    case YAML::NodeType::Null:
+        nodeString = "Null";
+        break;
+    case YAML::NodeType::Scalar:
+        nodeString = node.as<std::string>();
+        break;
+    case YAML::NodeType::Sequence:
+        nodeString += "[";
+        for (YAML::const_iterator seq_it = node.begin(); seq_it != node.end(); ++seq_it)
+        {
+            if (sequencefirstPass)
+            {
+                sequencefirstPass = false;
+            }
+            else
+            {
+                nodeString += ", ";
+            }
+            nodeString += getNodeAsString(*seq_it);
+        }
+        nodeString += "]";
+        break;
+    case YAML::NodeType::Map:
+        nodeString += "{";
+        for(YAML::const_iterator it = node.begin();it != node.end(); ++it) {
+            nodeString += getNodeAsString(it->first) + " : " + getNodeAsString(it->second);
+        }
+        nodeString += "}";
+        break;
+    case YAML::NodeType::Undefined:
+        nodeString += "Undefined node";
+        break;
+    default:
+        nodeString += "YAML::Node produced unexpected type";
+        break;
+    }
+
+    return nodeString;
+}
+
 //see ConfigInterface::getSubModules
 std::vector<Module*> ConfigManager::getSubModules(std::string parentModuleName)
 {
@@ -517,6 +612,20 @@ bool ConfigManager::isParam(std::string moduleName, std::string paramName)
 {
     YAML::Node value = findConfigParam(moduleName, paramName);
     return static_cast<bool>(value);
+}
+
+//see ConfigInterface::getAllParams
+std::string ConfigManager::getAllParams(std::string moduleName)
+{
+    const YAML::Node& module_root = theConfig[moduleName];
+    std::string str = "Module name " + moduleName + "was not found";
+
+    if (module_root)
+    {
+        str = getNodeAsString(module_root);
+    }
+
+    return str;
 }
 
 //see ConfigInterface::getStringParam

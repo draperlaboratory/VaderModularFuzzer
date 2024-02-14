@@ -33,6 +33,9 @@
 #include "Logging.hpp"
 #include "restclient-cpp/restclient.h"
 #include "restclient-cpp/connection.h"
+#include "VaderUtil.hpp"
+#include <filesystem>
+#include <fstream> // for filestream
 #include <chrono>
 #include <thread>
 
@@ -145,6 +148,9 @@ void CDMSClient::init(ConfigInterface& config, int pid, std::string name, std::s
     //The initial timestamp should be 0
     lastCorpusUpdateTimestamp = "0";
 
+    //Create a working directory for working with zip files
+    tmpDir = config.getOutputDir() + "/cdmsclient_tmp";
+    VaderUtil::createDirectory(tmpDir.c_str());
 }
 /**
  * @brief Build the C2 Multicast Socket
@@ -585,7 +591,7 @@ json11::Json CDMSClient::getTasking()
 }
 
 /**
- * @brief Helper method to retrieve the seeds for this client
+ * @brief Helper method to retrieve the seeds for this client (as a zip file)
  * This will either be a set of initial seed files or some portion of
  * a recently minimized common corpus.  The server will know which seeds
  * the VMF client should uses.
@@ -594,6 +600,7 @@ json11::Json CDMSClient::getTasking()
  * @param getMinCorpus if true, the server will return the minimized corpus, if there
  * is one.  If false, or there is not minimized corpus, the server will return the initial
  * seeds instead.
+ * @return a json structure that contains the path to the zipped up seed files
  */
 json11::Json CDMSClient::getCorpusInitialSeeds(std::string tags, bool getMinCorpus)
 {
@@ -606,7 +613,7 @@ json11::Json CDMSClient::getCorpusInitialSeeds(std::string tags, bool getMinCorp
         flag = "true";
     }
 
-    std::string response = this->doGet(seedsURL + std::to_string(scenarioid) + "?tags=" + tags +"&getMinCorpus=" + flag);
+    std::string response = this->doGet(seedsURL + std::to_string(scenarioid) + "/" + std::to_string(uid) + "?tags=" + tags +"&getMinCorpus=" + flag);
     auto        seeds    = json11::Json::parse(response, err);
 
     if (!err.empty())
@@ -615,6 +622,7 @@ json11::Json CDMSClient::getCorpusInitialSeeds(std::string tags, bool getMinCorp
         throw RuntimeException("Unable to parse list of seeds", RuntimeException::SERVER_ERROR);
     }
 
+    //The resulting json will contain a single zip file that has to be retrieved from the server
     return seeds;
 }
 
@@ -668,7 +676,7 @@ void CDMSClient::requestCorpusSync(std::vector<std::string> files, bool atCluste
         { "files", files }
     };
 
-    LOG_INFO << "ABOUT TO SEND FILE LIST: " << json.dump();
+    LOG_DEBUG << "ABOUT TO SEND FILE LIST: " << json.dump();
 
     if(atClusterLevel)
     {
@@ -763,14 +771,79 @@ std::vector<int> CDMSClient::getCommands()
  */
 void CDMSClient::sendTestCase(char* buff, int size, std::string tags)
 {
+    LOG_DEBUG << "Sending individual interesting test case to server";
     std::string fullURL  = storeTestcaseURL + std::to_string(clusterid) + "/" + std::to_string(scenarioid) + "/" + std::to_string(uid) + +"/" + std::to_string(size);
     std::string response = this->doBinaryPost(fullURL, buff, size, "tags", tags);
 }
 
 /**
+ * @brief Sends a batch of interesting test cases to the server at once to add to the common corpus
+ * 
+ * @param entriesToSend 
+ * @param tags 
+ * @param testCaseKey
+ */
+void CDMSClient::sendTestCases(std::unique_ptr<Iterator>& entriesToSend, std::vector<std::string> tags, int testCaseKey)
+{
+    LOG_DEBUG << "Sending zip file of interesting test case to server;" << entriesToSend->getSize();
+    if(entriesToSend->getSize() != (int)tags.size())
+    {
+        //This should never happen
+        LOG_ERROR << "Programming Error. " << entriesToSend->getSize() << " entries and " << tags.size() << " tag strings.";
+        throw RuntimeException("ProgrammingError -- Tag string must be provided for every entry", RuntimeException::OTHER);
+    }
+
+    //First make the zip file to send 
+    std::string zipFilename = tmpDir + "/tmp_zip.zip";
+    std::string zipTempDir = tmpDir + "/zip_input";
+    VaderUtil::createDirectory(zipTempDir.c_str());
+
+    int i=0;
+    while(entriesToSend->hasNext())
+    {
+        //Write buffer to disk (we can't do this in-memory without an iostream, unfortunately)
+        StorageEntry* entry = entriesToSend->getNext();
+
+        //When sending a batch of test cases, the tag string goes in the filename (rather than the json)
+        //As it is otherwise difficult to match the tag string with the test case
+        //The server assumes the filename ends in _TAGS_<tagList> (with no file extension)
+        std::string filename = std::to_string(entry->getID()) + "_TAGS_" + tags[i];
+        char* buffer = entry->getBufferPointer(testCaseKey);
+        int size = entry->getBufferSize(testCaseKey);
+        VaderUtil::writeBufferToFile(zipTempDir, filename, buffer, size);
+        i++;
+    }
+
+    //Now zip up the directory
+    bool success = VaderUtil::commandLineZip(zipFilename, zipTempDir);
+    if(success)
+    {
+        // open and read file into buffer
+        std::ifstream inFile;
+        uintmax_t filesize = static_cast<uintmax_t>(0);
+        filesize = std::filesystem::file_size(zipFilename);
+        char zipbuff[filesize];
+
+        inFile.open(zipFilename, std::ifstream::binary);
+        inFile.read(zipbuff, filesize);
+
+        LOG_INFO << "Sending to server zip file of size;" << filesize << "; Number of interesting test cases;" << i;
+
+        std::string fullURL  = storeTestcaseURL + std::to_string(clusterid) + "/" + std::to_string(scenarioid) + "/" 
+                            + std::to_string(uid) + +"/" + std::to_string(filesize) + "/ZIP";
+        std::string response = this->doBinaryPost(fullURL, zipbuff, filesize);
+    }
+
+    //Now cleanup temp files
+    std::filesystem::remove(zipFilename);
+    std::filesystem::remove_all(zipTempDir);
+
+}
+
+/**
  * @brief Retrieves the common corpus for this cluster
  * Unlike getCorpusUpdates, this retrieves the entire corpus for this cluster, 
- * without timestamp filtering, and including test csaes that were generated
+ * without timestamp filtering, and including test cases that were generated
  * by this vmf fuzzer.  Test cases will be filtered by the provided tag list.
  * Use an empty string to retrieve all tags.
  * 
@@ -904,37 +977,88 @@ int CDMSClient::getUniqueId()
 }
 
 /**
- * @brief Helper method to create new test cases from a json list of test cases
- * Each test case is retrieved from the CDMS server, using the provided URL,
- * and the mutator id is set to -1
+ * @brief Helper method to create new test cases from json
+ * A zip file is retrieved from the CDMS server, using the provided URL, unzipped to a temporary
+ * directory, and then a test case is created for each included file with the mutator id is set to -1
  * 
  * @param storage the reference to storage
  * @param json the json to parse
  * @param testCaseKey the key for writing the test case
  * @param mutatorIdKey the key for writing the mutator id (this will be set to -1)
  */
-void CDMSClient::createNewTestCases(StorageModule& storage, json11::Json json, int testCaseKey, int mutatorIdKey)
+void CDMSClient::createNewTestCasesFromJson(StorageModule& storage, json11::Json json, int testCaseKey, int mutatorIdKey)
+{
+    createNewTestCasesFromJsonImpl(storage, json, testCaseKey, mutatorIdKey, -1, false);
+}
+
+/**
+ * @brief Helper method to create new test cases from json (this version also writes the filename to storage)
+ * A zip file is retrieved from the CDMS server, using the provided URL, unzipped to a temporary
+ * directory, and then a test case is created for each included file with the mutator id is set to -1
+ * and the filename set to the server provided filename.
+ * 
+ * @param storage the reference to storage
+ * @param json the json to parse
+ * @param testCaseKey the key for writing the test case
+ * @param mutatorIdKey the key for writing the mutator id (this will be set to -1)
+ * @param fileNameKey the filename key
+ */
+void CDMSClient::createNewTestCasesFromJsonWithFilename(StorageModule& storage, json11::Json json, int testCaseKey, int mutatorIdKey, int fileNameKey)
+{
+    createNewTestCasesFromJsonImpl(storage, json, testCaseKey, mutatorIdKey, fileNameKey, true);
+}
+
+/**
+ * @brief This is the implementation method behind createNewTestCasesFromJson and createNewTestCasesFromJsonWithFilename 
+ * 
+ * @param storage the reference to storage
+ * @param json the json to parse
+ * @param testCaseKey the key for writing the test case
+ * @param mutatorIdKey the key for writing the mutator id (this will be set to -1)
+ * @param fileNameKey the filename key
+ * @param useFilename when true, the filename is written, when false, it is not
+ */
+void CDMSClient::createNewTestCasesFromJsonImpl(StorageModule& storage, json11::Json json, int testCaseKey, int mutatorIdKey, int fileNameKey, bool useFilename)
 {
     auto fileList    = json["files"].array_items();
     int  size        = fileList.size();
-
-    LOG_INFO << "Corpus Update retrieved new test cases from the server; " << size;
+    int  count       = 0;
 
     for(int i=0; i<size; i++)
     {
         auto fileJson = fileList[i];
+        LOG_DEBUG << "Getting Corpus Zip File from URL: " << fileJson.string_value();
 
-        LOG_DEBUG << "Getting Corpus File from URL: " << fileJson.string_value();
-        std::string     contents    = getCorpusFile(fileJson.string_value());   
-        StorageEntry*   entry       = storage.createNewEntry();
-        char*           buff        = entry->allocateBuffer(testCaseKey, contents.length());
+        //Retrieve zip file from server and write it to disk
+        std::string     contents    = getCorpusFile(fileJson.string_value());  
 
-        contents.copy(buff, contents.length());
+        const char*     contentBuff = contents.data();
+        std::string     tmpFile     = "tmp_unzip.zip";
+        VaderUtil::writeBufferToFile(tmpDir, tmpFile, contentBuff, contents.length());
 
-        //A mutator id of SERVER_MUTATOR_ID will indicate that this is a server provided test case,
-        //as opposed to one that is generated internally within this VMF instance
-        entry->setValue(mutatorIdKey, SERVER_MUTATOR_ID);
+        //Now extract it
+        std::string zipFilePath = tmpDir + "/" + tmpFile;
+        std::string zipOutPath = tmpDir + "/unzip_out";
+
+        //Now unzip to the output directory
+        VaderUtil::commandLineUnzip(zipFilePath, zipOutPath);
+
+        int fnameKey = fileNameKey;
+        if(!useFilename)
+        {
+            fnameKey = -1; //-1 signals that this field should not be written
+        }
+
+        count = VaderUtil::createNewTestCasesFromDir(storage, testCaseKey, zipOutPath, fnameKey, mutatorIdKey, SERVER_MUTATOR_ID);
+
+        //Now clear the output directory and the zip file
+        std::filesystem::remove_all(zipOutPath);
+        std::filesystem::remove(zipFilePath);
     }
+
+    LOG_INFO << "Corpus Update retrieved new test cases from the server; " << count 
+             << "; (From " << size << " zip files)";
+
 }
 
 /**

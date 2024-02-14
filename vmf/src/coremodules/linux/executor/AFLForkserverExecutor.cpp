@@ -30,6 +30,7 @@
 #include "Logging.hpp"
 #include "VaderUtil.hpp"
 #include <unistd.h>
+#include <filesystem>
 
 using namespace vader;
 using namespace aflpp;
@@ -60,6 +61,10 @@ void AFLForkserverExecutor::init(ConfigInterface& config)
     VaderUtil::createDirectory(outFileDir.c_str());
     snprintf(tmpOutFile, sizeof(tmpOutFile), "%s/in_file_%d",  outFileDir.c_str(), ::getpid());
 
+    //Check for a limit on calibration cases
+    //Set this parameter to -1 to disable the feature
+    maxCalibrationCases = config.getIntParam(getModuleName(), "maxCalibrationCases", 300);
+
     //Check for a manually specified timeout value
     useManualTimeout = false;
     if(config.isParam(getModuleName(),"timeoutInMs"))
@@ -73,6 +78,16 @@ void AFLForkserverExecutor::init(ConfigInterface& config)
     init_count_class16();
     afl_fsrv_init(&afl_state.fsrv);
     std::vector<std::string> sut_argv = config.getStringVectorParam(getModuleName(),"sutArgv");
+
+    //Check that the SUT is present
+    const std::filesystem::path sut_path = std::filesystem::u8path(sut_argv[0]);
+    bool exists = std::filesystem::exists(sut_path);
+    if(!exists)
+    {
+        LOG_ERROR << "The specified SUT was not found at this location: " << sut_argv[0];
+        throw RuntimeException("SUT not found", RuntimeException::CONFIGURATION_ERROR);
+    }
+
     LOG_INFO << "AFL Exec configured to run SUT: " << sut_argv[0];
     std::vector<char*> cstrings;
     cstrings.reserve(sut_argv.size() + 1);
@@ -190,6 +205,15 @@ void AFLForkserverExecutor::runTestCase(char* buffer, int size)
 
 void AFLForkserverExecutor::runCalibrationCase(char* buffer, int size)
 {
+    //First check to see if we've done enough calibration, if there is a limit
+    if(maxCalibrationCases > 0)
+    {
+        if(numCalibrationTestCases >= maxCalibrationCases)
+        {
+            return; //Stop running calibration, we have enough data
+        }
+    }
+
     numCalibrationTestCases++;
     runTestCase(buffer, size);
 

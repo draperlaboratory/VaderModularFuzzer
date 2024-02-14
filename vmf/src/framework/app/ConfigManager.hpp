@@ -42,7 +42,7 @@ namespace vader
  * This class parses the configuration file and provides methods to create and intialize
  * the modules in the configuration file, as well as methods for modules to retrieve
  * their own configuration parameters.
- * 
+ *
  */
 class ConfigManager : public ConfigInterface
 {
@@ -52,6 +52,7 @@ public:
     virtual ~ConfigManager();
 
     void readConfig();
+    void readConfig(std::vector<std::string> filenames);
     void addConfig(std::string cfg);
     void reloadConfig();
     void writeConfig(std::string outputFilePath);
@@ -84,6 +85,7 @@ public:
     virtual bool getBoolParam(std::string moduleName, std::string paramName);
     virtual bool getBoolParam(std::string moduleName, std::string paramName, bool defaultValue);
     
+    virtual std::string getAllParams(std::string moduleName);
 private:
     std::vector<std::string> buildChildren(YAML::Node topLevelNode);
     void buildModule(std::string className, std::string name);
@@ -95,6 +97,7 @@ private:
     YAML::Node findConfigParam(std::string moduleName, std::string paramName);
     template<typename T> T getParam(std::string moduleName, std::string paramName);
     template<typename T> T getParam(std::string moduleName, std::string paramName, T defaultValue);
+    std::string getNodeAsString(const YAML::Node& node);
 
     std::map<std::string, Module*> moduleRegistry;
     std::vector<std::string> filenames;

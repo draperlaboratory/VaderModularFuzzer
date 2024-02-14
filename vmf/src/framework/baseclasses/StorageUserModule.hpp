@@ -69,6 +69,7 @@ public:
      */
     virtual void registerMetadataNeeds(StorageRegistry& registry) {};
 
+    using Module::shutdown; //Inform compiler that we want both versions of shutdown
     /** @brief Perform any shutdown processing that relies on storage
      * 
      * Similar to the shutdown() method, only this version of the method is provided

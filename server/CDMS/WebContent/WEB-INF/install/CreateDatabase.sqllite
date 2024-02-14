@@ -26,7 +26,8 @@
  *  
  * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
  * ===========================================================================*/
- 
+PRAGMA journal_mode=WAL;
+
 CREATE TABLE IF NOT EXISTS `ConfigProperty`
 (
   `ConfigPropertyId`    INTEGER      NOT NULL PRIMARY KEY  AUTOINCREMENT,

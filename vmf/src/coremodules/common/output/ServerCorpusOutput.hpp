@@ -51,12 +51,28 @@ public:
 private:
 
     std::string generateTagList(StorageModule& storage, StorageEntry* entry);
+    void sendEntries(StorageModule& storage);
+
+    /// Counts the storage entries that should be sent to the server
+    int numEntriesToSend;
+
+    /// How long to wait between test cases send to the server
+    int serverDelayTimeInSecs;
+
+    /// Override the time to wait if there are a lot of test cases (this limits the number sent at once), set to -1 to not use this override
+    int serverDelayOverrideCount;
+
+    /// How long it's been since the last send
+    time_t lastTimeSent;
     
     /// The handle for the mutator id
     int mutatorIdKey;
 
     /// The handle for the test case buffer
     int testCaseKey;
+
+    /// The handle for test cases that should be sent to the server
+    int sendToServerTag;
 
     std::map<int,std::string> tagNameMap;
 };

@@ -104,15 +104,18 @@ class CDMSClient
         void                    sendRegistrationStatus(CDMSClient::StatusType status, std::string reason);
         std::vector<int>        getCommands();
         void                    sendTestCase(char* buff, int size, std::string tags);
+        void                    sendTestCases(std::unique_ptr<Iterator>& entriesToSend, std::vector<std::string> tags, int testCaseKey);
         json11::Json            getCorpusUpdates(std::string tags);
         json11::Json            getCorpus(std::string tags);
 
-        void createNewTestCases(StorageModule& storage, json11::Json json, int testCaseKey, int mutatorIdKey);
+        void createNewTestCasesFromJson(StorageModule& storage, json11::Json json, int testCaseKey, int mutatorIdKey);
+        void createNewTestCasesFromJsonWithFilename(StorageModule& storage, json11::Json json, int testCaseKey, int mutatorIdKey, int fileNameKey);
         std::string formatTagList(std::vector<std::string> tags);
 
     private:
         void buildSocket();
         int readMulticast(char* msgbuf, int size);
+        void createNewTestCasesFromJsonImpl(StorageModule& storage, json11::Json json, int testCaseKey, int mutatorIdKey, int fileNameKey, bool useFilename);
 
         std::string             doGet(std::string url);
         std::string             doPost(std::string url, std::string json);
@@ -151,6 +154,8 @@ class CDMSClient
 
         std::chrono::milliseconds retryTime;
         int retryCount = -1;
+
+        std::string tmpDir;
 };
 
 }

@@ -231,3 +231,13 @@ Status: Optional
 Default value: 10000 (10s)
 
 Usage: This is the number of milliseconds that VMF will sleep between requests to the server for tasking.  We recommend not setting this to a small number as this leads to bombarding the server when VMFs have not yet been tasked to do anything.
+
+### `vmfDistributed.taskingInitialRandomDelayMax`
+
+Value type: <int>
+
+Status: Optional
+
+Default value: -1 (disabled)
+
+Usage: This parameter controls an initial random sleep for each VMF that occurs just after the VMF registers with the server, and before it asks the server for tasking.  By default this is not enabled, but it is useful to enable for distributed fuzzing configurations that include a large number of VMFs, as it minimizes the concurrent requests to the CDMS server.  Use a value of -1 to disable this feature.

@@ -30,9 +30,12 @@
 cmake_minimum_required(VERSION 3.10.2)
 
 # Specify project related variables.
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+#Clang or g++ are supported
 set(CMAKE_CXX_COMPILER g++)
+#set(CMAKE_CXX_COMPILER clang++)
 
 project(Vader VERSION 2.0
     LANGUAGES CXX)

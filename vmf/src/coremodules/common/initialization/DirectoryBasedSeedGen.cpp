@@ -51,12 +51,23 @@ Module* DirectoryBasedSeedGen::build(std::string name)
 /**
  * @brief Initialization method
  * Reads in all configuration options for this class
- * 
- * @param config 
+ *
+ * @param config
  */
 void DirectoryBasedSeedGen::init(ConfigInterface& config)
 {
-    std::string inputDir = config.getStringParam(getModuleName(), "inputDir");
+    std::string inputDir;
+
+    try
+    {
+        inputDir = config.getStringParam(getModuleName(), "inputDir");
+    }
+    catch(RuntimeException e)
+    {
+        LOG_ERROR << "List of module parameters found: " << config.getAllParams(getModuleName());
+        throw e;
+    }
+
     if(inputDir.back() != '/')
     {
         fdir = inputDir + '/';

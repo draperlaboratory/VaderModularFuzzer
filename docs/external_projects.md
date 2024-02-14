@@ -77,6 +77,7 @@ Enumeration of these installations is for record keeping only:
 | build-essential    | apt               |
 | cmake              | apt               |
 | lief               | pip               |
+| zip                | apt               |
 
 These packages need to be installed in order to build and run VMF.
 

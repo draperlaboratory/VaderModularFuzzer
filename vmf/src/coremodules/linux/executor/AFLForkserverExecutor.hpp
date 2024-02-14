@@ -92,5 +92,7 @@ private:
     int numCalibrationTestCases;
     int maxTime;
     int sumTime;
+
+    int maxCalibrationCases;
 };
 }

@@ -42,8 +42,13 @@ public:
     static void createDirectory(const char* path);
     static bool directoryExists(std::string dir);
     static int createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, std::string directory);
-    static void writeBufferToFile(std::string baseDir, std::string fileName, char* buffer, int size);
+    static int createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, std::string directory, int filenameKey, int mutatorIdKey, int mutatorIdValue);
+    static void writeBufferToFile(std::string baseDir, std::string fileName, const char* buffer, int size);
     static std::string getExecutablePath();
     static int selectWeightedRandomValue(int min, int max);
+    static bool commandLineUnzip(std::string zipFilePath, std::string outputDir);
+    static bool commandLineZip(std::string zipFilePath, std::string inputDir);
+private:
+    static int createNewTestCasesFromDirImpl(StorageModule& storage, int testCaseKey, std::string directory, int filenameKey, int mutatorIdKey, int mutatorIdValue);
 };
 }

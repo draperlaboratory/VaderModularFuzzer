@@ -59,6 +59,7 @@ import com.draper.utilities.Logger;
 import com.draper.utilities.SystemEvent;
 import com.draper.utilities.UiUtil;
 import com.draper.utilities.UrlUtil;
+import com.draper.utilities.ZipManager;
 import com.google.gson.Gson;
 
 /*************************************************************************************************
@@ -106,15 +107,50 @@ public class CorpusServlet extends ControllerServlet
        }
  
        //--------------------------------------------------------------------------------
-       // Get a File from Scenario Storage
+       // Get a File from Scenario Storage. This is a generic fetch of a file.
+       // TODO: Set a return Mimetype to tell the client what type of file this is.
        //--------------------------------------------------------------------------------
        if (resourcePath[0].equals("file"))
+       {      
+           String          fileName        = CorpusServices.Instance().getBasePath() + File.separator + resourcePath[1];
+           File            downloadFile    = new File(fileName);
+           FileInputStream inStream        = new FileInputStream(downloadFile);
+
+           Logger.println(this, "Client Requesting File Download:" + downloadFile);
+           
+           response.setContentType("application/octet-stream");
+           response.setContentLength((int)downloadFile.length());
+                   
+           OutputStream outStream = response.getOutputStream();
+            
+           byte[] buffer = new byte[4096];
+           int bytesRead = -1;
+            
+           while ((bytesRead = inStream.read(buffer)) != -1) 
+           {
+               outStream.write(buffer, 0, bytesRead);
+           }
+            
+           inStream.close();
+           outStream.close();    
+           
+           if( ZipManager.Instance().Generated( resourcePath[1]) )
+           {
+               if(downloadFile.delete()) Logger.println(this, "Deleted Auto Generated ZipFile: " + downloadFile.getName());
+           }
+       }
+       
+       //--------------------------------------------------------------------------------
+       // Get a corpus File from Scenario Storage. This version has the caller provide the full path
+       // to the file.
+       //------------------------------------------------------------------------
+       if (resourcePath[0].equals("corpusfile"))
        {      
            String  fileName = CorpusServices.Instance().getBasePath();
            
            for( String uriEntry : resourcePath)
            {
-               if (uriEntry.equals("file")) continue;
+               if (uriEntry.equals("corpusfile")) continue;
                
                fileName = fileName + File.separator + uriEntry;
            }
@@ -138,13 +174,18 @@ public class CorpusServlet extends ControllerServlet
            inStream.close();
            outStream.close();     
        }
+
       
        
        //--------------------------------------------------------------------------------
-       // RESTFul Path: /CDMS/corpus/store/<clusterid>/<scenarioId>/<vmfId>/<TestCaseSize>
+       // RESTFul Path: /CDMS/corpus/store/<clusterId>/<scenarioId>/<vmfId>/<TestCaseSize>/<fileType>
+       // FileType at the end of the URL will determine if this is a compressed set of test cases to
+       // store. If it is omitted it will behave as a regular file storage.
         
        if( resourcePath[0].equals("store") )
-       {    
+       {  
+           //Note: The tags are set in the header only if this is a single test case
+           //If a zip file is sent instead, then the tags are parsed out of the filename (and this value will be null)
            String tags = request.getHeader("tags");
            
            int  numbytes = 0;
@@ -154,6 +195,7 @@ public class CorpusServlet extends ControllerServlet
            testcaseMsg.setClusterId(resourcePath[1]);
            testcaseMsg.setScenarioId(resourcePath[2]);
            testcaseMsg.setVmfId(resourcePath[3]);
+           testcaseMsg.setFileType(UiUtil.notNull(resourcePath[5]));
            
            do
            {
@@ -167,11 +209,27 @@ public class CorpusServlet extends ControllerServlet
                Logger.println(this, ">>>>STORED MSG["+numbytes+"] Does not Equal Message Size: " + testcaseMsg.getSize());     
            }
           
-           // Store the testCase as part of the Scenarios Corpus.
-           CorpusServices.Instance().StoreTestCase(testcaseMsg);
+           if(testcaseMsg.getFileType().equalsIgnoreCase("ZIP"))
+           {
+               Logger.println(this, ">>Expanding Zip File of TestCases: " + testcaseMsg.getSize());     
+                              
+               String zipFile = CorpusServices.Instance().ExpandAndStoreTestCase(testcaseMsg);
+               
+               // Remove Zip File once Expanded 
+               
+               File myObj = new File(zipFile); 
+               
+               if(myObj.delete()) Logger.println(this, "Deleted testCase ZipFile: " + myObj.getName());
+           }
+           else
+           {           
+               // Store the testCase as part of the Scenarios Corpus.
+               CorpusServices.Instance().StoreTestCase(testcaseMsg);
+           }
            
-           // Write Test Case to File under Cluster directory
-           
+           // Tell the VMFs in the cluster that new data is available
+           CorpusServices.Instance().notifyNewCorpus(Integer.parseInt(testcaseMsg.getClusterId()));
+                     
            // Respond to the Get                
            response.setContentType("text/plain");
            response.setCharacterEncoding("UTF-8");
@@ -181,7 +239,7 @@ public class CorpusServlet extends ControllerServlet
        }
        
        //--------------------------------------------------------------------------------
-       // /CDMS/corpus/seeds/<scenarioid>
+       // /CDMS/corpus/seeds/<scenarioid>/<vmfid>
        // parameters: tags, getMinCorpus
        // getMinCorpus=1 indicates we should get the minimized corpus rather than the seeds (if there is a minimized corpus)
        //        
@@ -190,11 +248,52 @@ public class CorpusServlet extends ControllerServlet
            Logger.println("Getting Seeds for Scenario:" +  resourcePath[1]);
 
            int          scenarioId   = Integer.parseInt(resourcePath[1]);
+           int          vmfId        = Integer.parseInt(resourcePath[2]);
            String       tagString    = request.getParameter("tags");
            String       getMinCorpus = (request.getParameter("getMinCorpus"));
            Gson         myGson       = new Gson();
            CorpusMsg    corpusMsg    = new CorpusMsg( CorpusServices.Instance().SeedList(scenarioId, tagString, Boolean.parseBoolean(getMinCorpus)) );
+           
+           // Zip the file list up up and return the zip file to the client
+           
+           String[]     zipFiles     = ZipManager.Instance().zipFiles(corpusMsg.getFiles(), vmfId);
+           
+           corpusMsg.setFiles(zipFiles);
+           
            String       myJSON       = myGson.toJson(corpusMsg);
+           
+           response.setContentType("application/json");
+           response.setCharacterEncoding("UTF-8");
+           PrintWriter out = response.getWriter();
+           out.println(myJSON);
+           out.close();                  
+       }
+       //--------------------------------------------------------------------------------
+       //RESTFul Path: /CDMS/corpus/whole/<clusterid>
+       //
+       //This is similar to "retrieve" only it grabs the whole corpus for a cluster, regardless
+       //of whether any VMF ids are assigned to it
+       
+       if( resourcePath[0].equals("whole") )
+       {   
+           Logger.println("Retrieving Whole Corpus for Cluster:" +  resourcePath[1]);
+           Gson           myGson    = new Gson();                    
+           BufferedReader reader    = request.getReader();           
+           String         clusterId = resourcePath[1];
+                      
+
+           // Set List of Files and new timestamp back to caller
+           CorpusMsg corpusMsg = new CorpusMsg(CorpusServices.Instance().RetrieveUnfilteredCorpus(clusterId));
+           
+           corpusMsg.setTimestamp(String.valueOf(System.currentTimeMillis()));
+           
+           // Zip the file list up up and return the zip file to the client
+           // VMF ID = 0 in the call to ZipManager
+           String[] zipFiles = ZipManager.Instance().zipFiles(corpusMsg.getFiles(), 0);
+           
+           corpusMsg.setFiles(zipFiles);
+            
+           String   myJSON   = new Gson().toJson(corpusMsg);
            
            response.setContentType("application/json");
            response.setCharacterEncoding("UTF-8");
@@ -225,7 +324,21 @@ public class CorpusServlet extends ControllerServlet
            
            corpusMsg.setTimestamp(String.valueOf(System.currentTimeMillis()));
            
-           String  myJSON = new Gson().toJson(corpusMsg);
+           // Zip the file list up up and return the zip file to the client
+           String[] fileList = corpusMsg.getFiles();
+           String[] zipFiles = {};
+           
+           //Check to see if there was any data, if not, return an empty corpus message
+           //(one that contains no zip file)
+           if(fileList.length > 0)
+           {
+               zipFiles = ZipManager.Instance().zipFiles(fileList, Integer.parseInt(vmfId));
+           }
+           
+           corpusMsg.setFiles(zipFiles);
+           
+            
+           String   myJSON   = new Gson().toJson(corpusMsg);
            
            response.setContentType("application/json");
            response.setCharacterEncoding("UTF-8");

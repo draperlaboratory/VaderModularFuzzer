@@ -94,6 +94,15 @@ public:
     virtual bool isParam(std::string moduleName, std::string paramName) = 0;
 
     /**
+     * @brief Get a string of all data from the config associated with the module name.
+     * Both module specific and global parameters may be retrieved with this method.
+     *
+     * @param moduleName the name of the module (use getModuleName())
+     * @return std::string the concatenated value of all configs
+     */
+    virtual std::string getAllParams(std::string moduleName) = 0;
+
+    /**
      * @brief Get a required string based parameter from the config file(s)
      * Both module specific and global parameters may be retrieved with this method
      * 

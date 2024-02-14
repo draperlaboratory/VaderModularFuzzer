@@ -105,7 +105,7 @@ void ControllerModule::handleCommand(StorageModule& storage, bool isDistributed,
                 json11::Json json = client->getCorpusUpdates(tags);
                 //A new test case is created for each test case on the file list, with the
                 //mutatorIdKey set to a special value so it is flagged as coming from the server
-                CDMSClient::getInstance()->createNewTestCases(storage, json, testCaseKey, mutatorIdKey);
+                CDMSClient::getInstance()->createNewTestCasesFromJson(storage, json, testCaseKey, mutatorIdKey);
             }
         }
         else

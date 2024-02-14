@@ -28,9 +28,9 @@
  * ===========================================================================*/
 package com.draper.utilities;
 
-import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
-import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Enumeration;
@@ -146,13 +146,13 @@ public class UrlUtil
 	/***********************************************************************************
 	 * Read the response off of the connection
 	 */
-   	public static String doGet(URL url, Hashtable<String,String> requestProperties ) throws Exception
+   	public static byte[] doGet(URL url, Hashtable<String,String> requestProperties ) throws Exception
 	{
 		HttpURLConnection 	conn = (HttpURLConnection)url.openConnection();
 		
 		conn.setRequestMethod("GET");
-		conn.setReadTimeout(180 * 1000);
-		conn.setConnectTimeout(180 * 1000);
+		conn.setReadTimeout(300 * 1000);
+		conn.setConnectTimeout(300 * 1000);
 		conn.setUseCaches(false);
 
 		for( Map.Entry<String,String> entry : requestProperties.entrySet() ) 
@@ -164,21 +164,21 @@ public class UrlUtil
 		}
 		
        // Invoke the Call and get the response from the GET        
-		String json = UrlUtil.readResponse( conn );	
+		byte[] data = UrlUtil.readResponse( conn );	
 		
-		return json;
+		return data;
 	}
 
     /***********************************************************************************
      * Read the response off of the connection
      */
-    public static String doPut(URL url, Hashtable<String,String> requestProperties, String postData ) throws Exception
+    public static String doPut(URL url, Hashtable<String,String> requestProperties, byte[] postData ) throws Exception
     {
         HttpURLConnection  conn = (HttpURLConnection)url.openConnection();
         
         conn.setRequestMethod("PUT");
-        conn.setReadTimeout(180 * 1000);
-        conn.setConnectTimeout(180 * 1000);
+        conn.setReadTimeout(300 * 1000);
+        conn.setConnectTimeout(300 * 1000);
         conn.setUseCaches(false);
         conn.setDoOutput(true);
 
@@ -191,12 +191,12 @@ public class UrlUtil
         }
                 
         DataOutputStream wr = new DataOutputStream(conn.getOutputStream());
-        wr.writeBytes(postData);
+        wr.write(postData);
         wr.flush();
         wr.close();
 
         // Invoke the Call and get the response from the GET        
-        String json = UrlUtil.readResponse( conn ); 
+        String json = new String( UrlUtil.readResponse( conn ) ); 
         
         return json;
     }
@@ -204,13 +204,13 @@ public class UrlUtil
 	/***********************************************************************************
 	 * Read the response off of the connection
 	 */
-   	public static String doPost(URL url, Hashtable<String,String> requestProperties, String postData ) throws Exception
+   	public static String doPost(URL url, Hashtable<String,String> requestProperties, byte[] postData ) throws Exception
 	{
 		HttpURLConnection 	conn = (HttpURLConnection)url.openConnection();
 		
 		conn.setRequestMethod("POST");
-		conn.setReadTimeout(180 * 1000);
-		conn.setConnectTimeout(180 * 1000);
+		conn.setReadTimeout(300 * 1000);
+		conn.setConnectTimeout(300 * 1000);
 		conn.setUseCaches(false);
 		conn.setDoOutput(true);
 
@@ -223,56 +223,60 @@ public class UrlUtil
 		}
 				
 		DataOutputStream wr = new DataOutputStream(conn.getOutputStream());
-		wr.writeBytes(postData);
+		wr.write(postData);
 		wr.flush();
 		wr.close();
 
 		// Invoke the Call and get the response from the GET        
-		String json = UrlUtil.readResponse( conn );	
+		String json = new String( UrlUtil.readResponse( conn ) );	
 		
 		return json;
 	}
 
-	/***********************************************************************************
-	 * Read the response off of the connection
-	 */
-   	public static String readResponse(HttpURLConnection conn) throws Exception
-	{
-		int 			responseCode 		= conn.getResponseCode();
-		String 			result				= null;
-		BufferedReader 	in 					= null;
-		StringBuffer 	response 			= new StringBuffer();
-		String 			inputLine			= null;
-		boolean			error				= false;
-		
-		if ((responseCode == HttpURLConnection.HTTP_OK)      ||
-		    (responseCode == HttpURLConnection.HTTP_CREATED) ||
-		    (responseCode == HttpURLConnection.HTTP_ACCEPTED))
-		{
-			in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-		}
-		else
-		{
-			error 	= true;
-			in 		= new BufferedReader(new InputStreamReader(conn.getErrorStream()));			
-		}
-		
-		while ((inputLine = in.readLine()) != null) 
-		{
-			response.append(inputLine);
-		}
-		
-		in.close();
-
-		//Get Result
-		result = response.toString();
-
-		if( true == error )
-		{
-			result = "{responseCode: " + responseCode + " " + result + "}";
-			throw new Exception(result);
-		}
-		
-		return result;
-	}   
+    /***********************************************************************************
+     * Read the response off of the connection
+     */
+    public static byte[] readResponse(HttpURLConnection conn) throws Exception
+    {
+        int                     responseCode    = conn.getResponseCode();
+        byte[]                  result          = null;
+        InputStream             in              = null;
+        ByteArrayOutputStream   buffer          = new ByteArrayOutputStream();
+        boolean                 error           = false;
+        byte[]                  data            = new byte[4096];
+        int                     n               = 0;
+         
+        if ((responseCode == HttpURLConnection.HTTP_OK)      ||
+            (responseCode == HttpURLConnection.HTTP_CREATED) ||
+            (responseCode == HttpURLConnection.HTTP_ACCEPTED))
+        {
+            in = conn.getInputStream();          
+        }
+        else
+        {
+            error   = true;
+            in      = conn.getErrorStream();         
+        }
+        
+        // Read the Data       
+     
+        while((n = in.read(data)) != -1) 
+        {
+            buffer.write(data, 0, n);
+        }
+        
+        buffer.flush();
+        in.close();
+    
+        //Get Result
+        result = buffer.toByteArray();
+        
+        if( true == error )
+        {
+            Logger.println("ReadResponse() Error responseCode: " + responseCode );;
+            throw new Exception(buffer.toString());
+        }
+        
+        return result;
+    }   
 }

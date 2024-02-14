@@ -53,7 +53,6 @@ class ServerSeedInitialization: public InitializationModule
     private:
         int    testCaseKey;
         int    mutatorIdKey;
-        int    fileURLKey;
         bool   getMinCorpus;
 
         std::string tags;

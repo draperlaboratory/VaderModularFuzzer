@@ -29,7 +29,7 @@
 #include "KleeInitialization.hpp"
 #include "Logging.hpp"
 #include "VaderUtil.hpp"
-#include <experimental/filesystem>
+#include <filesystem>
 #include <dirent.h>
 
 using namespace vader;
@@ -74,7 +74,7 @@ void KleeInitialization::init(ConfigInterface& config)
     std::string bitcodeFP = config.getStringParam(getModuleName(),"bitcodeFilePath");
 
     // Make sure the file exists
-    if(!std::experimental::filesystem::exists(bitcodeFP))
+    if(!std::filesystem::exists(bitcodeFP))
     {
         LOG_ERROR << "Could not find bitcodeFilePath: " << bitcodeFP;
         throw RuntimeException("Specified .bc file not found", RuntimeException::CONFIGURATION_ERROR);

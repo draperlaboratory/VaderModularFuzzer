@@ -12,6 +12,15 @@ $ cmake -DCMAKE_BUILD_TYPE=Debug ..
 $ make
 ```
 
+## Alternate Compiler Support
+VMF uses g++ as the default compiler, but will also support building with clang++.  Simply comment in the appropriate line in [vmf/src/CMakeLists.txt](../vmf/src/CMakeLists.txt)
+
+```cmake
+#Clang or g++ are supported
+#set(CMAKE_CXX_COMPILER g++)
+set(CMAKE_CXX_COMPILER clang++)
+```
+
 ## Generate Doxygen Documentation
  To generate class level Doxygen documentation, run the following commands.  (Doxygen must be installed first.)
  ```bash

@@ -97,32 +97,16 @@ void ServerCorpusInitialization::run(StorageModule& storage)
     LOG_INFO << "About to request whole corpus from CDMS";
     json11::Json json = client->getCorpus(tags);
 
-    auto fileList    = json["files"].array_items();
-    int  size        = fileList.size();
-
-    LOG_INFO << "Received a corpus of size " << size;
-
-    for(int i=0; i<size; i++)
+    if(writeServerURL)
     {
-        auto fileJson = fileList[i];
-
-        std::string     contents    = client->getCorpusFile(fileJson.string_value());   
-        StorageEntry*   entry       = storage.createNewEntry();
-        char*           buff        = entry->allocateBuffer(testCaseKey, contents.length());
-
-        contents.copy(buff, contents.length());
-
-        //A mutator id of SERVER_MUTATOR_ID will indicate that this is a server provided test case,
-        //as opposed to one that is generated internally within this VMF instance
-        entry->setValue(mutatorIdKey, CDMSClient::SERVER_MUTATOR_ID);
-
-        //The server URL is written to storage
-        if(writeServerURL)
-        {
-            std::string fileURL = fileJson.string_value();
-            char* urlBuff = entry->allocateBuffer(fileURLKey, fileURL.length());
-            fileURL.copy(urlBuff,fileURL.length());
-        }
+        LOG_DEBUG << "Retrieving corpus, will write fileURL to storage";
+        client->createNewTestCasesFromJsonWithFilename(storage, json, testCaseKey, mutatorIdKey, fileURLKey);
     }
+    else
+    {
+        LOG_DEBUG << "Retrieving corpus (fileURL will not be written to storage)";
+        client->createNewTestCasesFromJson(storage, json, testCaseKey, mutatorIdKey);
+    }
+    
 }
 

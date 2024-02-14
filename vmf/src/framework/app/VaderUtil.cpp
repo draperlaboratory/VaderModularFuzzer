@@ -29,16 +29,8 @@
 #include "VaderUtil.hpp"
 #include "RuntimeException.hpp"
 #include "Logging.hpp"
-#include <experimental/filesystem>
+#include <filesystem>
 #include <random>
-
-//#include <sys/stat.h> // for mkdir
-//#include <cstring> // for strerror
-#if defined (_WIN32)
-    #include "dirent.h"
-#else
-    #include <dirent.h> // for opendir
-#endif
 #include <fstream> // for filestream
 #include <stdio.h>
 
@@ -53,21 +45,21 @@
 #endif
 
 using namespace vader;
+namespace fs = std::filesystem;
 
 /**
  * @brief Creates a directory if it does not already exist
- * 
+ *
  * @param path the path to create (as char[])
  * @throws RuntimeException if unable to create the directory
  */
 void VaderUtil::createDirectory(const char* path)
 {
-    namespace fs = std::experimental::filesystem;
     if (!fs::exists(path)) { // Check if src folder exists
         bool created = fs::create_directories(path); // create src folder
         if(!created)
         {
-            throw RuntimeException("Unable to create directory, check permissions", 
+            throw RuntimeException("Unable to create directory, check permissions",
                 RuntimeException::USAGE_ERROR);
         }
     }
@@ -75,14 +67,13 @@ void VaderUtil::createDirectory(const char* path)
 
 /**
  * @brief Helper method to check if a directory exists or not
- * 
+ *
  * @param dir the directory
  * @return true if it exists
  * @return false false otherwise
  */
 bool VaderUtil::directoryExists(std::string dir)
 {
-    namespace fs = std::experimental::filesystem;
     bool exists = fs::exists(dir);
     return exists;
 }
@@ -91,9 +82,9 @@ bool VaderUtil::directoryExists(std::string dir)
 
 /**
  * @brief Helper method to create one new test case per file in the directory
- * 
+ *
  * The contents of each file will be used to fill the "TEST_CASE" buffer
- * 
+ *
  * @param storage the storage object
  * @param testCaseKey the handle for the "TEST_CASE" field
  * @param directory the directory to read
@@ -101,77 +92,128 @@ bool VaderUtil::directoryExists(std::string dir)
  */
 int VaderUtil::createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, std::string directory)
 {
-    int newTestCaseCount = 0;
+    return createNewTestCasesFromDirImpl(storage, testCaseKey, directory, -1, -1, -1);
+}
 
-    if(directory.back() != '/')
-    {   directory.append("/"); }
+/**
+ * @brief Helper method to create one new test case per file in the directory (and optionally write extra data)
+ *
+ * The contents of each file will be used to fill the "TEST_CASE" buffer.  
+ * If the filenameKey is not -1, then the filename will be written to each test case.
+ * Similarly, if the mutator id is not -1, then the provided mutator id value will be written to each test case
+ *
+ * @param storage the storage object
+ * @param testCaseKey the handle for the "TEST_CASE" field
+ * @param directory the directory to read
+ * @param filenameKey the handle for the filename field
+ * @param mutatorIdKey the handle for the mutator id field
+ * @param mutatorIdValue the value to write to the mutator id field
+ * @returns the number of new test cases that were created
+ */
+int VaderUtil::createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, std::string directory, int filenameKey, int mutatorIdKey, int mutatorIdValue)
+{
+    return createNewTestCasesFromDirImpl(storage, testCaseKey, directory, filenameKey, mutatorIdKey, mutatorIdValue);
+}
 
-    const char* dirPath = directory.c_str();
-    DIR* dirp = opendir(dirPath);
-    if(nullptr == dirp)
+/**
+ * @brief Implementation method for both version of createNewTestCasesFromDir
+ * 
+ * @param storage the storage object
+ * @param testCaseKey the handle for the "TEST_CASE" field
+ * @param directory the directory to read
+ * @param filenameKey the handle for the filename field (or -1 if not used)
+ * @param mutatorIdKey the handle for the mutator id field (or -1 if not used)
+ * @param mutatorIdValue the value to write to the mutator id field
+ * @return the number of new test cases that were created
+ */
+int VaderUtil::createNewTestCasesFromDirImpl(StorageModule& storage, int testCaseKey, std::string directory, int filenameKey, int mutatorIdKey, int mutatorIdValue)
+{
+    fs::path dirPath(directory);
+
+    if (!fs::exists(dirPath) ||
+        !fs::is_directory(dirPath))
     {
         LOG_ERROR << "Unable to open input directory: " << dirPath;
         throw RuntimeException("Unable to open input directory", RuntimeException::USAGE_ERROR);
     }
 
-    struct dirent* dp;
-    while ((dp = readdir(dirp)) != NULL) 
+    int newTestCaseCount = 0;
+
+    // Iterate over directory entires and skip over sub folders
+    for (const auto& file : fs::directory_iterator(dirPath))
     {
-      	char fpath[512];
-      	sprintf(fpath, "%s", dirPath);
-      	strcat(fpath, dp->d_name);
+        uintmax_t filesize = static_cast<uintmax_t>(0);
 
-        if((strcmp(dp->d_name, "..") != 0)
-            && (strcmp(dp->d_name, ".") != 0))
+        try
         {
-            // open and read next file into buffer
-            std::ifstream inFile;
-            inFile.open(fpath, std::ifstream::binary);
-            if (inFile.is_open()) 
+            if (!fs::exists(file))
             {
-                // get size
-                inFile.seekg(0, inFile.end);
-                int size = inFile.tellg();
-
-		// files of size 0 are ignored
-		if (0 == size)
-		{
-		    LOG_INFO << "Warning: ignoring input file of size 0.";
-		    continue;
-		}
-
-                inFile.seekg(0, inFile.beg);
-
-                // store file contents
-                StorageEntry* newEntry = storage.createNewEntry();
-                char* buff = newEntry->allocateBuffer(testCaseKey, size);
-                inFile.read(buff, size);
-                newTestCaseCount++;
+                LOG_WARNING << "Warning: " << file.path() << " doesn't exist. Skipping";
+                continue;
             }
-            else
+
+            if (!fs::is_regular_file(file))
             {
-                std::string name(fpath);
-                LOG_ERROR << "Unable to open input file: " << fpath;
+                LOG_WARNING << "Warning: " << file.path() << " is not a regular file. Skipping.";
+                continue;
             }
-            inFile.close();
+
+            filesize = fs::file_size(file);
+
+            if (static_cast<uintmax_t>(1) > filesize)
+            {
+                LOG_WARNING << "Warning: " << file.path() << " has size 0. Skipping.";
+                continue;
+            }
         }
+        catch(const std::exception& e)
+        {
+            LOG_WARNING << "Warning: File checks for " << file.path() << "returned error: " << e.what();
+
+            throw RuntimeException("Unable to open input file", RuntimeException::UNEXPECTED_ERROR);
+
+        }
+
+        // open and read file into buffer
+        filesize = fs::file_size(file);
+        std::ifstream inFile;
+        inFile.open(file.path(), std::ifstream::binary);
+
+        // store file contents
+        StorageEntry* newEntry = storage.createNewEntry();
+        char* buff = newEntry->allocateBuffer(testCaseKey, filesize);
+        inFile.read(buff, filesize);
+        newTestCaseCount++;
+
+        if(-1 != filenameKey)
+        {
+            std::string name = file.path().filename();
+            char* nameBuff = newEntry->allocateBuffer(filenameKey, name.length());
+            name.copy(nameBuff,name.length());
+        }
+        if(-1 != mutatorIdKey)
+        {
+            newEntry->setValue(mutatorIdKey, mutatorIdValue);
+        }
+        
+
+        inFile.close();
     }
-    closedir(dirp);
 
     return newTestCaseCount;
 }
 
 /**
  * @brief Writes a buffer to the specified file
- * 
+ *
  * The slash between the baseDir and the fileName will be added automatically
- * 
+ *
  * @param baseDir the base directory to write to
  * @param fileName the file name
  * @param buffer the buffer pointer
  * @param size the size (in bytes)
  */
-void VaderUtil::writeBufferToFile(std::string baseDir, std::string fileName, char* buffer, int size)
+void VaderUtil::writeBufferToFile(std::string baseDir, std::string fileName, const char* buffer, int size)
 {
     std::string path = baseDir + "/" + fileName;
     std::ofstream outFile;
@@ -185,14 +227,14 @@ void VaderUtil::writeBufferToFile(std::string baseDir, std::string fileName, cha
 
 /**
  * @brief Helper method to retrieve the path of the currently running vmf executable
- * 
+ *
  * @return std::string the path to the executable
  */
 std::string VaderUtil::getExecutablePath()
 {
     #if !defined(_WIN32)
         char result[PATH_MAX];
-        const char *path;
+        const char *path = nullptr;
 
         ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
         if (count > 0) {
@@ -219,10 +261,10 @@ std::string VaderUtil::getExecutablePath()
  * This implementation use a simple two step algorithm:
  * 1.	Pick a random max_bound between min and max-1
  * 2.	Pick a random index between min and max_bound
- * 
+ *
  * @param min the minimum value (inclusive)
  * @param max the maximum value (exclusive)
- * @return int 
+ * @return int
  */
 int VaderUtil::selectWeightedRandomValue(int min, int max)
 {
@@ -234,4 +276,78 @@ int VaderUtil::selectWeightedRandomValue(int min, int max)
     int rand = index(gen);
 
     return rand;
+}
+
+/**
+ * @brief Utility method to unzip the specified file using the command line unzip utility
+ * 
+ * This method does require an unzip utility to be installed.
+ * 
+ * @param zipFilePath the path to the zip file to unzip
+ * @param outputDir the output directory to write to (the directory will be created if it does not exist)
+ * @return true if unzip was successful, false otherwise
+ */
+bool VaderUtil::commandLineUnzip(std::string zipFilePath, std::string outputDir)
+{
+    bool success = false;
+    //TODO(Windows Support): This is a linux only implementation
+    //Example usage:
+    // unzip -q ../ZIPAUTOGEN_TEST.zip -d ~/ziptest/out2
+
+    //Create the output directory if it doesn't exist
+    if(!directoryExists(outputDir))
+    {
+        createDirectory(outputDir.c_str());
+    }
+
+    //Unzip the file
+    std::string unzipCmd = "unzip -q " + zipFilePath + " -d " + outputDir;
+    if(system(unzipCmd.c_str())==0)
+    {
+        success = true;
+    }
+    else
+    {
+        LOG_ERROR << "Unable to unzip file using command;" << unzipCmd;
+    }
+    
+    return success;
+}
+
+/**
+ * @brief Utility method to zip up all the files in a directory (using the command line zip utility)
+ * 
+ * This method does require an zip utility to be installed.  The foldername will not be included
+ * in the resulting zip file.
+ * 
+ * @param zipFilePath the path to the output zipfile
+ * @param inputDir the input directory to read the files from
+ * @return true if zip was successful, false otherwise
+ */
+bool VaderUtil::commandLineZip(std::string zipFilePath, std::string inputDir)
+{
+    bool success = false;
+    //TODO(Windows Support): This is a linux only implementation
+    //Example usage:
+    // zip -r -j -q myzip2.zip ~/testing/*
+
+    //Make sure the input directory exists
+    if(directoryExists(inputDir))
+    {
+        std::string zipCmd = "zip -r -j -q " + zipFilePath + " " + inputDir + "/*";
+        if(system(zipCmd.c_str())==0)
+        {
+            success = true;
+        }
+        else
+        {
+            LOG_ERROR << "Unable to unzip file using command;" << zipCmd;
+        }
+    }
+    else
+    {
+        LOG_ERROR << "Zip input directory not found; " << inputDir;
+    }
+
+    return success;
 }

@@ -34,6 +34,7 @@
 #include "VaderUtil.hpp"
 #include <fstream>  
 #include <thread> //for sleep
+#include <random> //for random sleep time
 #include <limits.h>
 
 #if !defined(_WIN32)
@@ -112,10 +113,10 @@ bool VaderApplication::init(int argc, char** argv)
 
 /**
  * @brief Helper method to perform local initialiation
- * 
+ *
  * Read the config files, create the output directory, and save a copy of the
  * config files to the output directory
- * 
+ *
  * @return true if initialization succeeds, false otherwise
  */
 
@@ -149,7 +150,7 @@ bool VaderApplication::localInit()
 
 /**
  * @brief Helper method for server based initialization
- * 
+ *
  * @return true if initialization succeeds, false otherwise
  */
 bool VaderApplication::serverInit()
@@ -183,6 +184,11 @@ bool VaderApplication::serverInit()
     name = this->myConfig->getStringParam(ConfigInterface::VMF_DISTRIBUTED_KEY,"clientName","VMF_instance");
     int sleepTime = this->myConfig->getIntParam(ConfigInterface::VMF_DISTRIBUTED_KEY, "taskingPollRate", 10000); //10s
     taskingSleepTime = std::chrono::milliseconds(sleepTime);
+
+    //This allows the insertion of an initial random delay of up to the specified sleep time.
+    //This prevents all the VMFs from polling for tasking synchronously.
+    //Set to -1 to disable this initial delay completely
+    int taskingInitialRandomDelayMax = this->myConfig->getIntParam(ConfigInterface::VMF_DISTRIBUTED_KEY,"taskingInitialRandomDelayMax", -1); //disabled
     
     gethostname(buff, HOST_NAME_MAX);
  
@@ -203,6 +209,17 @@ bool VaderApplication::serverInit()
     //Note: myState is not updated to RUNNING as the VMF does not yet have tasking
     //For distributed fuzzing, this occurs in the run loop
     myState = WAITING_FOR_TASKING;
+
+    if(taskingInitialRandomDelayMax > 0)
+    {
+        //Sleep for sometime between 0 and taskingInitialRandomDelayMax milliseconds
+        std::mt19937_64 eng{std::random_device{}()};
+        std::uniform_int_distribution<> dist{0, taskingInitialRandomDelayMax};
+        int delay = dist(eng);
+        int delaySecs = delay / 1000;
+        LOG_INFO << "Sleeping for " << delaySecs << " to prevent synchronous server requests";
+        std::this_thread::sleep_for(std::chrono::milliseconds{delay});
+    }
 
     return valid;
 }
@@ -610,7 +627,7 @@ void VaderApplication::runDistributed()
         {
             //Don't do anything.
             //A command to RESTART, STOP or SHUTDOWN exits this state
-            LOG_INFO << "PAUSED.  Waiting on server commanding...";
+            LOG_DEBUG << "PAUSED.  Waiting on server commanding...";
             std::this_thread::sleep_for(std::chrono::milliseconds(1000)); //1 second sleep
         }
         else

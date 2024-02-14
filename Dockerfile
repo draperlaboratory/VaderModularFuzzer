@@ -8,7 +8,8 @@ RUN  apt-get update \
        git \
        gnupg \
        lsb-core \
-       lsb-release
+       lsb-release \
+       zip
 
 RUN lsb_release -a | grep -q "18.04" && ( \
       echo "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-12 main" >> /etc/apt/sources.list && \

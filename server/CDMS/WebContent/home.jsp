@@ -405,13 +405,13 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
               {   
             	 if(data.length > 0)
                  {
-                     output.push("<table id='scenarioslidertable'><tr><th>Type</th><th>Scenario</th><th>Capacity</th><th>VMF Fuzzers</th><th>State</th><th></th></tr>" );           		 
+                     output.push("<table id='scenarioslidertable'><tr><th>Type</th><th>Scenario</th><th style='width:60%'>Capacity</th><th>VMF Fuzzers</th><th>State</th><th></th></tr>" );           		 
                  }
                  for (var i = 0, len = data.length; i < len; i++) 
                  {                		
                      var capacityEl = "<td><span id='CAP" +data[i].Id +"'>" + data[i].Capacity +"</span>" +
                                       "&nbsp&nbsp&nbsp&nbsp<input id='" + data[i].Id + "' style='position:relative;' type='range' " + 
-                                      "onInput=\"CAP"+data[i].Id+ ".innerText= this.value\"  min='0' max='25' value='" + data[i].Capacity + "' class='slider'></td>";
+                                      "onInput=\"CAP"+data[i].Id+ ".innerText= this.value\"  min='0' max='200' value='" + data[i].Capacity + "' class='slider'></td>";
 
                 		if( data[i].Type == "Minimizer") 
                 		{
@@ -539,7 +539,7 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
 	                            args, 
 	                            function(data)
 	                            {  
-	                                var table  = $.makeTable(data,[["data", "VMF KPIs"]], ["uid","scenarioId","clusterId"]);	                                                                         
+	                                var table  = $.makeTable(data,[["data", "VMF KPIs", "uid", "scenarioId", "clusterId"]]);	                                                                         
 	                                table.appendTo("#SelectionResults");
 	                                
 	                                table.tablesorter
@@ -1015,7 +1015,7 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
         	var uri = "cluster" + clusterid + "/scenario"  + scenarioid + "/" + filename;
         	
             var rslt = $.get
-            (        appRoot + "corpus/file/" + uri, 
+            (        appRoot + "corpus/corpusfile/" + uri, 
                      function(data)
                      {  
                          var fileContent = data;
