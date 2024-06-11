@@ -4,7 +4,6 @@ vmfModules:
   controller: #a controller module must be specified
     className: IterativeController
     children:
-      #- className: CRC32Formatter
       #- className: StringsInitialization
       - className: DirectoryBasedSeedGen
       - className: MOPTInputGenerator
@@ -15,7 +14,6 @@ vmfModules:
       - className: StatsOutput
   MOPTInputGenerator:
     children:
-      #- className: RadamsaMutator
       - className: AFLFlipBitMutator
       - className: AFLFlip2BitMutator
       - className: AFLFlip4BitMutator

@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -33,7 +33,7 @@
 #include "Iterator.hpp"
 #include <list>
 
-namespace vader{
+namespace vmf{
 /**
  * @brief Implementation of Iterator that works with SimpleStorage implementation
  *
@@ -47,7 +47,7 @@ public:
     virtual bool hasNext();
     virtual int getSize();
     virtual StorageEntry* setIndexTo(int index);
-    virtual void reset();
+    virtual void resetIndex();
 
 private:
     std::list<StorageEntry*>* elementPointers;

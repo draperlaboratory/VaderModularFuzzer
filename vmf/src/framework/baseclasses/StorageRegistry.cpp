@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -30,7 +30,7 @@
 #include "RuntimeException.hpp"
 #include "Logging.hpp"
 
-using namespace vader;
+using namespace vmf;
 using std::string;
 using std::vector;
 
@@ -135,6 +135,14 @@ StorageRegistry::sortOrder StorageRegistry::stringToSortOrder(std::string type)
  */
 bool StorageRegistry::validateRegistration()
 {
+    //This should be an impossible error, but double check that the number of default int and float values
+    //matches the number of keys
+    if((intKeys.size() != intDefaults.size())||(floatKeys.size() != floatDefaults.size()))
+    {
+        LOG_ERROR << "Programming Error -- the number of int and float keys does not match the number of default values";
+        return false;
+    }
+
     //Prior to validating tags, update the registration based on the readAllTags
     //and writeAllTags parameters
     if(readAllTags || writeAllTags)
@@ -172,7 +180,7 @@ bool StorageRegistry::validateRegistration()
  */
 bool StorageRegistry::validateList(vector<registryInfo>& keyList, string listName)
 {
-    LOG_INFO << "StorageRegistry::Validating " << listName << " fields\n";
+    LOG_INFO << "StorageRegistry::Validating " << listName << " fields";
 
     bool isValid = true;
     for(registryInfo info: keyList)
@@ -206,21 +214,121 @@ bool StorageRegistry::validateList(vector<registryInfo>& keyList, string listNam
  */
 int StorageRegistry::registerKey(string keyName, storageTypes type, accessType access)
 {
+    bool wasNew = false;
+    int handle = -1;
     switch(type)
     {
     case INT:
-        return addIfNotPresent(intKeys,keyName,access);
+        handle = addIfNotPresent(intKeys,keyName,access,wasNew);
+        if(wasNew)
+        {
+            intDefaults.push_back(0); //When unspecified, the default value is 0
+        }
         break;
     case FLOAT:
-        return addIfNotPresent(floatKeys,keyName,access);
+        handle = addIfNotPresent(floatKeys,keyName,access,wasNew);
+        if(wasNew)
+        {
+            floatDefaults.push_back(0.0); //When unspecified, the default value is 0.0
+        }
         break;
     case BUFFER:
-        return addIfNotPresent(bufferKeys,keyName,access);
+        handle = addIfNotPresent(bufferKeys,keyName,access,wasNew);
+        break;
+    default:
+        //Shouldn't happen
+        throw RuntimeException("Unknown key registration type", RuntimeException::UNEXPECTED_ERROR);
         break;
     }
 
-    //Shouldn't happen
-    throw RuntimeException("Unknown key registration type", RuntimeException::UNEXPECTED_ERROR);
+    return handle;
+
+}
+
+/**
+ * @brief Register a key for a data field (with a default integer value)
+ *
+ * This version of the register key method registers a key of type INT with the specified default value.
+ * 
+ * @param keyName the unique string name of the field
+ * @param access how the caller doing the registration will use the key
+ * @param defaultValue the default value to use for the key
+ * @return int the handle to use for subsequent access to the key (for getters and setters in the StorageEntry)
+ */
+int StorageRegistry::registerIntKey(std::string keyName, accessType access, int defaultValue)
+{
+    bool wasNew = false;
+    int handle = addIfNotPresent(intKeys,keyName,access,wasNew);
+
+    //Also add an entry to the defaults table
+    if(wasNew)
+    {
+        //This was a new key, so set the default value
+        intKeys[handle].hasDefault = true;
+        intDefaults.push_back(defaultValue);
+    }
+    else if(intKeys[handle].hasDefault)
+    {
+        //This is not a new entry, but there was already a default value set
+        //So we need to make sure the default value specified here is the same
+        if(defaultValue != intDefaults[handle])
+        {
+            LOG_ERROR << "Attempted to register two different default values for key " << keyName << " (" <<
+                      defaultValue << " and " << intDefaults[handle] << ")";
+            throw RuntimeException("Integer Key was registered with two different default values", RuntimeException::CONFIGURATION_ERROR);
+        }
+    }
+    else
+    {
+        //The key was previously registered with no default value specified, so now we will set one
+        intKeys[handle].hasDefault = true;
+        intDefaults[handle] = defaultValue;
+    }
+
+    return handle;
+}
+
+/**
+ * @brief Register a key for a data field (with a default float value)
+ *
+ * This version of the register key method registers a key of type FLOAT with the specified default value.
+ * 
+ * @param keyName the unique string name of the field
+ * @param access how the caller doing the registration will use the key
+ * @param defaultValue the default value to use for the key
+ * @return int the handle to use for subsequent access to the key (for getters and setters in the StorageEntry)
+ */
+int StorageRegistry::registerFloatKey(std::string keyName, accessType access, float defaultValue)
+{
+    bool wasNew = false;
+    int handle = addIfNotPresent(floatKeys,keyName,access,wasNew);
+
+    //Also add an entry to the defaults table
+    if(wasNew)
+    {
+        //This was a new key, so set the default value
+        floatKeys[handle].hasDefault = true;
+        floatDefaults.push_back(defaultValue);
+    }
+    else if(floatKeys[handle].hasDefault)
+    {
+        //This is not a new entry, but there was already a default value set
+        //So we need to make sure the default value specified here is the same
+        if(defaultValue != floatDefaults[handle])
+        {
+            LOG_ERROR << "Attempted to register two different default values for key " << keyName << " (" <<
+                      defaultValue << " and " << floatDefaults[handle] << ")";
+            throw RuntimeException("Float Key was registered with two different default values", RuntimeException::CONFIGURATION_ERROR);
+        }
+    }
+    else
+    {
+        //The key was previously registered with no default value specified, so now we will set one
+        floatKeys[handle].hasDefault = true;
+        floatDefaults[handle] = defaultValue;
+    }
+
+    return handle;
 }
 
 /**
@@ -232,7 +340,8 @@ int StorageRegistry::registerKey(string keyName, storageTypes type, accessType a
  */
 int StorageRegistry::registerTag(string tagName, accessType access)
 {
-    return addIfNotPresent(tagNames,tagName,access);
+    bool wasNew;
+    return addIfNotPresent(tagNames,tagName,access, wasNew);
 }
 
 /**
@@ -344,6 +453,26 @@ int StorageRegistry::getNumTags()
 }
 
 /**
+ * @brief Returns the default values for the int keys
+ * 
+ * @return std::vector<int> 
+ */
+std::vector<int> StorageRegistry::getIntKeyDefaults()
+{
+    return intDefaults;
+}
+
+/**
+ * @brief Returns the default values for the float keys
+ * 
+ * @return std::vector<float> 
+ */
+std::vector<float> StorageRegistry::getFloatKeyDefaults()
+{
+    return floatDefaults;
+}
+
+/**
  * @brief Return the handle for the key that storage should be sorted by
  * 
  * This method is used by the StorageModule.
@@ -386,9 +515,10 @@ StorageRegistry::sortOrder StorageRegistry::getSortByOrder()
  * @param keyList the list to add to
  * @param keyName the key name
  * @param access the type of access
- * @return int the handle to the key to be used for subsequent access
+ * @param[out] wasNew this is an output variable -- it is set to true if a new key was added and false if it already existed
+ * @return int the handle to the key to be used for subsequent access, and also sets the wasNew variable value
  */
-int StorageRegistry::addIfNotPresent(vector<StorageRegistry::registryInfo>& keyList, string keyName, accessType access)
+int StorageRegistry::addIfNotPresent(vector<StorageRegistry::registryInfo>& keyList, string keyName, accessType access, bool& wasNew)
 {
     bool found = false;
     size_t i;
@@ -411,6 +541,7 @@ int StorageRegistry::addIfNotPresent(vector<StorageRegistry::registryInfo>& keyL
         {
             keyList[i].isWritten = true;
         }
+        wasNew = false;
         return i;
     }
     else
@@ -418,9 +549,12 @@ int StorageRegistry::addIfNotPresent(vector<StorageRegistry::registryInfo>& keyL
 
         bool isRead = ((READ_ONLY == access)||(READ_WRITE == access));
         bool isWritten = ((WRITE_ONLY == access)||(READ_WRITE == access));
+        bool hasDefault = false;
 
-        keyList.push_back({keyName, isRead, isWritten});
+        keyList.push_back({keyName, isRead, isWritten, hasDefault});
         int index = keyList.size() - 1;
+
+        wasNew = true;
         return index;
     }
 }

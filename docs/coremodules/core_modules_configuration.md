@@ -5,25 +5,32 @@ This document provides detailed information on the configuration options for VMF
 Each module may have a configuration section for keys that are specific to that module.
 
 Initialization modules
-* [`DirectoryBasedSeedGen`](#DirectoryBasedSeedGen)
-* [`GramatronBasedSeedGen`](#GramatronBasedSeedGen)
-* [`KleeInitialization`](#KleeInitialization)
-* [`StringsInitialization`](#StringsInitialization)
-* [`ServerSeedInitialization`](#ServerSeedInitialization)
+* [`DirectoryBasedSeedGen`](#section-directorybasedseedgen)
+* [`GramatronBasedSeedGen`](#section-gramatronbasedseedgen)
+* [`KleeInitialization`](#section-kleeinitialization)
+* [`StringsInitialization`](#section-stringsinitialization)
+* [`ServerSeedInitialization`](#section-serverseedinitialization)
 
 Input Generator and Mutator modules
-* [`GeneticAlgorithmInputGenerator`](#GeneticAlgorithmInputGenerator)
-* [`MOPTInputGenerator`](#MOPTInputGenerator)
+* [`GeneticAlgorithmInputGenerator`](#section-geneticalgorithminputgenerator)
+* [`MOPTInputGenerator`](#section-moptinputgenerator)
+* [`RedPawnInputGenerator`](#section-redpawninputgenerator)
 
 Executor and Feedback modules
-* [`AFLForkserverExecutor`](#AFLForkserverExecutor)
-* [`AFLFeedback`](#AFLFeedback)
-* [`AFLFavoredFeedback`](#AFLFavoredFeedback)
+* [`AFLForkserverExecutor`](#section-aflforkserverexecutor)
+* [`AFLFeedback`](#section-aflfeedback)
+* [`AFLFavoredFeedback`](#section-aflfavoredfeedback)
 
 Output modules
-* [`CorpusMinimization`](#CorpusMinimization)
-* [`SaveCorpusOutput`](#SaveCorpusOutput)
-* [`StatsOutput`](#StatsOutput)
+* [`CorpusMinimization`](#section-corpusminimization)
+* [`SaveCorpusOutput`](#section-savecorpusoutput)
+* [`StatsOutput`](#section-statsoutput)
+
+Controller modules
+* [`Parameters Common to All Controller Modules`](#section-parameters-common-to-all-controller-modules)
+* [`IterativeController`](#section-iterativecontroller)
+* [`NewCoverageController`](#section-newcoveragecontroller)
+* [`RunOnceController`](#section-runoncecontroller)
 
 ## <a id="DirectoryBasedSeedGen"></a>Section: `DirectoryBasedSeedGen`
 
@@ -43,11 +50,11 @@ DirectoryBasedSeedGen:
   inputDir: /test/someapplication/seeds
 ```
 
-## <a id="GrammarBasedSeedGen"></a>Section: `GrammarBasedSeedGen`
+## <a id="GramatronBasedSeedGen"></a>Section: `GramatronBasedSeedGen`
 
-Configuration information specific to the Grammar-based Seed Generator module.
+Configuration information specific to the Gramatron Grammer-based Seed Generator module.
 
-### `GrammarBasedSeedGen.PDAPAth`
+### `GramatronBasedSeedGen.PDAPAth`
 
 Value type: `<path>`
 
@@ -55,7 +62,7 @@ Status: Required
 
 Usage: Relative or absolute path to the json-based pushdown automata definition for the grammar to be used during fuzzing.
 
-### `GrammarBasedSeedGen.numTestCases`
+### `GramatronBasedSeedGen.numTestCases`
 
 Value type: `<int>`
 
@@ -204,6 +211,80 @@ MOPTInputGenerator:
   corePeriodLength:  500000  # Number of testcases executed during core period
   pMin: 0.0                  # Minimum mutator probability (0.0 means ignore and use adaptive value)
 ```
+## <a id="RedPawnInputGenerator"></a>Section: `RedPawnInputGenerator`
+
+Configuration information specific to the RedPawn Input Generator module. 
+
+### `RedPawnInputGenerator.colorizeMaxExecs`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default Value: 1,000
+
+Usage: Specifies the maximum number of testcase executions that can take place during the colorization stage (which runs once per new interesting testcase). More executations can take longer, but produce testcases with more entropy which improves results and may save time during analysis. For slow or emulated SUTs, a smaller number may be preferable.
+
+### `RedPawnInputGenerator.batchSize`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default Value: 1,000
+
+Usage: Specifies the maximum number of testcases that can be created and added to storage in one run (invocation from controller) of the RedPawn Input Generator.  This setting is useful if you wish to reduce the overall memory usage associated with RedPawn, as producing fewer test cases at once will reduce the overall memory footprint.  Sometimes a single comparison instruction will produces a lot of possible test cases from RedPawn; this setting also serves as a limit for the total number of test cases that can be produces for each comparison instruction.
+
+### `RedPawnInputGenerator.useDirectTransform`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default Value: `true`
+
+Usage: enables the Direct transform.
+
+### `RedPawnInputGenerator.useReverseBytesTransform`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default Value: `true`
+
+Usage: enables the Reverse Bytes transform.
+
+### `RedPawnInputGenerator.useOffsetTransform`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default Value: `true`
+
+Usage: enables the Offset transform.
+
+### `RedPawnInputGenerator.useFactorTransform`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default Value: `true`
+
+Usage: enables the Factor transform.
+
+### `RedPawnInputGenerator.useXORTransform`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default Value: `true`
+
+Usage: enables the XOR transform.
+
 
 ## <a id="AFLForkserverExecutor"></a>Section: `AFLForkserverExecutor`
 
@@ -225,6 +306,16 @@ Status: Optional
 
 Usage: Specifies the time in milliseconds that VMF will use to determine whether execution of the SUT has hung.  This is an optional parameter, and when not specified the executor will instead automatically compute a timeout value based on the initial seeds. Care must be taken when manually specifying this value, as a timeout that is too short will result in test cases being erroneously identified as hanging.
 
+### `AFLForkserverExecutor.maxCalibrationCases`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default value: 300
+
+Usage: Specifies a maximum number of tests use to calibrate AFLForkserverExecutor. These tests are primarily useful for calculating timeout values to detect hanging SUTs during the fuzzing campaign.
+
 ### `AFLForkserverExecutor.memoryLimitInMB`
 
 Value type: `<int>`
@@ -234,6 +325,136 @@ Status: Optional
 Default value: 128
 
 Usage: Specifies a memory limit for the SUT. A value of 0 means unlimited.
+
+### `AFLForkserverExecutor.debugLog`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: `false`
+
+Usage: Records all SUT stdout/stderr to files. These file names default to `stdout` and `stderr` in the `forkserver/` directory under the output directory.
+
+### `AFLForkserverExecutor.stdout`
+
+Value type: `<string>`
+
+Status: Optional
+
+Default value: "stdout"
+
+Usage: Specifies an alternate file name to capture SUT stdout logs. This config will only be used when the `debugLog` config option is set to `true`.
+
+### `AFLForkserverExecutor.stderr`
+
+Value type: `<string>`
+
+Status: Optional
+
+Default value: "stderr"
+
+Usage: Specifies an alternate file name to capture SUT stderr logs. This config will only be used when the `debugLog` config option is set to `true`.
+
+### `AFLForkserverExecutor.mapSize`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default value: 0
+
+Usage: Specifies the SUT's coverage map size. A zero value here will invoke auto-detection of the map size.
+
+### `AFLForkserverExecutor.alwaysWriteTraceBits`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: false
+
+Usage: Configures the forkserver to record the full coverage map for each test case.
+
+### `AFLForkserverExecutor.traceBitsOnNewCoverage`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: true
+
+Usage: Configures the forkserver to record the full coverage map for test cases that discover new SUT coverage.
+
+### `AFLForkserverExecutor.writeStats`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: true
+
+Usage: Configures the forkserver to record cumulative coverage data for each test case.
+
+### `AFLForkserverExecutor.customExitCode`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default value: Disabled
+
+Usage: Treats a SUT that calls the `exit` system call with the specified value as a crashing case.
+
+### `AFLForkserverExecutor.cmpLogEnabled`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: `false`
+
+Usage: Enable SUTs instrumented with `cmpLog` to perform `cmpLog` coverage data collection.
+
+### `AFLForkserverExecutor.useASAN`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: `false`
+
+Usage: When enabled, this sets sane defaults for fuzzing ASAN-instrumented SUTs. Additionally, removes SUT memory limits (unless specified with `memoryLimitInMB`.
+
+### `AFLForkserverExecutor.useLSAN`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: `false`
+
+Usage: When enabled, this sets sane defaults for fuzzing LSAN-instrumented SUTs.
+
+### `AFLForkserverExecutor.useMSAN`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: `false`
+
+Usage: When enabled, this sets sane defaults for fuzzing MSAN-instrumented SUTs.
+
+### `AFLForkserverExecutor.useUBSAN`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: `false`
+
+Usage: When enabled, this sets sane defaults for fuzzing UBSAN-instrumented SUTs.
 
 ### Configuration example
 ```yaml
@@ -293,7 +514,7 @@ AFLFeedback and AFLFavoredFeedback both compute fitness as a function of code co
 
 ### `AFLFavoredFeedback.favoredWeight`
 
-Value type: `<>`
+Value type: `<float>`
 
 Status: Optional
 
@@ -380,3 +601,80 @@ StatsOutput:
   sendToServer: false
   outputRateInSeconds: 10
 ```
+
+## <a id="ControllerCommonParameters"></a>Section: `Parameters Common to All Controller Modules`
+Parameters that are common to all Controller Modules (these parameters are supported by the base ControllerModule class).  Each of these parameters is only relevant for distributed fuzzing, and will have no effect on standalone execution.
+
+### `controller.corpusInitialUpdateMins`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default value: 5
+
+Usage: This sets the minimum number of minutes that must pass before the controller will perform the first corpus update.  Do not configure this parameter to be smaller than 5min unless you are using a very small number of VMFs.
+
+### `controller.corpusUpdateRateMins`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default value: 5
+
+Usage: This sets a minimum rate for the controller to retrieve subsequent corpus updates from the server.  Do not configure this parameter to be smaller than 5min unless you are using a very small number of VMFs.
+
+### `controller.corpusUpdateTags`
+
+Value type: `<list of strings>`
+
+Status: Optional
+
+Default value: ["RAN_SUCCESSFULLY"]
+
+Usage: This parameter controls which test case tags are retrieved by the controller. The default value is ["RAN_SUCCESSFULLY"], which will retrieve only the test cases ran succesfully (i.e. didn't hang or crash). This is the correct value if you are using VMF Core Modules in your fuzzer.
+
+## <a id="IterativeController"></a>Section: `IterativeController`
+Configuration information specific to the IterativeController.
+### `IterativeController.runTimeInMinutes`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default value: 0
+
+Usage: This parameter controls the execution time of the fuzzer (in minutes). When set to the default value of 0 the fuzzer runs until the user shuts it down. Note: The execution time will be an approximate value, particularly for long running SUTs, as the controller shuts down at the end of the complete fuzzing loop in which the execution time was met.  
+
+## <a id="NewCoverageController"></a>Section: `NewCoverageController`
+Configuration information specific to the NewCoverageController.
+
+### `NewCoverageController.primaryInputGenerator`
+
+Value type: `<string>`
+
+Status: Required
+
+Usage: This parameter specifies the className or ID of the InputGeneratorModule to use as the primary input generator.
+
+### `NewCoverageController.newCoverageInputGenerator`
+
+Value type: `<string>`
+
+Status: Required
+
+Usage: This parameter specifies the className or ID of the InputGeneratorModule to use as the new coverage input generator.
+
+### `NewCoverageController.runTimeInMinutes`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default value: 0
+
+Usage: This parameter controls the execution time of the fuzzer (in minutes). When set to the default value of 0 the fuzzer runs until the user shuts it down. Note: The execution time will be an approximate value, particularly for long running SUTs, as the controller shuts down at the end of the complete fuzzing loop in which the execution time was met.  
+
+## <a id="RunOnceController"></a>Section: `RunOnceController`
+The RunOnceController does not support any custom configuration parameters.

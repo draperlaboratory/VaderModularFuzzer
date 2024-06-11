@@ -31,23 +31,36 @@
 
 The VMF framework architecture largely follows the terminology of the generic fuzzing algorithm used in ([Manés, et. al, 2019](https://arxiv.org/pdf/1812.00140.pdf "The Art, Science, and Engineering of Fuzzing")).
 
-**Controller module** - Responsible for managing the interactions of all other modules in a particular configuration.
+**Controller module** - VMF Controller modules are the top level module in Vader.  The controller module is required to manage the sequencing of the “fuzzing loop”, and call StorageModule::clearNewAndLocalEntries() at the end of each fuzzing loop.
+
+Controllers should be written to be fairly generic to the set of modules being used.  Controllers should not be adding/modifying/deleting test cases in storage.
+
+Controllers typically support submodules of type:  InitializationModule, ExecutorModule, FeedbackModule, InputGeneratorModule, and OutputModule.  Controllers with Executor and Feedback submodules are responsible for determining which storage entries are used by these modules.  However, a Controller could be written to manager other controllers, in which case its submodules would also be of type Controller.
+
+**Storage module** - VMF Storage modules provide for storage of test cases and their associated data.  Support for global metadata variables is provided as well.
 
 **Initialization module** - Implements a function that "modif[ies] the initial set of fuzz configurations before the first fuzz iteration. Such preprocessing is commonly used to instrument the PUT, to weed out potentially-redundant configurations (i.e., “seed selection”), to trim seeds, and to generate driver applications." An Initialization module "can also be used to prepare a model for future input generation." (Manés, et. al, 2019)
 
+VMF Initialization modules are run once, prior to the main fuzzing loop.  They are typically used to manage seeds, either loading, generating, or selecting seeds.  Static instrumention of the SUT is performed outside of VMF, prior to starting the fuzzer.  Model preparation for input generation is typically done as part of the input generator itself.
+
 **InputGenerator module** - Implements a function that determines the contents of a test case. "Traditionally, fuzzers are categorized into either generation- or mutation-based fuzzers. Generation-based fuzzers produce test cases based on a given model that describes the inputs expected by the PUT. […] On the other hand, mutation-based fuzzers produce test cases by mutating a given seed input. Mutation-based fuzzers are generally considered to be model-less because seeds are merely example inputs and even in large numbers they do not completely describe the expected input space of the PUT." (Manés, et. al, 2019) 
 
-A VMF InputGenerator module may utilize Mutator and Formatter modules for mutation-based input generation. It may also directly create test cases, if the InputGenerator module implements a non-mutation based strategy.
+VMF InputGenerator modules create new inputs that will be run by the Executor Module(s).  InputGenerator modules that use mutation based strategies typically have configurable submodules of type MutatorModule.
 
 **Mutator module** - Implements one or more functions that modify the contents of a test case. "Most model-less fuzzers use a seed, which is an input to the PUT, in order to generate test cases by modifying the seed. A seed is typically a well-structured input of a type supported by the PUT: a file, a network packet, or a sequence of UI events. By mutating only a fraction of a valid file, it is often possible to generate a new test case that is mostly valid, but also contains abnormal values to trigger crashes of the PUT." (Manés, et. al, 2019)
 
-**Formatter module** - Implements one or more functions that update a test case so that it meets certain ancillary semantic requirements of the PUT, for instance having a valid integrity check value (CRC).
+VMF Mutator modules mutate the provided data buffer.  Mutator modules are typically submodules of InputGeneratorModules.
 
 **Executor/Feedback modules** - "After an input is generated, the fuzzer executes the PUT on the input and decides what to do with the resulting execution." (Manés, et. al, 2019) The executor and feedback modulse performs several functions that correspond to the Bug Oracle and InputEval functions in (Manés, et. al, 2019):
-* Executor Module: Runs the SUT using each test case as an input and captures the results of running the test case. This step includes evaluating the bug oracle.
-* Feedback Modules: Examines the results to determine if the test case is interesting enough to keep in long term storage, and either saves or discards the entry accordingly. This step includes triage of the test case.
+* VMF Executor Modules: Run the SUT using each test case as an input and capture the results of that execution in storage. This includes evaluating the bug oracle.
+* VMF Feedback Modules: Evaluate the results of running a test case and determine whether the test case is interesting enough to keep in long term storage.  This decision is made based on the information that an executor provides about the test case execution results.  Typically feedback modules will also write the sortByKey value that is used to sort test cases in long term storage.
 
-**Output module** - Implements functions that "can modify the set of configurations based on the configuration and execution information collected during the current fuzzing run," corresponding to the ConfUpdate function in (Manés, et. al, 2019). In VMF an output module may also provide input to a human operator, or perform maintenance on the corpus.
+
+**Output module** - Implements functions that "can modify the set of configurations based on the configuration and execution information collected during the current fuzzing run," corresponding to the ConfUpdate function in (Manés, et. al, 2019). 
+
+VMF Output modules are used to examine the results of test cases.  They are fairly general purpose and may be used to output information to a human operator, to trim the corpus of test cases, or to perform any other function that should occur periodically as test cases execute.
+
+OutputModules are schedulable, and indicate a preferred scheduling rate to the Controller managing them.
 
 ## Distributed Fuzzing terms ##
 **Distributed Fuzzing** - The ability to run multiple instances of VMF simultaneously and collaboratively.  The fuzzers work together to fuzz a particular SUT.​

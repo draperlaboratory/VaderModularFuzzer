@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -29,7 +29,7 @@
 #include "MyMutator.hpp"
 #include "Logging.hpp"
 
-using namespace vader;
+using namespace vmf;
 
 /*
   This will register the mutator module with the VMF module factory, making
@@ -78,13 +78,12 @@ MyMutator::~MyMutator()
 
 /**
  * @brief Registers storage needs
- * This class uses only the "TEST_CASE" key
  * 
  * @param registry 
  */
 void MyMutator::registerStorageNeeds(StorageRegistry& registry)
 {
-    testCaseKey = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_WRITE);
+    //This module has no direct needs, because mutators are told where to write in storage by the input generator that calls them
 }
 
 /**
@@ -94,13 +93,14 @@ void MyMutator::registerStorageNeeds(StorageRegistry& registry)
  * 
  * @param storage reference to storage
  * @param baseEntry the base entry to use for mutation
- * @return StorageEntry* 
+ * @param newEntry the test case to write to
+ * @param testCaseKey the field to write to in the new entry
  * @throws RuntimeException if baseEntry has an empty test case buffer.
  */
-StorageEntry* MyMutator::createTestCase(StorageModule& storage, StorageEntry* baseEntry)
+void MyMutator::mutateTestCase(StorageModule& storage, StorageEntry* baseEntry, StorageEntry* newEntry, int testCaseKey)
 {
     int inputSize = baseEntry->getBufferSize(testCaseKey);
-//    char* inputBuffer = baseEntry->getBufferPointer(testCaseKey);
+
     if (inputSize <= 0) 
     {
 	throw RuntimeException(
@@ -111,9 +111,7 @@ StorageEntry* MyMutator::createTestCase(StorageModule& storage, StorageEntry* ba
     // This doesn't really do anything useful - this is just an
     // integration demonstration.
     LOG_INFO << "Not really mutating here, just pretending";
-    StorageEntry* newEntry = storage.createNewEntry();
     char* outputBuffer = newEntry->allocateBuffer(testCaseKey, 23);
     strcpy(outputBuffer, "foobar");
     
-    return newEntry;
 }

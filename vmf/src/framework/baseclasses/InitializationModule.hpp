@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -30,13 +30,17 @@
 
 
 #include "StorageUserModule.hpp"
+#include "Logging.hpp"
 
-namespace vader
+namespace vmf
 {
 /**
- * @brief Base class for Vader Initialization modules
+ * @brief Base class for VMF Initialization modules
  *
- * Initialization modules are run once, prior to the main fuzzing loop.
+ * Initialization modules are run once, prior to the main fuzzing loop.  
+ * They are typically used to manage seeds, either loading, generating, or selecting seeds.  
+ * Static instrumention of the SUT is performed outside of VMF, prior to starting the fuzzer.  Model 
+ * preparation for input generation is typically done as part of the input generator itself.
  *
  */
 class InitializationModule: public StorageUserModule {
@@ -86,6 +90,42 @@ public:
                         RuntimeException::CONFIGURATION_ERROR);
                 }
                 
+            }
+        }
+        return theModule;
+    }
+
+    /**
+     * @brief Helper method to return a single Initialization submodule from config by name
+     * This method will retrieve a single Initialization submodule by name for the specified parent modules.
+     * If there are no Initialization submodules with the specified name, then an nullptr will be returned.  
+     * 
+     * @param config the ConfigInterface object
+     * @param parentName the name of the parent module
+     * @param childName the name of the child module to finde
+     * @return InitializationModule* the submodule, or nullptr if none is found
+     */
+    static InitializationModule* getInitializationSubmoduleByName(ConfigInterface& config, std::string parentName, std::string childName)
+    {
+        InitializationModule* theModule = nullptr;
+        std::vector<Module*> modules = config.getSubModules(parentName);
+        for(Module* m: modules)
+        {
+            if(childName == m->getModuleName())
+            {
+                if(isAnInstance(m))
+                {
+                    theModule = castTo(m);
+                    break;
+                }
+                else
+                {
+                    LOG_ERROR << parentName << " requested an Initialization submodule named " << childName 
+                               << ", but that submodules is not of type Initialization.";
+                    throw RuntimeException(
+                        "Configuration file contained a module with this name, but it was not an executor module",
+                        RuntimeException::CONFIGURATION_ERROR);
+                }
             }
         }
         return theModule;

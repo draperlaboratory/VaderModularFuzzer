@@ -1,7 +1,7 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
-# <vader@draper.com>
+# Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+# <vmf@draper.com>
 #  
 # Effort sponsored by the U.S. Government under Other Transaction number
 # W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -33,6 +33,17 @@
 # support for VMF build targets.
 #
 
+
+# std::filesystem support is broken out into separate libs depending on compiler
+# and version. Modern compilers don't need a lib separate from the standard one at all.
+# This solves that problem by not defining std_filesystem_lib
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
+  set(std_filesystem_lib stdc++fs)
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
+  set(std_filesystem_lib c++fs)
+endif()
+
+
 include(GNUInstallDirs)
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
@@ -50,7 +61,7 @@ set(VMF_INSTALL_BINDIR ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR})
 # have it still run.  Otherwise, the loader will not be able to find all the shared
 # libraries the executable(s) depend on.
 #
-set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib")
+set(CMAKE_INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
 
 #
 # Utility function to set a base set of compiler options on a target.  If you

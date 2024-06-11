@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -27,16 +27,21 @@
  * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
  * ===========================================================================*/
 #include "StorageEntry.hpp"
-using namespace vader;
+using namespace vmf;
 unsigned long StorageEntry::uidCounter = 0;
 int StorageEntry::pKey;
 StorageRegistry::storageTypes StorageEntry::pKeyType = StorageRegistry::BUFFER;
 int StorageEntry::maxInts = 0;
 int StorageEntry::maxFloats = 0;
 int StorageEntry::maxBuffers = 0;
+int StorageEntry::maxTags = 0;
 int StorageEntry::maxIntsMetadata = 0;
 int StorageEntry::maxFloatsMetadata = 0;
 int StorageEntry::maxBuffersMetadata = 0;
+std::vector<int> StorageEntry::intDefaults = {};
+std::vector<float> StorageEntry::floatDefaults = {};
+std::vector<int> StorageEntry::intMetadataDefaults = {};
+std::vector<float> StorageEntry::floatMetadataDefaults = {};
 
 /**
  * @brief Initialize the storage entry
@@ -49,6 +54,10 @@ void StorageEntry::init(StorageRegistry& registry)
     maxInts = registry.getNumKeys(StorageRegistry::INT);
     maxFloats = registry.getNumKeys(StorageRegistry::FLOAT);
     maxBuffers = registry.getNumKeys(StorageRegistry::BUFFER);
+    maxTags = registry.getNumTags();
+
+    intDefaults = registry.getIntKeyDefaults();
+    floatDefaults = registry.getFloatKeyDefaults();
 
     pKey = registry.getSortByKey();
     pKeyType = registry.getSortByType();
@@ -64,6 +73,9 @@ void StorageEntry::initMetadata(StorageRegistry& metadata)
     maxIntsMetadata = metadata.getNumKeys(StorageRegistry::INT);
     maxFloatsMetadata = metadata.getNumKeys(StorageRegistry::FLOAT);
     maxBuffersMetadata = metadata.getNumKeys(StorageRegistry::BUFFER);
+
+    intMetadataDefaults = metadata.getIntKeyDefaults();
+    floatMetadataDefaults = metadata.getFloatKeyDefaults();
 }
 
 /**
@@ -74,33 +86,52 @@ void StorageEntry::initMetadata(StorageRegistry& metadata)
  * StorageModules should typically only construct one metadata StorageEntry.
  * 
  * @param isMetadata true if this is a metadata object, false otherwise
+ * @param isLocal true if this is a local storage entry object, false otherwise
  * @param listener the storage entry listener
  */
-StorageEntry::StorageEntry(bool isMetadata, StorageEntryListener* listener) : uid(uidCounter++)
+StorageEntry::StorageEntry(bool isMetadata, bool isLocal, StorageEntryListener* listener) : uid(uidCounter++)
 {
-    isMetadataEntry = isMetadata;
+    this->isMetadataEntry = isMetadata;
+    this->isLocal = isLocal;
     int numInts = maxInts;
     int numFloats = maxFloats;
     int numBuffs = maxBuffers;
+    int numTags = maxTags;
     if(isMetadata)
     {
         numInts = maxIntsMetadata;
         numFloats = maxFloatsMetadata;
         numBuffs = maxBuffersMetadata;
+        numTags = 0; //metadata does not have tags
     }
 
-    //Initialize int values to 0
+    //Initialize int values to the specified default
     intValues.reserve(numInts);
     for(int i=0; i<numInts; i++)
     {
-        intValues.push_back(0);
+        if(!isMetadata)
+        {
+            intValues.push_back(intDefaults[i]);
+        }
+        else
+        {
+            intValues.push_back(intMetadataDefaults[i]);
+        }
+
     }
 
-    //Initialize float values to 0.0
+    //Initialize float values to the specified default
     floatValues.reserve(numFloats);
     for(int i=0; i<numFloats; i++)
     {
-        floatValues.push_back(0.0);
+        if(!isMetadata)
+        {
+            floatValues.push_back(floatDefaults[i]);
+        }
+        else
+        {
+            floatValues.push_back(floatMetadataDefaults[i]);
+        }
     }
 
     bufferValues.reserve(numBuffs);
@@ -111,6 +142,13 @@ StorageEntry::StorageEntry(bool isMetadata, StorageEntryListener* listener) : ui
     {
         bufferSizes.push_back(UNALLOCATED_BUFFER);
         bufferValues.push_back(0);
+    }
+
+    //Initialize the tag values to false
+    tagValues.reserve(numTags);
+    for(int i=0; i<numTags; i++)
+    {
+        tagValues.push_back(false);
     }
 
     this->listener = listener;
@@ -145,6 +183,17 @@ StorageEntry::~StorageEntry()
 unsigned long StorageEntry::getID() const
 {
     return uid;
+}
+
+/**
+ * @brief Indicates whether or not this is a local, temporary storage entry
+ * 
+ * @return true if this is a local entry
+ * @return false otherwise
+ */
+bool StorageEntry::isLocalEntry() const
+{
+    return isLocal;
 }
 
 /**
@@ -234,9 +283,13 @@ void StorageEntry::setValue(int key, int value)
     intValues[key] = value;
 
     //Notify storage if the primary key has been modified
-    if((StorageRegistry::INT == pKeyType) && (key == pKey))
+    //(for entries that are neither local, nor metadata only)
+    if(!isMetadataEntry && !isLocal)
     {
-        listener->notifyPrimaryKeyUpdated(this);
+        if((StorageRegistry::INT == pKeyType) && (key == pKey))
+        {
+            listener->notifyPrimaryKeyUpdated(this);
+        }
     }
 }
 
@@ -260,9 +313,13 @@ int StorageEntry::incrementIntValue(int key)
     //It seems unlikely that this method would ever be called on the primary
     //key, but this is included for completeness, just in case
     //Notify storage if the primary key has been modified
-    if((StorageRegistry::INT == pKeyType) && (key == pKey))
+    //(for entries that are neither local, nor metadata only)
+    if(!isMetadataEntry && !isLocal)
     {
-        listener->notifyPrimaryKeyUpdated(this);
+        if((StorageRegistry::INT == pKeyType) && (key == pKey))
+        {
+            listener->notifyPrimaryKeyUpdated(this);
+        }
     }
 
     return intValues[key];
@@ -284,9 +341,13 @@ void StorageEntry::setValue(int key, float value)
     floatValues[key] = value;
 
     //Notify storage if the primary key has been modified
-    if((StorageRegistry::FLOAT == pKeyType) && (key == pKey))
+    //(for entries that are neither local, nor metadata only)
+    if(!isMetadataEntry && !isLocal)
     {
-        listener->notifyPrimaryKeyUpdated(this);
+        if((StorageRegistry::FLOAT == pKeyType) && (key == pKey))
+        {
+            listener->notifyPrimaryKeyUpdated(this);
+        }
     }
 }
 
@@ -363,6 +424,80 @@ char* StorageEntry::allocateBuffer(int key, int size)
 }
 
 /**
+ * @brief Allocate a data buffer in this storage entry, and initialize it with the provided value
+ *
+ * Only one call to allocateBuffer is allowed per key.  Attempts to reallocate will results in an exception.
+ * The buffer will be initialized by copying size bytes from the provided srcBuffer.
+ *
+ * @param key the key
+ * @param size the size that should be allocated in the buffer (and copied from the src buffer)
+ * @param srcBuffer the src buffer that should be used to initialize the buffer
+ * @return char* a pointer to the newly allocated buffer
+ * @throws RuntimeException if the key or size are invalid, or if there is an attempt to re-allocate the buffer
+ */
+char* StorageEntry::allocateAndCopyBuffer(int key, int size, char* srcBuffer)
+{
+    char* newBuff = allocateBuffer(key,size);
+    memcpy((void*)newBuff, (void*)srcBuffer, size);
+    return newBuff;
+}
+
+/**
+ * @brief Allocate a data buffer in this storage entry, and initialize it with the provided value
+ *
+ * Only one call to allocateBuffer is allowed per key.  Attempts to reallocate will results in an exception.
+ * The buffer will be initialized by copying the data value from the provided srcEntry.
+ *
+ * @param key the key
+ * @param srcEntry the src entry from which the data should be copied
+ * @return char* a pointer to the newly allocated buffer
+ * @throws RuntimeException if the key is invalid, there is no such buffer in the srcEntry, or if there is an attempt to re-allocate the buffer
+ */
+char* StorageEntry::allocateAndCopyBuffer(int key, StorageEntry* srcEntry)
+{
+    int size = srcEntry->getBufferSize(key);
+    if(size <= 0)
+    {
+        throw RuntimeException("Cannot copy from srcEntry, because the entry does not contain any data for this key", 
+                                RuntimeException::OTHER);
+    }
+
+    char* srcBuffer = srcEntry->getBufferPointer(key);
+    char* newBuff = allocateBuffer(key,size);
+    memcpy((void*)newBuff, (void*)srcBuffer, size);
+
+    return newBuff;
+}
+
+/**
+ * @brief Helper method to check if this StorageEntry contains any data in the specified buffer
+ * 
+ * If the buffer has not yet been allocated, this method will return false.  If it has been 
+ * allocated, this method will return true.
+ * 
+ * @param key the handle to the data field of interest
+ * @return true if the field has been allocated
+ * @return false otherwise
+ * @throws RuntimeException if this is not a valid buffer key
+ */
+bool StorageEntry::hasBuffer(int key) const
+{
+    bool hasData = false;
+
+    if(isMetadataEntry)
+        checkThatRangeIsValid(key,maxBuffersMetadata);
+    else
+        checkThatRangeIsValid(key,maxBuffers);
+
+    if(UNALLOCATED_BUFFER != bufferSizes[key])
+    {
+        hasData = true;
+    }
+
+    return hasData;
+}
+
+/**
  * @brief Get the size of a data buffer
  *
  * @param key the key
@@ -400,4 +535,108 @@ char* StorageEntry::getBufferPointer(int key) const
         throw RuntimeException("Attempt to access unallocated StorageEntry buffer",
                                RuntimeException::USAGE_ERROR);
     }
+}
+
+/**
+ * @brief Tag this entry as having a particular attribute
+ *
+ * The tag must have been previously registed with the StorageRegistry.  This method
+ * cannot be called on the metadata storage entry (if it is, an exception will be thrown).
+ *
+ * @param tagId the tag handle (as returned from a call to StorageRegistry.registerTag)
+ */
+void StorageEntry::addTag(int tagId)
+{
+    if(isMetadataEntry)
+    {
+        throw RuntimeException("Tags cannot be set on metadata", RuntimeException::USAGE_ERROR);
+    }
+
+    checkThatRangeIsValid(tagId,maxTags);
+    
+    //Don't bother notifying storage if the tag value isn't actually changing
+    //Also don't notify storage if this is a local entry (storage should never be notified in this case)
+    if(false == tagValues[tagId])
+    {
+        tagValues[tagId] = true;
+        if(!isLocal)
+        {
+            listener->notifyTagSet(this,tagId);
+        }
+        
+    }
+}
+
+/**
+ * @brief Remove a tag from this entry
+ * 
+ * This removes a tag from a previously tagged entry.  This method
+ * cannot be called on the metadata storage entry (if it is, an exception will be thrown).
+ * 
+ * @param tagId the tag handle (as returned from a call to StorageRegistry.registerTag)
+ */
+void StorageEntry::removeTag(int tagId)
+{
+    if(isMetadataEntry)
+    {
+        throw RuntimeException( "Tags cannot be set on metadata", RuntimeException::USAGE_ERROR);
+    }
+
+    checkThatRangeIsValid(tagId,maxTags);
+
+    //Don't bother notifying storage if the tag value isn't actually changing
+    //Also don't notify storage if this is a local entry (storage should never be notified in this case)
+    if(true == tagValues[tagId])
+    {
+        tagValues[tagId] = false;
+        if(!isLocal)
+        {
+            listener->notifyTagRemoved(this,tagId);
+        }
+    }
+}
+
+/** 
+ * @brief Check if this entry has a particular tag.
+ * 
+ * This method cannot be called on the metadata storage entry (if it is, an exception will be thrown).
+ * 
+ * @param tagId the tag handle (as returned from a call to StorageRegistry.registerTag)
+ * @returns true if the entry has the tag, and false otherwise
+ */
+bool StorageEntry::hasTag(int tagId)
+{
+    if(isMetadataEntry)
+    {
+        throw RuntimeException( "Metadata does not have tags", RuntimeException::USAGE_ERROR);
+    }
+
+    checkThatRangeIsValid(tagId,maxTags);
+
+    return tagValues[tagId];
+}
+
+/**
+ * @brief Return all the tags for this storage entry
+ * This is returned as a list of tag handles.  This method cannot be called
+ * on the metadata storage entry (if it is, an exception will be thrown).
+ * 
+ * @return std::vector<int> the list of tag handles
+ */
+std::vector<int> StorageEntry::getTagList()
+{
+    if(isMetadataEntry)
+    {
+        throw RuntimeException( "Metadata does not have tags", RuntimeException::USAGE_ERROR);
+    }
+
+    std::vector<int> tagList;
+    for(int i = 0; i<maxTags; i++)
+    {
+        if(tagValues[i])
+        {
+            tagList.push_back(i);
+        }
+    } 
+    return tagList;
 }

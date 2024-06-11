@@ -10,7 +10,7 @@
 */VaderWin/.vs/*
 out/
 output/
-!vmf/src/coremodules/*/output/
+!vmf/src/modules/*/output/
 output_test/
 vmf_install
 

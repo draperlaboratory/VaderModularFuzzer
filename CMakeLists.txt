@@ -1,7 +1,7 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
-# <vader@draper.com>
+# Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+# <vmf@draper.com>
 #  
 # Effort sponsored by the U.S. Government under Other Transaction number
 # W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -47,49 +47,24 @@ set(CMAKE_CXX_COMPILER g++)
 #add_compile_options(-fsanitize=address)
 #add_link_options(-fsanitize=address)
 
-#Added to prevent issues like this:
-#https://stackoverflow.com/questions/61278099/using-stdthread-in-shared-library-causes-sigsegv
-set(CMAKE_CXX_FLAGS -Wl,--no-as-needed)
+# Add debug info?
+#add_link_options(-g)
+#add_compile_options(-g)
 
-project(Vader VERSION 3.2.0
-    LANGUAGES CXX)
+# produce compile_commands.json for clangd support
+set(CMAKE_EXPORT_COMPILE_COMMANDS True)
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/vmf/cmake)
+#############################################################
+project(VMF VERSION 4.0.0
+    LANGUAGES CXX )
+#############################################################
 
 # Bring in VMF project wide variables and utility functions
-include(vmf/cmake/vmf.cmake)
-include(vmf/cmake/external_libs.cmake)
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/vmf/cmake)
+include(vmf)
 
 # Add in project directories
-add_subdirectory(${PROJECT_SOURCE_DIR}/vmf/src)
-
-# Create VADER Executable and link in dependencies.
-# These dependencies are for the the VMF Framework
-# not for specific modules
-add_executable(vader ${PROJECT_SOURCE_DIR}/vmf/src/framework/main.cpp)
-target_link_libraries(vader
-  PRIVATE
-  yaml
-  VMFFramework
-  stdc++fs
-)
-target_include_directories(vader PRIVATE 
-  ${PROJECT_SOURCE_DIR}/vmf/src/framework/baseclasses
-  ${PROJECT_SOURCE_DIR}/vmf/src/framework/app
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/formatter
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/initialization
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/inputgeneration
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/mutator
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/output
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/linux/executor
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/linux/feedback
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/linux/initialization
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/linux/mutator
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/linux/output
-)
-set_vmf_compile_options(vader)
-install(TARGETS vader
-  RUNTIME DESTINATION ${VMF_INSTALL_BINDIR})
+add_subdirectory(vmf)
 
 include(GoogleTest)
 enable_testing()
@@ -99,32 +74,15 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/test)
 install(FILES "vmf/cmake/vmf.cmake" "vmf/cmake/vmf_imports.cmake"
   DESTINATION ${CMAKE_INSTALL_PREFIX}/cmake)
 
-install(DIRECTORY ${EXTERNAL_LIBDIR}
-  DESTINATION ${CMAKE_INSTALL_PREFIX}
-  PATTERN "*.a" EXCLUDE
-)
-
-#Install samples project
-install(DIRECTORY ${EXTERNAL_BINDIR}
-  DESTINATION ${CMAKE_INSTALL_PREFIX}
-  USE_SOURCE_PERMISSIONS
-)
-
-#Copy pre-built python klee script into vmf_install
+#Copy support scripts into vmf_install
 install(DIRECTORY vmf/src/scripts/bin/
   DESTINATION ${VMF_INSTALL_BINDIR}
   USE_SOURCE_PERMISSIONS)
 
-#Copy pre-built python klee script into local directory (for developers running directly from build)
-add_custom_command(TARGET vader POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/vmf/src/scripts/bin/* ${PROJECT_BINARY_DIR}/
-)
-
 #Header files are needed for plog library
-install(DIRECTORY ${EXTERNAL_INCLUDEDIR}/plog 
+install(DIRECTORY vmf/dependencies/plog/include/plog
   DESTINATION ${CMAKE_INSTALL_PREFIX}/include/
 )
-
 
 install(DIRECTORY vmf/src/samples
   DESTINATION ${CMAKE_INSTALL_PREFIX}
@@ -136,6 +94,8 @@ INSTALL(DIRECTORY test DESTINATION
   PATTERN "*.cpp" EXCLUDE
   PATTERN "*.txt" EXCLUDE
   PATTERN "haystack" EXCLUDE
+  PATTERN "magicbytes" EXCLUDE
+  PATTERN "magicbytes_cmplog" EXCLUDE    
   PATTERN "setup_jerryscript" EXCLUDE
   PATTERN "test_only" EXCLUDE
   PATTERN "test_only/*" EXCLUDE
@@ -150,4 +110,14 @@ INSTALL(DIRECTORY data DESTINATION
 #install haystack example executable
 file (COPY test/haystackSUT/haystack
 DESTINATION ${CMAKE_INSTALL_PREFIX}/test/haystackSUT
+USE_SOURCE_PERMISSIONS)
+
+#install magicbytes executable
+file (COPY test/magicBytesSUT/magicbytes
+DESTINATION ${CMAKE_INSTALL_PREFIX}/test/magicBytesSUT
+USE_SOURCE_PERMISSIONS)
+
+#install magicbytes_cmplog executable
+file (COPY test/magicBytesSUT/magicbytes_cmplog
+DESTINATION ${CMAKE_INSTALL_PREFIX}/test/magicBytesSUT/
 USE_SOURCE_PERMISSIONS)

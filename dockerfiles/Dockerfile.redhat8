@@ -1,0 +1,61 @@
+FROM redhat/ubi8 AS deps
+
+# General dependencies
+RUN  dnf install --assumeyes \
+       ca-certificates \
+       curl \
+       gdb \
+       git \
+       gnupg
+
+# Development dependencies
+RUN  dnf install --assumeyes  \
+        graphviz \
+        clang \
+        libcurl-devel \
+        llvm \
+        python3-devel \
+        python3-pip \
+        python3-setuptools \
+        cmake \
+        zlib-devel
+
+# Remaining LLVM tools
+RUN dnf install --assumeyes \
+        lld \
+        llvm-devel
+
+ENV LLVM_CONFIG=llvm-config-16
+
+FROM deps AS aflpp
+
+# AFL++ build dependencies
+# Currently gcc plugin version don't match available gcc version. This is necessary for some AFL++ modes.
+RUN dnf install --assumeyes \
+        automake \
+        cpio \
+        glib2-devel \
+        cargo
+
+# Clone and build AFL++
+RUN set -ex \
+    && cd /usr/local/src \
+    && git clone --depth 1 -b v4.10c https://github.com/AFLplusplus/AFLplusplus.git \
+    && cd AFLplusplus \
+    && make all \
+    && make install \
+    && set +ex
+
+FROM aflpp AS vmf
+
+# Clone, build, install VMF
+RUN set -ex \
+    && cd /usr/local/src \
+    && git clone --depth 1 https://github.com/draperlaboratory/vadermodularfuzzer.git vmf\
+    && cd vmf \
+    && mkdir -p build \
+    && cd build \
+    && cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. \
+    && make -j \
+    && make install \
+    && set +ex

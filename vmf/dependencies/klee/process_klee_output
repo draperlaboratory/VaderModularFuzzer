@@ -1,0 +1,48 @@
+#!/usr/bin/python3
+###############################################################################
+# Copyright © 2021, The Charles Stark Draper Laboratory, Inc.
+# Draper Proprietary Software- The use and dissemination of this software
+# is subject to the restrictions of VADER_LICENSE_AGREEMENT_V14.txt
+###############################################################################
+
+import sys
+import os
+from ktest import KTest
+
+
+def process_ktest(counter, filename, out_dir):
+    ktest = KTest.fromfile(filename)
+    for name, data in ktest.objects:
+        if name.decode('utf-8') == 'A-data':
+            out_file = os.path.join(out_dir, 'input{}'.format(counter))
+            with open(out_file, 'wb') as new_file:
+                new_file.write(data)
+                return True
+    return False
+
+
+def main():
+    counter = 0
+    if len(sys.argv) != 3:
+        print('usage: {} in-dir out-dir'.format(sys.argv[0]))
+        sys.exit(1)
+
+    in_dir = sys.argv[1]
+    out_dir = sys.argv[2]
+    # print('in-dir {}'.format(sys.argv[1]))
+    # print('out-dir {}'.format(sys.argv[2]))
+
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    for filename in os.listdir(in_dir):
+        if not filename.endswith('.ktest'):
+            continue
+        if not process_ktest(counter, os.path.join(in_dir, filename), out_dir):
+            print('Failed to process file {}'.format(filename))
+            sys.exit(1)
+        counter += 1
+
+
+if __name__ == '__main__':
+    main()

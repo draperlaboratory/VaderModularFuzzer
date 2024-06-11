@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -32,7 +32,7 @@
 #include "MutatorModule.hpp"
 #include "StorageEntry.hpp"
 
-using namespace vader;
+using namespace vmf;
 
 class MyMutator : public MutatorModule
 {
@@ -43,10 +43,9 @@ public:
     MyMutator(std::string name);
     virtual ~MyMutator();
     virtual void registerStorageNeeds(StorageRegistry& registry);
-    virtual StorageEntry* createTestCase(StorageModule& storage, StorageEntry* baseEntry);
+    virtual void mutateTestCase(StorageModule& storage, StorageEntry* baseEntry, StorageEntry* newEntry, int testCaseKey);
     
 private:
-     int testCaseKey;
 };
 
 #endif

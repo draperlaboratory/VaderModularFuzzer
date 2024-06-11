@@ -40,6 +40,7 @@ def getPaths(cmd):
     trimmed_paths = [x for x in paths.split() 
         if x and '/submodules/' not in x and \
            '/build/' not in x and \
+           '/3rdParty/' not in x and \
            '/external/' not in x]
 
     return trimmed_paths

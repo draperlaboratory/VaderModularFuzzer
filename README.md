@@ -9,24 +9,26 @@
   * [Run VMF](#run-vmf)
 - [License](#license)
 
-## Downloading & Initializing VMF
-
-In the past, it was necessary to initialize submodules containing build dependencies.  This is only
-necessary now if you need to build those dependencies.  You can get started with VMF without this step,
-as long as you have a standard Ubuntu 18.04, 20.04, or 22.04 distribution of Linux.  
-
-See [external](external/README.md) and [submodules](submodules/README.md) for details.  See
-[docs/external_projects.md/#klee](docs/external_projects.md/#klee) for more information on klee installation.
+### Upgrading from an Earlier Release of VMF?
+See [migration-4.0.0.md](docs/migration-4.0.0.md) for a list of the API changes in VMF 4.0.0.
 
 ### VMF Compatibility
 
-As of now, VMF can be run on the Ubuntu 18.04, 20.04, and 22.04 distributions of Linux, or in Docker.
+As of now, VMF can be run in Docker and on the following distributions of Linux:
 
-For more information about VMF's dependencies, and the included packages, see
+- CentOS 8 and 9
+- Kali
+- Oracle Linux 8 & 9
+- RedHat 8 & 9
+- Ubuntu 20.04, and 22.04
+
+VMF depends on several open source projects, but uses a "batteries-included" philosophy to dependencies where practical.
+The sources of particular versions of these dependencies live inside of the VMF tree.  
+For more information about VMF's included package, and other required dependencies, see
 [External Projects](docs/external_projects.md)
 
-Either initialize Docker with [Dockerfile](Dockerfile) or run the equivalent commands within Ubuntu
-to install the VMF dependencies (these command can even be copied from the Dockerfile).
+Either initialize Docker with one of the dockerfiles in [dockerfiles](dockerfiles) or run the equivalent commands within your installation of linux
+to install the VMF dependencies (these command can even be copied from the corresponding Dockerfile).
 
 ## Detailed Documentation
 If you are new to fuzzing, read these documents:
@@ -48,16 +50,23 @@ If you want to extend VMF by adding new modules, read these documents:
 
 
 ## Basic Build & Run Instructions
-To run VFM from a pre-build copy, skip the build and install instructions.
 
 ### Building VMF
 
-VMF is build using CMake, see the [Build System Documentation](docs/build_system.md) for details.
+VMF is build using CMake, see the [Build System Documentation](docs/build_system.md) for details. The build depends on libcurl, which
+is often installed by default. You can install this on Debian-based systems (including Ubuntu and Kali) via
+```bash
+sudo apt install libcurl-dev
+```
+On CentOS, RHEL, or Fedora, try
+```bash
+sudo yum install libcurl-devel
+```
 
 Execute the following commands to build VMF:
 
 ```bash
-# from /path/to/vader/ directory:
+# from /path/to/vmf/ directory:
 mkdir build
 cd build
 cmake .. && make
@@ -77,9 +86,9 @@ cmake -DCMAKE_INSTALL_PREFIX=<your install path here> ..
 make
 ```
 
-To install the VMF build, do this in the build directory:
+To install the VMF build, do this in the build directory (-j8 may be ommitted to build single threaded, but the build will be slower):
 ```bash
-make install
+make install -j8
 ```
 
 The installed tree is position independent, and can be copied anywhere.
@@ -107,17 +116,13 @@ To run VMF in distributed mode:
 
 ```bash
 cd vmf_install
-./vader -d test/config/serverconfig.yaml
+./bin/vader -d test/config/serverconfig.yaml
 ```
 
 ### Samples
 
 The samples directory contains samples of how to build a VMF module outside of the full VMF tree.
 This directory is installed with the VMF binaries in a distribution install.
-
-#### Supplemental Installs
-
-In order to build VMF, the packages mentioned in the `Installed Packages` section of [External Projects](docs/external_projects.md) need to be installed.
 
 ## License
 

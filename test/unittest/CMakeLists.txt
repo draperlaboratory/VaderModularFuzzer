@@ -1,7 +1,7 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
-# <vader@draper.com>
+# Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+# <vmf@draper.com>
 #  
 # Effort sponsored by the U.S. Government under Other Transaction number
 # W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -32,31 +32,28 @@ find_package(Threads REQUIRED)
 
 SET(TEST_SRCS
   TestAll.cpp
-  AFLMutatorTest.cpp
-  OutputSchedulerTest.cpp
-  RadamsaMutatorTest.cpp
+  StorageRegistryTest.cpp
   StorageModuleTest.cpp
   StorageModuleTestFloat.cpp
+  AFLMutatorTest.cpp
+  OutputSchedulerTest.cpp
   MOPTTest.cpp
 )
 
-add_executable(VaderTest ${TEST_SRCS})
+add_executable(VmfTest ${TEST_SRCS})
 
-set_target_properties(VaderTest PROPERTIES LINKER_LANGUAGE CXX)
+set_target_properties(VmfTest PROPERTIES LINKER_LANGUAGE CXX)
 
-target_include_directories(VaderTest PUBLIC
+target_include_directories(VmfTest PUBLIC
     ${PROJECT_SOURCE_DIR}/include
 )
 
-target_link_libraries(VaderTest
+target_link_libraries(VmfTest
   PUBLIC
   gtest 
   gtest_main 
   VMFFramework
   CoreModules
-  Threads::Threads
-    
-  PRIVATE
-  AFL_legacy
+  Threads::Threads  
 )
-gtest_discover_tests(VaderTest)
+gtest_discover_tests(VmfTest)

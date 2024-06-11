@@ -1,0 +1,8 @@
+vmfClassSet:
+  &FLIP_BIT_MUTATORS [AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator]
+vmfClassSet: &OTHER_AFL
+  - AFLRandomByteMutator
+  - AFLDeleteMutator
+vmfClassSet: &CLONE_SPLICE
+  - AFLCloneMutator
+  - AFLSpliceMutator

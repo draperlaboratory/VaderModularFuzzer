@@ -1,0 +1,13 @@
+vmfVariables:
+  - &SUT_ARGV ["test/magicBytesSUT/magicbytes", "@@"]
+  - &INPUT_DIR test/magicBytesSUT/seeds/
+
+vmfFramework:
+  outputBaseDir: output/magicbytes
+  logLevel : 1 #0=DEBUG, 1=INFO, 2=WARNING, 3=ERROR
+
+AFLForkserverExecutor:
+  sutArgv: *SUT_ARGV
+
+DirectoryBasedSeedGen:
+  inputDir: *INPUT_DIR

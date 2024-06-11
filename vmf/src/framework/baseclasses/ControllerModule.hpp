@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -31,14 +31,23 @@
 #include "StorageUserModule.hpp"
 #include <chrono>
 
-namespace vader
+namespace vmf
 {
 /**
- * @brief Base class for Vader Controller Modules
+ * @brief Base class for VMF Controller Modules
  *
- * Controller modules are the top level module in Vader.  The controller is responsible for calling
- * all of the other modules in a particular configuration.
- *
+ * Controller modules are the top level module in Vader.  The controller module is required to manage 
+ * the sequencing of the “fuzzing loop”, and call StorageModule::clearNewAndLocalEntries() at the end 
+ * of each fuzzing loop.
+ * 
+ * Controllers should be written to be fairly generic to the set of modules being used.  
+ * Controllers should not be adding/modifying/deleting test cases in storage.
+ * 
+ * Controllers typically support submodules of type:  InitializationModule, ExecutorModule, 
+ * FeedbackModule, InputGeneratorModule, and OutputModule.  Controllers with Executor and 
+ * Feedback submodules are responsible for determining which storage entries are used by these 
+ * modules.  However, a Controller could be written to manager other controllers, in which case 
+ * its submodules would also be of type Controller.
  */
 class ControllerModule : public StorageUserModule {
 public:
@@ -57,7 +66,7 @@ public:
      * @param storage a reference to the storage module
      * @param isFirstPass true if this the first time run is being called, false otherwise
      * 
-     * @return false to indicate that fuzzing is complete, true otherwise
+     * @return true to indicate that fuzzing is complete, false otherwise
      */
     virtual bool run(StorageModule& storage, bool isFirstPass) = 0;
 
@@ -100,6 +109,18 @@ public:
     static ControllerModule* getControllerSubmodule(ConfigInterface& config, std::string parentName);
 
     /**
+     * @brief Helper method to return a single Controller submodule from config by name
+     * This method will retrieve a single Controller submodule by name for the specified parent modules.
+     * If there are no Controller submodules with the specified name, then an nullptr will be returned.  
+     * 
+     * @param config the ConfigInterface object
+     * @param parentName the name of the parent module
+     * @param childName the name of the child module to finde
+     * @return ControllerModule* the submodule, or nullptr if none is found
+     */
+    static ControllerModule* getControllerSubmoduleByName(ConfigInterface& config, std::string parentName, std::string childName);
+    
+    /**
      * @brief Helper method to get the Controller Submodules from config
      * This method will retrieve all of the Controller submodules for the specified parent modules.
      * If there are no Controller submodules, then an empty list will be returned.
@@ -141,8 +162,8 @@ protected:
     /// The list of tags that the controller is interested in (for distributed fuzzing)
     std::string tags;
 
-    /// The mutator id handle, used to flag test cases that are incoming from the server (for distributed fuzzing)
-    int mutatorIdKey;
+    /// The server test case tag handle, used to tag test cases that are incoming from the server (for distributed fuzzing)
+    int serverTestCaseTag;
 
     /// The test case handle, use to write test cases (for distributed fuzzing)
     int testCaseKey;

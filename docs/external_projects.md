@@ -5,49 +5,25 @@
 VMF contains a collection of different tools which attempts to build a unified 
 experience for a given end user attempting to fuzz software. As
 such, there are numeous third party efforts being utilized by VMF. These are
-primarily included as `git` submodules, but some are also just used as system
-or locally installed packages.
+primarily included as source (a particular version verified to work with VMF),
+but a few come from the OS.
 
 This document intends to track the included third party tools, and their
 associated licenses in order to ensure all license conditions are being met, and
 no incompatibly licensed tools are being included.
 
-## Submodules
-
-The most common, and potentially complicated example of project inclusion in
-VMF is the `git` submodule. The projects included in this way are built as
-external dependencies by the `CMake` build system, and their build artifacts
-required by VMF are installed into the `external` subdirectory of VMF's
-repository.  See [vmf/submodules/README](../vmf/submodules/README.md) for more information 
-on building the submodules, and [build_system.md](build_system.md) for information
-on how to add a new submodule to VMF.
-
-There are two kinds of inclusion currently being performed:
-
-- Inclusion as a library with available header files
-- Inclusion at a source level by copying portions of a third-party source file
-  into VMF
-
-### Projects included at a library level
-
-| Project                                             | Version                      | License    |
-| --------------------------------------------------- | ---------------------------- | ---------- |
-| [AFL++](https://github.com/AFLplusplus/AFLplusplus) | 4.01a-a2eb1f14               | [Apache 2.0](https://github.com/AFLplusplus/AFLplusplus/blob/stable/LICENSE) |
-| [googletest](https://github.com/google/googletest)  | release-1.8.0-2963-8d51dc50  | [BSD Clause 3 New or Revised](https://github.com/google/googletest/blob/main/LICENSE) |
-| [yaml-cpp](https://github.com/jbeder/yaml-cpp)      | yaml-cpp-0.7.0-31-987a6042   | [MIT](https://github.com/jbeder/yaml-cpp/blob/master/LICENSE) |
-| [plog](https://github.com/SergiusTheBest/plog)      | 1.1.9-d60df3a1               | [MIT](https://github.com/SergiusTheBest/plog/blob/master/LICENSE) |
-| [LibAFL-legacy](https://github.com/AFLplusplus/LibAFL-legacy) | 8b399178           | [Apache 2.0](https://github.com/AFLplusplus/LibAFL-legacy/blob/dev/LICENSE) |
-| [restclient-cpp](https://github.com/mrtazz/restclient-cpp) | 0.5.2-c4683b21        | [MIT](https://github.com/mrtazz/restclient-cpp/blob/master/LICENSE) |
-| [json11](https://github.com/dropbox/json11)         | head-2df9473f                | [MIT](https://github.com/dropbox/json11/blob/master/LICENSE.txt) |
-
-
-### Projects included at a source level
+## Projects included at a source level
 
 | Project                                                       | Version   | License |
 | ------------------------------------------------------------- | --------- | ------- |
-| [LibAFL-legacy](https://github.com/AFLplusplus/LibAFL-legacy) | 8b399178 | [Apache 2.0](https://github.com/AFLplusplus/LibAFL-legacy/blob/dev/LICENSE) |
+| [googletest](https://github.com/google/googletest)  | release-1.8.0-2963-8d51dc50  | [BSD Clause 3 New or Revised](https://github.com/google/googletest/blob/main/LICENSE) |
+| [json11](https://github.com/dropbox/json11)         | head-2df9473f                | [MIT](https://github.com/dropbox/json11/blob/master/LICENSE.txt) |
 | [Klee ktest](https://github.com/klee/klee/) | 1.0 | [University of Illinois/NCSA Open Source License](https://github.com/klee/klee/blob/master/LICENSE.TXT) |
+| [plog](https://github.com/SergiusTheBest/plog)      | 1.1.9-d60df3a1               | [MIT](https://github.com/SergiusTheBest/plog/blob/master/LICENSE) |
+| [restclient-cpp](https://github.com/mrtazz/restclient-cpp) | 0.5.2-c4683b21        | [MIT](https://github.com/mrtazz/restclient-cpp/blob/master/LICENSE) |
 | [uthash](http://troydhanson.github.io/uthash/) |   2.1.0          | [BSD Revised](http://troydhanson.github.io/uthash/license.html)
+| [yaml-cpp](https://github.com/jbeder/yaml-cpp)      | yaml-cpp-0.7.0-31-987a6042   | [MIT](https://github.com/jbeder/yaml-cpp/blob/master/LICENSE) |
+| [ziplib](https://bitbucket.org/wbenny/ziplib)   | 0.01 | [zlib](https://bitbucket.org/wbenny/ziplib/src/master/Licence.txt) |
 
 ## Installed Packages
 
@@ -61,7 +37,7 @@ Enumeration of these installations is for record keeping only:
 | afl++-clang        | apt               |
 | afl++-doc          | apt               |
 | ca-certificates    | apt               |
-| curl               | apt               |
+| libcurl-dev        | apt               |
 | gdb                | apt               |
 | gnupg              | apt               |
 | libcurl-4-openssl-dev | apt            |
