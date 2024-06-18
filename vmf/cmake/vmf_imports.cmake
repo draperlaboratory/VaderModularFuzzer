@@ -1,7 +1,7 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
-# <vader@draper.com>
+# Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+# <vmf@draper.com>
 #  
 # Effort sponsored by the U.S. Government under Other Transaction number
 # W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -33,7 +33,7 @@
 # 'common' library.  This file provides the import library definition they should use.
 #
 
-set(VMF_INSTALL_LIBDIR ${VMF_INSTALL}/lib)
+set(VMF_INSTALL_LIBDIR ${VMF_INSTALL}/${CMAKE_INSTALL_LIBDIR})
 set(VMF_INSTALL_INCLUDEDIR ${VMF_INSTALL}/include)
 
 add_library(vmf_framework SHARED IMPORTED)

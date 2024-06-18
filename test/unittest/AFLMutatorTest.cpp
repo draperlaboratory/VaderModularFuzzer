@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -40,7 +40,7 @@
 #include "AFLSpliceMutator.hpp"
 #include "SimpleStorage.hpp"
 
-using namespace vader;
+using namespace vmf;
 
 #define GTEST_COUT std::cerr << "[          ] [ INFO ]"
 
@@ -116,15 +116,14 @@ class AFLMutatorTest : public ::testing::Test {
     mutator.registerStorageNeeds(*registry);
     mutator.registerMetadataNeeds(*metadata);
 
-    StorageEntry* modEntry = nullptr;
+    StorageEntry* modEntry = storage->createNewEntry();
     try{
-      modEntry = mutator.createTestCase(*storage, baseEntry);
+        mutator.mutateTestCase(*storage, baseEntry, modEntry, testCaseKey);
     } 
     catch (BaseException e)
     {
       FAIL() << "Exception thrown: " << e.getReason();
     }
-    EXPECT_TRUE(nullptr != modEntry) << name << " createTestCase returned null pointer";
     EXPECT_EQ(baseEntry->getBufferSize(testCaseKey), modEntry->getBufferSize(testCaseKey)) << name << " buffer size not equal";
     EXPECT_TRUE(areBuffersDifferent(baseEntry->getBufferPointer(testCaseKey), 
                                         modEntry->getBufferPointer(testCaseKey), 
@@ -148,7 +147,7 @@ class AFLMutatorTest : public ::testing::Test {
     for(int j=0; j<baseSize; j++)
     {   baseBuf[j] = baseVal; }
     storage->saveEntry(baseEntry);
-    storage->tagEntry(baseEntry, normalTag);
+    baseEntry->addTag(normalTag);
 
     // create additional test cases, one random one will be chosen for splicing
     // each test case is entirely populated single value, which is different for each case
@@ -163,15 +162,15 @@ class AFLMutatorTest : public ::testing::Test {
         for(int j=0; j<secondSize; j++)
         {   buf[j] = i; }
         storage->saveEntry(entry);
-        storage->tagEntry(entry,normalTag);
+        entry->addTag(normalTag);
     }
-    storage->clearNewEntriesAndTags();
+    storage->clearNewAndLocalEntries();
 
     // create a new test case by splicing 2 test cases
-    StorageEntry* modEntry;
+    StorageEntry* modEntry = storage->createNewEntry();
     try
     {
-        modEntry = theMutator.createTestCase(*storage, baseEntry);
+        theMutator.mutateTestCase(*storage, baseEntry, modEntry, testCaseKey);
     } 
     catch (BaseException e)
     {
@@ -255,15 +254,17 @@ TEST_F(AFLMutatorTest, TestAlgorithms)
   deleteMutator.registerStorageNeeds(*registry);
   deleteMutator.registerMetadataNeeds(*metadata);
 
-  StorageEntry* modEntry = deleteMutator.createTestCase(*storage, baseEntry);
+  StorageEntry* modEntry = storage->createNewEntry();
+  deleteMutator.mutateTestCase(*storage, baseEntry, modEntry, testCaseKey);
   EXPECT_NE(baseEntry->getBufferSize(testCaseKey), modEntry->getBufferSize(testCaseKey)) << "DELETE BYTES did not change buffer size";
 
   AFLCloneMutator cloneMutator("AFLCloneMutator");
   cloneMutator.registerStorageNeeds(*registry);
   cloneMutator.registerMetadataNeeds(*metadata);
 
-  modEntry = cloneMutator.createTestCase(*storage, baseEntry);
-  EXPECT_NE(baseEntry->getBufferSize(testCaseKey), modEntry->getBufferSize(testCaseKey)) << "CLONE BYTES did not change buffer size";;
+  StorageEntry* modEntry2 = storage->createNewEntry();
+  cloneMutator.mutateTestCase(*storage, baseEntry, modEntry2, testCaseKey);
+  EXPECT_NE(baseEntry->getBufferSize(testCaseKey), modEntry2->getBufferSize(testCaseKey)) << "CLONE BYTES did not change buffer size";;
 }
 
 // 2 tests to have tear down clean up in between

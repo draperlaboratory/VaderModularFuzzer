@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -36,48 +36,31 @@
 #include <fstream>
 #include <filesystem>
 
-using namespace vader;
-
+using namespace vmf;
 
 /**
  * @brief Construct a new Config Manager object
  * Note that the configuration files are not read until loadModules() is called.
  * 
  * @param filenames the list of configuration filenames to read
+ * @param manager the module manager for this application
  */
-ConfigManager::ConfigManager(std::vector<std::string> filenames) 
+ConfigManager::ConfigManager(std::vector<std::string> filenames, ModuleManager* manager) 
 {
     this->filenames = filenames;
     this->configCount = 0;
+    this->moduleManager = manager;
 }
 
 /**
  * @brief Destroy the Config Manager object
- * This deletes all of the modules that were build by this object based
- * on the provided configuration information
  * 
  */
 ConfigManager::~ConfigManager()
 {
-    resetModuleRegistry();
+    
 }
 
-/**
- * @brief Helper method to delete all of the built modules and clear the module registry
- * This is called automatically in the destructor, but may also be called at other
- * times to fully clear the currently loaded modules.
- */
-void ConfigManager::resetModuleRegistry()
-{
-    //Delete all of the built modules
-    for (const auto &module : moduleRegistry) 
-    {
-        Module* mPtr = module.second;
-        delete mPtr;
-    }
-
-    moduleRegistry.clear();
-}
 
 /**
  * @brief Parses the passed configuration files
@@ -114,29 +97,30 @@ void ConfigManager::readConfig()
             inFile.seekg(0, inFile.beg);
             inFile.read(&thisInput[0], size);
  
-            // if the input file's contents contains the string 'vmfVariables' 
+            // if the input file's contents contains the string 'vmfVariables' or 'vmfClassSet'
             // then pre-pend vs append its contents to the string containing all input file's contents
+            // (this is to ensure that there are no errors related to declaration order of yaml anchors)
 
-            const auto pos = thisInput.find(VMF_VARIABLES_KEY);
+            const auto varPos = thisInput.find(VMF_VARIABLES_KEY);
+            const auto classSetPos = thisInput.find(VMF_CLASS_SET_KEY);
 
-            if (std::string::npos != pos)
+            if ((std::string::npos != varPos) || (std::string::npos != classSetPos))
             {
                 // pre-pend this file's contents
-                theConfigAsString.insert(0, thisInput);
+                theConfigAsString.insert(0, thisInput + "\n");
             }
             else
             {
                 // append this file's contents
-                theConfigAsString.append(thisInput);
+                theConfigAsString.append(thisInput + "\n");
             }
 
-            // append newline character
-            theConfigAsString += "\n";
         } 
         else 
         {
             // logger not initialized yet at this point
-            std::cout << "ERROR: Unable to open input file: " << file << "\n" << std::flush;
+            LOG_FATAL << "Unable to open input file: " << file << "\n" << std::flush;
+            throw RuntimeException("Unable to open input file", RuntimeException::CONFIGURATION_ERROR);
         }
         inFile.close();
     }
@@ -175,7 +159,7 @@ void ConfigManager::readConfig()
     }
     catch(const std::exception& e)
     {
-        std::cerr << e.what() << '\n';
+        LOG_FATAL << "Parsing Exception:" << e.what() << '\n';
         throw RuntimeException("Error parsing YAML config file", RuntimeException::CONFIGURATION_ERROR);
     }
 
@@ -273,9 +257,17 @@ void ConfigManager::loadModules()
         if(storage)
         {
             YAML::Node className = storage["className"];
+            YAML::Node id = storage["id"];
+            std::string classNameString = className.as<std::string>();
+            std::string idString = classNameString; //id string will default to the className
+            if(id)
+            {
+                idString = id.as<std::string>();
+            }
             if(className)
             {
-                buildModule(className.as<std::string>(), ConfigInterface::STORAGE_MODULE_KEY);
+                Module* sm = moduleManager->buildModule(classNameString, idString);
+                moduleManager->setStorageModule(sm);
             }
         }
 
@@ -284,21 +276,43 @@ void ConfigManager::loadModules()
         if(root)
         {
             YAML::Node className = root["className"];
+            YAML::Node id = root["id"];
+            std::string classNameString = className.as<std::string>();
+            std::string idString = classNameString; //id string will default to the className
+            if(id)
+            {
+                idString = id.as<std::string>();
+            }
             if(className)
             {
-                buildModule(className.as<std::string>(), ConfigInterface::ROOT_MODULE_KEY);
+                Module* rm = moduleManager->buildModule(classNameString, idString);
+                moduleManager->setRootModule(rm);
             }
-
+            
+            // Build controller children
             std::vector<std::string> childNodes = buildChildren(root);
-            //Now build any additional child modules (that are not direct children of root)
-            for(std::string childName: childNodes)
+
+            // Build up to 9 more generations of children
+            for(size_t curr_depth = 0; curr_depth < 10; curr_depth++)
             {
-                YAML::Node child = modules[childName];
-                if(child)
+                std::vector<std::string> nextGenOfChildren;
+
+                for(std::string childName: childNodes)
                 {
-                    buildChildren(child);
-                    //No further recursion is needed, given the config file structure
+                    // Does this child have further submodules described in the yaml configuration?
+                    YAML::Node child = modules[childName];
+                    if(child)
+                    {
+                        // Build it's children and save the list of those built in case they have children
+                        std::vector<std::string> newChildren = buildChildren(child);
+
+                        // Append new children to next gen list
+                        nextGenOfChildren.insert(nextGenOfChildren.end(), newChildren.begin(), newChildren.end());                        
+                    }
                 }
+                
+                // Move next generation list over child nodes to prepare building next generation
+                childNodes = std::move(nextGenOfChildren);
             }
         }
     }
@@ -308,13 +322,6 @@ void ConfigManager::loadModules()
                   RuntimeException::CONFIGURATION_ERROR);
     }
 
-   //Now initialize all of the modules that were just build
-   for (const auto &module : moduleRegistry) {
-
-        Module* m = module.second;
-        LOG_DEBUG << "   INITIALIZING: " << module.first;
-        m->init(*this);
-    }
 }
 
 /**
@@ -328,35 +335,45 @@ std::vector<std::string> ConfigManager::buildChildren(YAML::Node topLevelNode)
 {
     std::vector<std::string> childList;
     YAML::Node children = topLevelNode["children"];
-    if(children)
+    if((children) && (children.Type() == YAML::NodeType::Sequence))
     {
-        if(children.Type() == YAML::NodeType::Sequence)
+        for(size_t i=0; i<children.size(); i++)
         {
-            for(size_t i=0; i<children.size(); i++)
+            //First check to see if this is a classSet
+            YAML::Node classSet = children[i]["classSet"];
+            if(classSet)
+            {
+                //Build each module in the class set (ids are not supported with this syntax)
+                if(classSet.Type() == YAML::NodeType::Sequence){
+                    for(size_t j=0; j<classSet.size(); j++)
+                    {
+                        YAML::Node className = classSet[j];
+                        std::string classNameString = className.as<std::string>();
+                        //Build the module if it doesn't already exist
+                        buildModuleIfNotExist(classNameString, classNameString);
+                        childList.push_back(classNameString);
+                    }
+                }
+                else
+                {
+                    LOG_ERROR << "ClassSet node not of expected type";
+                }
+            }
+            else //This is a single module, just build it
             {
                 //Load the className and optional id for each module
                 YAML::Node id = children[i]["id"];
                 YAML::Node className = children[i]["className"];
                 std::string classNameString = className.as<std::string>();
+                std::string idString = classNameString; //id string will default to the className
                 if(id)
                 {
-                    //Build the module if it doesn't already exist
-                    std::string idString = id.as<std::string>();
-                    if(moduleRegistry.count(idString)==0)
-                    {
-                        buildModule(classNameString, idString);
-                        childList.push_back(idString);
-                    }
+                    idString = id.as<std::string>();
                 }
-                else
-                {
-                    //Build the module if it doesn't already exist
-                    if(moduleRegistry.count(classNameString)==0)
-                    {
-                        buildModule(classNameString);
-                        childList.push_back(classNameString);
-                    }
-                }
+            
+                //Build the module if it doesn't already exist
+                buildModuleIfNotExist(classNameString, idString);
+                childList.push_back(idString);
             }
         }
     }
@@ -365,96 +382,19 @@ std::vector<std::string> ConfigManager::buildChildren(YAML::Node topLevelNode)
 }
 
 /**
- * @brief Call upon all of the modules to shutdown
+ * @brief Helper method to build a module if it doesn't already exist
  * 
- * This method calls shutdown on all module types, and shutdown(storage)
- * on all StorageUserModules.  No order is specified for these calls *except* that
- * the root module will be shutdown second to last, and the storage module will
- * be shutdown last.
- * 
- * @param storage storage module to provide at shutdown (this could technically
- * be retrieved by this module, but the caller will have this information more
- * readily accessible)
+ * @param classNameString the class name of the module
+ * @param idString the unique module name to use for the module (this can be the same as the class name)
  */
-void ConfigManager::shutdownModules(StorageModule& storage)
+void ConfigManager::buildModuleIfNotExist(std::string classNameString, std::string idString)
 {
-    Module* storageModule = nullptr;
-    Module* rootModule = nullptr;
-    for (const auto &module : moduleRegistry) 
+    if(!(moduleManager->containsModule(idString)))
     {
-        std::string key = module.first;
-        //If this is the storage or root module, save it for the end
-        if(STORAGE_MODULE_KEY == key)
-        {
-            storageModule = module.second;
-        }
-        else if(ROOT_MODULE_KEY == key)
-        {
-            rootModule = module.second;
-        }
-        else //go ahead and shutdown the module
-        {
-            callShutdown(module.second, storage);
-        }
-            
-    }
-
-    //Now shutdown the root module and storage module (assuming they were found)
-    if(nullptr != rootModule)
-    {
-        callShutdown(rootModule,storage);
-    }
-    if(nullptr != storageModule)
-    {
-        storageModule->shutdown(); //the storage module cannot be a storage user, by definition
+        moduleManager->buildModule(classNameString, idString);
     }
 }
 
-/**
- * @brief Helper method to call the shutdown methods on the specified module
- * 
- * @param module the module to shutdown
- * @param storage the storage module to pass to shutdown(storage) for StorageUserModules
- */
-void ConfigManager::callShutdown(Module* module, StorageModule& storage)
-{
-    //Call shutdown
-    module->shutdown();
-
-    //If this is a StorageUserModule, call storage(shutdown) as well
-    StorageUserModule* sum = dynamic_cast<StorageUserModule*>(module);
-    if(nullptr != sum)
-    {
-        sum->shutdown(storage);
-    }
-}
-
-/**
- * @brief Call upon all of the StorageUserModules to register their storage needs
- * Note: loadModules() must be called first, otherwise there are no instantiated
- * modules yet to register with storage.
- * This method calls registerStorageNeeds() and registerMetadataNeeds() on each
- * StorageUserModule that has been loaded.
- * 
- * @param registry the main storage registry
- * @param metadata the metadata storage registry
- */
-void ConfigManager::registerModuleStorageNeeds(StorageRegistry* registry, StorageRegistry* metadata)
-{
-    for (const auto &module : moduleRegistry) 
-    {
-        Module* m = module.second;
-        StorageUserModule* sum = dynamic_cast<StorageUserModule*>(m);
-        if(nullptr != sum)
-        {
-            sum->registerStorageNeeds(*registry);
-            sum->registerMetadataNeeds(*metadata);
-        }
-        //otherwise this is a Module that is not a subclass of StorageUserModule
-        //and hence it has no storage needs to be registered
-            
-    }
-}
 
 //See ConfigInterface.hpp
 std::string ConfigManager::getOutputDir()
@@ -470,48 +410,6 @@ std::string ConfigManager::getOutputDir()
 void ConfigManager::setOutputDir(std::string dir)
 {
     outputDir = dir;
-}
-
-/**
- * @brief Returns the root module
- * This is the module that is configured with name "controller" in the config files(s).
- * 
- * @return Module* the root module
- * @throws RuntimException if there is no root module
- */
-Module* ConfigManager::getRootModule()
-{
-    std::map<std::string, Module*>::iterator it = moduleRegistry.find(ROOT_MODULE_KEY);
-      
-    if(it == moduleRegistry.end())
-    {
-        throw RuntimeException("No root module defined in the config file.", RuntimeException::CONFIGURATION_ERROR);
-    }
-    else
-    {
-        return it->second;
-    }
-}
-
-/**
- * @brief Returns the storage module
- * This is the module that is configured with name "storage" in the config files(s).
- * 
- * @return Module* the storage module
- * @throws RuntimException if there is no storage module
- */
-Module* ConfigManager::getStorageModule()
-{
-    std::map<std::string, Module*>::iterator it = moduleRegistry.find(STORAGE_MODULE_KEY);
-      
-    if(it == moduleRegistry.end())
-    {
-        throw RuntimeException("No storage module defined in the config file.", RuntimeException::CONFIGURATION_ERROR);
-    }
-    else
-    {
-        return it->second;
-    }
 }
 
 /**
@@ -574,7 +472,20 @@ std::vector<Module*> ConfigManager::getSubModules(std::string parentModuleName)
     bool found = false;
     std::vector<Module*> list;
     YAML::Node modulesSection = findRequiredConfig(ConfigInterface::VMF_MODULES_KEY);
-    YAML::Node submodulesSection = modulesSection[parentModuleName];
+
+    //Child modules are listed under the module name, except for the top level controller
+    //and the storage module, whose children are listed under special names.
+    std::string lookupName = parentModuleName;
+    if(moduleManager->getRootModule()->getModuleName() == parentModuleName)
+    {
+        lookupName = ConfigInterface::ROOT_MODULE_KEY;
+    }
+    else if(moduleManager->getStorageModule()->getModuleName() == parentModuleName)
+    {
+        lookupName = ConfigInterface::STORAGE_MODULE_KEY;
+    }
+
+    YAML::Node submodulesSection = modulesSection[lookupName];
     if(submodulesSection)
     {
         YAML::Node submodules = submodulesSection["children"];
@@ -588,12 +499,24 @@ std::vector<Module*> ConfigManager::getSubModules(std::string parentModuleName)
                 YAML::Node className = submodules[i]["className"];
                 if(id)
                 {
-                    list.push_back(lookupModule(id.as<std::string>()));
+                    list.push_back(moduleManager->lookupModule(id.as<std::string>()));
                 }
-                else
+                else if(className)
                 {
-                    list.push_back(lookupModule(className.as<std::string>()));
+                    list.push_back(moduleManager->lookupModule(className.as<std::string>()));
                 }
+                else //this is a class set, so look up every module in the set (by className)
+                {
+                    YAML::Node classSet = submodules[i]["classSet"];
+
+                    for(size_t j=0; j<classSet.size(); j++)
+                    {
+                        YAML::Node theClassName = classSet[j];
+                        list.push_back(moduleManager->lookupModule(theClassName.as<std::string>()));
+                    }
+
+                }
+
             }
         }
     }
@@ -718,40 +641,6 @@ bool ConfigManager::getBoolParam(std::string moduleName, std::string paramName, 
 //--------------------Private Helper Methods------------------------//
 
 /**
- * @brief Helper method to build a module
- * This version uses the className as the default module name.
- * 
- * @param className the name of the class
- */
-void ConfigManager::buildModule(std::string className)
-{
-    buildModule(className, className);
-}
-
-/**
- * @brief Helper method to build a module
- * The name parameter is the name that the module will be referred to by.
- * This must be a unique name in each configuration.
- * 
- * @param className the name of the class
- * @param name the name of the module
- * @throws RuntimeException if the module name is not unique
- */
-void ConfigManager::buildModule(std::string className, std::string name)
-{
-    //Check that the name is not already defined in the registry
-    if(moduleRegistry.count(name)>0)
-    {
-        LOG_ERROR << "Vader configuration contains more than one module named " << name;
-        throw RuntimeException("Duplicate module name in the configuration.", RuntimeException::CONFIGURATION_ERROR);
-    }
-
-    //Build module and add to registry
-    moduleRegistry[name] = ModuleFactory::getInstance().buildModule(className, name);
-    LOG_INFO << "LOADING: " << name << " module (instance of " << className << ")"; 
-}
-
-/**
  * @brief Helper method to find a configuration section in the yaml config file
  * 
  * @param name the section name
@@ -782,25 +671,6 @@ YAML::Node ConfigManager::findRequiredConfig(std::string name)
     return theNode;
 }
 
-
-/**
- * @brief Helper method to lookup module by name
- * 
- * @param name the name to lookup
- * @return Module* the pointer to the module
- * @throws RuntimeException if the module cannot be found
- */
-Module* ConfigManager::lookupModule(std::string name)
-{
-    Module* m = moduleRegistry[name];
-    if(nullptr == m)
-    {
-        LOG_ERROR << "UNKNOWN MODULE:" << name;
-        throw RuntimeException("Unknown module name included in config",
-                               RuntimeException::CONFIGURATION_ERROR);
-    }
-    return m;
-}
 
 /**
  * @brief Helper method to retrieve the YAML node associated with a particular config parameter

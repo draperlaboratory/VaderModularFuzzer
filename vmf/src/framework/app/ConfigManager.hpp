@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -28,14 +28,12 @@
  * ===========================================================================*/
 #pragma once
 #include "ConfigInterface.hpp"
-#include "StorageRegistry.hpp"
-#include "ModuleFactory.hpp"
+#include "ModuleManager.hpp"
 #include "StorageModule.hpp"
 #include "yaml-cpp/yaml.h"
 #include <vector>
-#include <map>
 
-namespace vader
+namespace vmf
 {
 /**
  * @brief Responsible for loading modules and parameters from the configuration file
@@ -48,7 +46,7 @@ class ConfigManager : public ConfigInterface
 {
 public:
 
-    ConfigManager(std::vector<std::string> filenames);
+    ConfigManager(std::vector<std::string> filenames, ModuleManager* manager);
     virtual ~ConfigManager();
 
     void readConfig();
@@ -57,15 +55,9 @@ public:
     void reloadConfig();
     void writeConfig(std::string outputFilePath);
     void loadModules();
-    void shutdownModules(StorageModule& storage);
-    void resetModuleRegistry();
-    void registerModuleStorageNeeds(StorageRegistry* registry, StorageRegistry* metadata);
 
     virtual std::string getOutputDir();
     virtual void setOutputDir(std::string dir);
-
-    virtual Module* getRootModule();
-    virtual Module* getStorageModule();
     virtual std::vector<Module*> getSubModules(std::string parentModuleName);
 
     virtual bool isParam(std::string moduleName, std::string paramName);
@@ -88,10 +80,7 @@ public:
     virtual std::string getAllParams(std::string moduleName);
 private:
     std::vector<std::string> buildChildren(YAML::Node topLevelNode);
-    void buildModule(std::string className, std::string name);
-    void buildModule(std::string className);
-    void callShutdown(Module* module, StorageModule& storage);
-    Module* lookupModule(std::string name);
+    void buildModuleIfNotExist(std::string classNameString, std::string idString);
     YAML::Node findRequiredConfig(std::string name);
     YAML::Node findConfig(std::string name);
     YAML::Node findConfigParam(std::string moduleName, std::string paramName);
@@ -99,7 +88,6 @@ private:
     template<typename T> T getParam(std::string moduleName, std::string paramName, T defaultValue);
     std::string getNodeAsString(const YAML::Node& node);
 
-    std::map<std::string, Module*> moduleRegistry;
     std::vector<std::string> filenames;
     std::string theConfigAsString;
     YAML::Node theConfig;
@@ -107,5 +95,6 @@ private:
     int configCount;
 
     std::string initialConfigBackup;
+    ModuleManager* moduleManager;
 };
 }

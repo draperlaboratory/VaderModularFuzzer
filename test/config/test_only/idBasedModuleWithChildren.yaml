@@ -1,0 +1,41 @@
+#This is for config manager testing only, and is not a logical configuration of VMF
+#
+# In fact, modifications are needed to StatsOutput.init() to make it even pretend to read in children
+#
+#    std::vector<Module*> fakemodules = config.getSubModules(getModuleName());
+#    LOG_INFO << "I HAVE " << fakemodules.size() << " CHILDREN";
+#
+vmfModules:
+  storage: #a storage module must be specified
+    className: SimpleStorage
+  controller: #a controller module must be specified
+    className: IterativeController
+    children:
+      #- className: StringsInitialization
+      - className: DirectoryBasedSeedGen
+      - className: MOPTInputGenerator
+      - className: AFLForkserverExecutor
+      - className: AFLFavoredFeedback
+      - className: SaveCorpusOutput
+      - id: Stats1
+        className: StatsOutput
+      - id: Stats2
+        className: StatsOutput
+  MOPTInputGenerator:
+    children:
+      - className: AFLFlipBitMutator
+      - className: AFLFlip2BitMutator
+      - className: AFLFlip4BitMutator
+      - className: AFLFlipByteMutator
+      - className: AFLFlip2ByteMutator
+      - className: AFLFlip4ByteMutator
+  Stats1: # This module doesn't actually expect children, I just want to test that they are created
+    children:
+      - className: AFLRandomByteAddSubMutator
+      - className: AFLRandomByteMutator
+      - className: AFLDeleteMutator
+  Stats2: # This module doesn't actually expect children, I just want to test that they are created
+    children:
+      - className: AFLCloneMutator
+      - className: AFLSpliceMutator
+

@@ -13,7 +13,7 @@ $ make
 ```
 
 ## Alternate Compiler Support
-VMF uses g++ as the default compiler, but will also support building with clang++.  Simply comment in the appropriate line in [vmf/src/CMakeLists.txt](../vmf/src/CMakeLists.txt)
+VMF uses g++ as the default compiler, but will also support building with clang++.  Simply comment in the appropriate line in [CMakeLists.txt](../CMakeLists.txt)
 
 ```cmake
 #Clang or g++ are supported
@@ -40,20 +40,13 @@ set(CMAKE_CXX_COMPILER clang++)
 
 ## Adding New External Projects
 
-In order to bring in a 3rd party library to VMF you need to:
+Third party source libraries should be added to vmf/dependencies. There are three steps:
 
-- Add the appropriate repository as a submodule (in the `submodules` directory), by running this command from the top level vmf directory
-```bash
-git submodule add --depth=1 http://... ./submodules/NEW_MODULE_NAME
-```
-- Add an `ExternalProject_add()` command in the `vmf/src/submodules/cmake/superBuild.cmake` file
-  - This will need to include an installation command or script to move the headers and binaries needed into
-  the `external/` directories `include` and `lib` directories under the moniker
-  of the 3rd party library itself. e.g. `external/include/AFLplusplus`.
-  - See `vmf/src/submodules/cmake/install-LibAFL-legacy` for an example of an install script
-- Add the external project to the build itself (***omit if this is a header only library***)
-  - If this is a new dependency for the VMF framework (as opposed to an individual module), then the dependency should be added to  `/vmf/src/framework/CMakeLists.txt`
-  - If this is a dependency for a VMF Core Module, then the dependency should be added to `vmf/src/coremodules/CMakeLists.txt`
-- Add the library and include paths as CMake variables in the `vmf/cmake/externalProperties.cmake` and `vmf/cmake/external_libs.cmake` files. (***omit if this is a header only library***) 
+1. Modify or create a CMakeLists.txt file for the project. You may need to disable
+   the project's install commands to avoid putting unwanted artifacts in our install.
 
-After adding a new submodule, you will need to rebuild and install the submodules -- see [vmf/submodules/README.md](../vmf/submodules/README.md).  This installs the built submodules into the 'external' directory associated with the particular flavor of linux that you are building on.
+2. Add the license information to vmf/dependencies/licences
+
+3. Put the add_subdirectory() command in vmf/dependecies/CMakeLists.txt. In general,
+   build the library as static where possible so it can be linked into a monolithic 
+   VMFFramework.so

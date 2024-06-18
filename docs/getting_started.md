@@ -12,8 +12,6 @@ This "Getting Started" document is a more in-depth version of VMF's basic usage 
   * [Default VMF Configuration](#default-vmf-configuration)
   * [Reconfiguring VMF](#reconfiguring-vmf)
     + [Strings Initialization](#strings-initialization)
-    + [Radamsa](#radamsa)
-    + [CRC32Formatter](#crc32formatter)
     + [Configuration Parameters](#configuration-parameters)
 
 ## Running VMF Configurations
@@ -33,7 +31,7 @@ cd vmf_install
 ./bin/vader -c test/config/basicModules.yaml -c test/haystackSUT/haystack_stdin.yaml
 ```
 
-In the `output` directory, a timestamp based subdirectory will be created.  Within that directory, you will find a copy of the configuration used to run VMF, a logs directory that contains an event log, and a testcases directory where the SaveCorpusOutput module will save a copy of each of the unique tests cases that VMF encounters.  This module will save an additional copy of any crashed, hung, or formatted test cases as well.
+In the `output` directory, a timestamp based subdirectory will be created.  Within that directory, you will find a copy of the configuration used to run VMF, a logs directory that contains an event log, and a testcases directory where the SaveCorpusOutput module will save a copy of each of the unique tests cases that VMF encounters.  This module will save an additional copy of any crashed or hung test cases as well.
 
 This configuration uses two config files. The first contains a set of basicModules with which to configure VMF.  The second contains parameters that are specific to the haystack SUT.
 
@@ -43,9 +41,7 @@ cd vmf_install
 ./bin/vader -c test/config/basicModules.yaml -c test/haystackSUT/haystack_file.yaml
 ```
 
-If you are using a full source copy of VMF that you have build, you can also run the same ./vader command directly from the top level build directory (it is not neccesary to use the "make install" command to create the vmf_install directory prior to running the application).
-
-Similarly, you may copy and modify haystack_file.yaml or haystack_stdin.yaml to configure VMF to fuzz a different SUT of your chosing (as long as that SUT will take stdin or file based inputs).
+You may copy and modify haystack_file.yaml or haystack_stdin.yaml to configure VMF to fuzz a different SUT of your chosing (as long as that SUT will take stdin or file based inputs).
 
 Note that the VMF configuration files can also be arbitrarily configured to move individual sections to different areas, and to be split into as many configuration files as are desired.  VMF will concatenate the provided configuration files into a single yaml configuration, however the resulting concatenated configuration must be valid yaml.  Practically this will impose some limitations on how the configuration can be split.  The simplest approach is to not attempt to split top level sections of the configuration (e.g. "vmfModules:") into more than one file.
 
@@ -53,17 +49,17 @@ Note that the VMF configuration files can also be arbitrarily configured to move
 
 For our simple test application, we include a pre-compiled version of our haystack SUT. But to run VMF with your own SUT, you must first compile the SUT with special instrumentation that allows the executor to observe the code coverage that it is obtaining with each test case.
 
-VMF ships with `Vader::AFLForkserverExecutor` as its default executor. To use this executor, the SUT/harness must be compatible with AFL's forkserver execution model. If you are unfamiliar with this execution model, see [the `#Fuzz-Harness` section in `Intro to Fuzzing`](/docs/intro_to_fuzzing.md#Fuzz-Harness). 
+VMF ships with `vmf::AFLForkserverExecutor` as its default executor. To use this executor, the SUT/harness must be compatible with AFL's forkserver execution model. If you are unfamiliar with this execution model, see [the `#Fuzz-Harness` section in `Intro to Fuzzing`](/docs/intro_to_fuzzing.md#Fuzz-Harness). 
 
 ***Note: VMF currently only supports SUTs that execute as native linux applications (bare-metal and virtualized environments are not supported in this release)***
 
 The AFL++ compiler must be also installed in order to build the SUT/harness. You can install the `afl++` or `afl++-clang` Ubuntu packages or build AFL++ from source. Use `afl-gcc` to compile the SUT/harness as follows:
 
 ```bash
-# Compiling a simple C application to work with Vader::AFLForkserverExecutor
+# Compiling a simple C application to work with vmf::AFLForkserverExecutor
 afl-gcc test/haystackSUT/haystack.c -o test/haystackSUT/haystack
 
-# Compiling a simple C application to work with Vader::AFLForkserverExecutor
+# Compiling a simple C application to work with vmf::AFLForkserverExecutor
 afl-gcc yourCode.cpp -o yourCode
 ```
 
@@ -132,7 +128,6 @@ vmfModules:
   controller: #a controller module must be specified
     className: IterativeController
     children:
-      #- className: CRC32Formatter
       #- className: StringsInitialization    #***Comment in this line***
  ```
 
@@ -145,30 +140,6 @@ StringsInitialization:
 
 Rerun VMF with the modified configuration file, and you will observe the generation of additional initial test cases.
 
-### Radamsa
-You may also comment in the following line to add the Radamsa mutator module to the list of mutators being used.  The Radama mutator is particularly well suited to ascii based inputs.  It does run more slowly than some of the other mutators, so we recommend only including it for SUTs that are known to process ascii inputs.
-
- ```yaml
-  MOPTInputGenerator:
-    children:
-      #- className: RadamsaMutator      #****Comment in this line*****
- ```
-
-### CRC32Formatter
-Commenting in the following line configures VMF to run the CRC32Formatter.  This module inserts a CRC32 checksum at the end of each test case.  Now the `output/TIMESTAMP/formatted` directory will contain formatted copies of each unique test case. In this directory you can see that the additional checksum bytes were added to each test case.  Note that the haystack application does not actually check for a checksum.
-
-
- ```yaml
-vmfModules:
-  storage: #a storage module must be specified
-    className: SimpleStorage
-  controller: #a controller module must be specified
-    className: IterativeController
-    children:
-      #- className: CRC32Formatter      #****Comment in this line*****
- ```
-
-
 ### Configuration Parameters
 At the bottom of the [test/config/defaultModules.yaml](../test/config/defaultModules.yaml) configuration file, there are a number of module specific configuration options that can be adjusted to change the behavior of the modules.  See also the more detailed module by module documentation in [docs/coremodules/core_modules_readme.md](/docs/coremodules/core_modules_readme.md) for additional parameters that can be adjusted.
 
@@ -177,7 +148,7 @@ By changing the runTimeInMinutes parameter to a non-zero value, you can configur
 
 Add the following section to your SUT-specific configuration file:
 ```yaml
-controller:
+IterativeController:
   runTimeInMinutes: 0     #***Change this line***
 ```
 

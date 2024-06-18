@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -30,13 +30,16 @@
 
 #include "StorageUserModule.hpp"
 #include "StorageEntry.hpp"
+#include "Logging.hpp"
 
-namespace vader
+namespace vmf
 {
 /**
- * @brief Base class for Vader Input Generators
+ * @brief Base class for VMF Input Generators
  *
- * Input generators create new inputs that will be run by the Executor.
+ * InputGenerator modules create new inputs that will be run by the Executor Module(s).  
+ * InputGenerator modules that use mutation based strategies typically have configurable 
+ * submodules of type MutatorModule.
  *
  */
 class InputGeneratorModule: public StorageUserModule {
@@ -51,9 +54,21 @@ public:
      * to look at the results of their test case runs prior to generating new test
      * cases should implement this method.  It is distinct from addNewTestCases
      * in that the storage new list has not yet been cleared when this method is called.
+     *
+     * Implementors of this method should be aware that configurations with more than one
+     * input generator will result in StorageEntries in the fuzzing loop that were not created
+     * by this input generator.  Implementors of this method that only care about their own StorageEntries
+     * will need to tag or otherwise write identifying information to those StorageEntries
+     * such that they can be easily identified when this method is called.
+     * 
+     * The default implementation of this method always returns false, indicating that the
+     * input generator is not complete.  Only some input generators will have a concept of completeness,
+     * those that do not should just always return false.
+     * 
      * @param storage the storage module
+     * @return true if the input generator is "complete", and false otherwise.
      */
-    virtual void evaluateTestCaseResults(StorageModule& storage) {};
+    virtual bool examineTestCaseResults(StorageModule& storage) {return false;};
 
     /**
      * @brief Create one or more new test cases
@@ -96,6 +111,42 @@ public:
                         RuntimeException::CONFIGURATION_ERROR);
                 }
                 
+            }
+        }
+        return theModule;
+    }
+
+    /**
+     * @brief Helper method to return a single InputGenerator submodule from config by name
+     * This method will retrieve a single InputGenerator submodule by name for the specified parent modules.
+     * If there are no InputGenerator submodules with the specified name, then an nullptr will be returned.  
+     * 
+     * @param config the ConfigInterface object
+     * @param parentName the name of the parent module
+     * @param childName the name of the child module to finde
+     * @return InputGeneratorModule* the submodule, or nullptr if none is found
+     */
+    static InputGeneratorModule* getInputGeneratorSubmoduleByName(ConfigInterface& config, std::string parentName, std::string childName)
+    {
+        InputGeneratorModule* theModule = nullptr;
+        std::vector<Module*> modules = config.getSubModules(parentName);
+        for(Module* m: modules)
+        {
+            if(childName == m->getModuleName())
+            {
+                if(isAnInstance(m))
+                {
+                    theModule = castTo(m);
+                    break;
+                }
+                else
+                {
+                    LOG_ERROR << parentName << " requested an InputGenerator submodule named " << childName 
+                               << ", but that submodules is not of type InputGenerator.";
+                    throw RuntimeException(
+                        "Configuration file contained a module with this name, but it was not an executor module",
+                        RuntimeException::CONFIGURATION_ERROR);
+                }
             }
         }
         return theModule;

@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -31,7 +31,7 @@
 #include "StorageModule.hpp"
 #include "StorageRegistry.hpp"
 
-namespace vader
+namespace vmf
 {
 
 /**
@@ -39,7 +39,7 @@ namespace vader
  * 
  * This is the base class for any module types that are users of storage.
  * Users of storage must register their storage needs up front, in
- * order to validate the configuration of Vader.  This is a pure virtual
+ * order to validate the configuration of VMF.  This is a pure virtual
  * class that cannot be instantiated directly.
  * 
  */

@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -29,12 +29,12 @@
 #include "ControllerModule.hpp"
 #include "CDMSClient.hpp"
 #include "Logging.hpp"
-#include "VaderUtil.hpp"
+#include "VmfUtil.hpp"
 #include <ctime>
 #include <ratio>
 #include <chrono>
 
-using namespace vader;
+using namespace vmf;
 
 ControllerModule::ControllerModule(std::string name) : 
     StorageUserModule(name, ModuleTypeEnum::CONTROLLER) 
@@ -72,8 +72,8 @@ void ControllerModule::init(ConfigInterface& config)
 
 void ControllerModule::registerStorageNeeds(StorageRegistry& registry)
 {
-    mutatorIdKey = registry.registerKey("MUTATOR_ID", StorageRegistry::INT, StorageRegistry::WRITE_ONLY);
-    testCaseKey = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_WRITE);
+   serverTestCaseTag = registry.registerTag("SERVER_TC", StorageRegistry::WRITE_ONLY);
+   testCaseKey = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_WRITE);
     //Technically the testCaseKey is only written, but subclasses of this class will also READ it
     //(such as the IterativeController)
 };
@@ -104,8 +104,8 @@ void ControllerModule::handleCommand(StorageModule& storage, bool isDistributed,
                 lastCorpusUpdate = now;
                 json11::Json json = client->getCorpusUpdates(tags);
                 //A new test case is created for each test case on the file list, with the
-                //mutatorIdKey set to a special value so it is flagged as coming from the server
-                CDMSClient::getInstance()->createNewTestCasesFromJson(storage, json, testCaseKey, mutatorIdKey);
+                //"SERVER_TC" tag set so it is flagged as coming from the server
+                CDMSClient::getInstance()->createNewTestCasesFromJson(storage, json, testCaseKey, serverTestCaseTag);
             }
         }
         else
@@ -138,6 +138,33 @@ ControllerModule* ControllerModule::getControllerSubmodule(ConfigInterface& conf
             
         }
     }
+    return theModule;
+}
+
+ControllerModule* ControllerModule::getControllerSubmoduleByName(ConfigInterface& config, std::string parentName, std::string childName)
+{
+    ControllerModule* theModule = nullptr;
+    std::vector<Module*> modules = config.getSubModules(parentName);
+    for(Module* m: modules)
+    {
+        if(childName == m->getModuleName())
+        {
+            if(isAnInstance(m))
+            {
+                theModule = castTo(m);
+                break;
+            }
+            else
+            {
+                LOG_ERROR << parentName << " requested an Controller submodule named " << childName 
+                            << ", but that submodules is not of type Controller.";
+                throw RuntimeException(
+                    "Configuration file contained a module with this name, but it was not an executor module",
+                    RuntimeException::CONFIGURATION_ERROR);
+            }
+        }
+    }
+    
     return theModule;
 }
 

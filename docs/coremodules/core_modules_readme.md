@@ -5,7 +5,8 @@ This document provides more detailed documentation for the VMF Core Modules.
     + [Storage Usage](#storage-usage)
     + [Metadata Usage](#metadata-usage)
 * [AFLForkserverExecutor](#aflforkserverexecutor)
-* [AFLFavoredFeedback](#aflfavoredfeedback)
+* [AFLFeedback and AFLFavoredFeedback](#aflfeedback-and-aflfavoredfeedback)
+* [AFLMutators](#aflmutators)
 * [KleeInitialiation](#kleeinitialization)
 * [Gramatron](#gramatron)
     + [Grammars](#grammars)
@@ -13,7 +14,12 @@ This document provides more detailed documentation for the VMF Core Modules.
     + [Gramatron Usage](#gramatron-usage)
 * [CorpusMinimization](#corpusminimization)
 * [MOPT](#mopt)
+* [RedPawn](#redpawn)
 * [StatsOutput](#statsoutput)
+* [Controller Modules](#controller-modules)
+    + [IterativeController](#iterativecontroller)
+    + [NewCoverageController](#newcoveragecontroller)
+    + [RunOnceController](#runoncecontroller)
 * [Distributed Fuzzing Modules and Configuration Options](#distributed-fuzzing-modules-and-configuration-options)
     + [ServerSeedInitialization and ServerCorpusInitialization](#serverseedinitialization-and-servercorpusinitialization)
     + [ServerCorpusOutput](#servercorpusoutput)
@@ -26,14 +32,30 @@ This document provides more detailed documentation for the VMF Core Modules.
 ## Core Module Overview
 The following core modules are provided along with VMF.  A brief summary of each module's function is provided below.
 
+### Controller and Storage Modules
+
 |Module Name|Type|Summary
 | --------- | --- |------ |
 |SimpleStorage|Storage|The default implementation of Storage|
 |IterativeController|Controller|Controls a configurable set of modules to run a fuzzer|
+|NewCoverageController|Controller|Supports toggling between input generation strategies when new coverage is found|
+|RunOnceController|Controller|Runs every provided module exactly once before shutting down|
+
+### Initialization Modules
+
+|Module Name|Type|Summary
+| --------- | --- |------ |
 |DirectoryBasedSeedGen|Initialization|Creates initial test cases based on contents of a directory|
-|StringsInitialization|Initialization|Uses the strings utility to create initial test cases|
-|KleeInitialization|Initialization|Uses Klee to create initial test cases|
 |GrammarBasedSeedGen|Initialization|Initialization module needed when using the Gramatron mutators|
+|KleeInitialization|Initialization|Uses Klee to create initial test cases|
+|ServerCorpusInitialization|Initialization|Used for distributed fuzzing to retrieve the whole CDMS corpus|
+|ServerSeedInitialization|Initialization|Used for distributed fuzzing to retrieve the seeds, or recently minimized corpus from CDMS|
+|StringsInitialization|Initialization|Uses the strings utility to create initial test cases|
+
+### Input Generation and Mutator Modules
+
+|Module Name|Type|Summary
+| --------- | --- |------ |
 |GeneticAlgorithmInputGenerator|InputGenerator|Manages mutators by selecting a base test and which mutators to mutate it with|
 |MOPTInputGenerator|InputGenerator|Uses an optimized mutation algorithm to select mutators based on their prior performance**|
 |AFLFlipBitMutator|Mutator|Creates new test cases by flipping a random bit|
@@ -51,11 +73,19 @@ The following core modules are provided along with VMF.  A brief summary of each
 |GramatronRandomMutator|Mutator|Generates test cases by regenerating from the grammar starting at a random location|
 |GramatronRecursiveMutator|Mutator|Generates test cases by expanding recursive features in a test case|
 |GramatronSpliceMutator|Mutator|Generates test cases by splicing two together in a grammar aware way|
-|RadamsaMutator|Mutator|Performs Randamsa style mutation of test case|
-|CRC32Formatter|Formatter|Adds a CRC32 checksum to a test case|
+
+### Executor and Feedback Modules
+
+|Module Name|Type|Summary
+| --------- | --- |------ |
 |AFLExecutor|Executor|Executes SUT using AFL++ forkserver|
 |AFLFeedback|Feedback|Evaluates AFL++ execution results|
 |AFLFavoredFeedback|Feedback|More complex version of AFLFeedback that includes favored test cases|
+
+### Output Modules
+
+|Module Name|Type|Summary
+| --------- | --- |------ |
 |CorpusMinimization|Output|Removes test cases that don't provide unique coverage paths|
 |SaveCorpusOutput|Output|Saves a copy of all of the test cases in long term storage to disk|
 |StatsOutputModule|Output|Prints basic performance metrics to the log file|
@@ -63,24 +93,23 @@ The following core modules are provided along with VMF.  A brief summary of each
 ### Storage Usage
 These are the core modules that read and write data in storage.  Note that ExecutorModules and StorageModules do not use storage (the StorageModule is storage, so it stores all of the fields and tags, but does not rely on any specific content being there).
 
-|Module Name|TEST_CASE (buffer)|TEST_CASE_FORMATTED (buffer)|FITNESS (float)|MUTATOR_ID (int)|CRASHED (tag)|HUNG (tag)|RAN_SUCCESSFULLY (tag)| FAVORED (tag) | TEST_CASE_AUT (buffer)|
-|-----|-----|-----|-----|-----|----|----|----|----|----|
-|AFLFeedback|||Writes||Writes|Writes|Writes|
-|AFLFavoredFeedback|||Writes||Writes|Writes|Writes|Reads/Writes|
+|Module Name|TEST_CASE (buffer)|FITNESS (float)|MUTATOR_ID (int)|CRASHED (tag)|HUNG (tag)|RAN_SUCCESSFULLY (tag)| FAVORED (tag) | TEST_CASE_AUT (buffer)|
+|-----|-----|-----|-----|----|----|----|----|----|
+|AFLFeedback||Writes||Writes|Writes|Writes|
+|AFLFavoredFeedback||Writes||Writes|Writes|Writes|Reads/Writes|
 |AFL***Mutator|Writes|
-|CorpusMinimization|Reads|Reads|||||Reads
+|CorpusMinimization|Reads|||||Reads
 |DirectoryBasedSeedGen|Writes
-|GeneticAlgorithmInputGenerator|||**||||Reads
-|GrammarBasedSeedGen|Writes||||||||Writes|
-|GramatronGenerateMutator|Writes||||||||Writes|
-|GramatronRandomMutator|Writes||||||||Reads/Writes|
-|GramatronRecursiveMutator|Writes||||||||Reads/Writes|
-|GramatronSpliceMutator|Writes||||||Reads||Reads/Writes|
-|IterativeController|Reads|Writes|
-|MOPTInputGenerator|||**|Reads/Writes|
-|RadamsaMutator|Reads/Writes|
-|SaveCorpusOutput|Reads|Reads|||Reads|Reads||
-|StatsOutputModule|||||Reads|Reads||
+|GeneticAlgorithmInputGenerator||**||||Reads
+|GrammarBasedSeedGen|Writes|||||||Writes|
+|GramatronGenerateMutator|Writes|||||||Writes|
+|GramatronRandomMutator|Writes|||||||Reads/Writes|
+|GramatronRecursiveMutator|Writes|||||||Reads/Writes|
+|GramatronSpliceMutator|Writes|||||Reads||Reads/Writes|
+|IterativeController|Reads|
+|MOPTInputGenerator||**|Reads/Writes|
+|SaveCorpusOutput|Reads|||Reads|Reads||
+|StatsOutputModule||||Reads|Reads||
 |StringsInitialization|Writes|
 |KleeInitialization|Writes|
 
@@ -97,9 +126,19 @@ These are the core modules that read and write metadata in storage.
 |StatsOutputModule|Reads|Reads|Reads|Reads|Reads|
 
 # AFLForkserverExecutor
-AFLForkserverExecutor supports specifying a manual timeout value.  This timeout is used to determine when an execution of the SUT has hung.  This is an optional parameter, and when not manual timeout is specified, the executor will instead automatically compute a timeout value based on the initial seeds.
 
-Care must be taken when manually specifying this value, as a timeout that is too short will result in test cases being erroneously identified as hanging.
+## SUT Execution Parameters & Constraints
+AFLForkserverExecutor implements calibration testing that can be invoked by a controller module. During calibration, test cases provided as part of the seed corpus are measured for their execution time and coverage. Calibration test case execution times are primarily useful to calculate performant timeout values to identify hanging SUTs during the fuzzing campaign. These test cases preferably run to completion without hangs or crashes. The configuration option, `maxCalibrationCases` controls the number of tests used towards calibration. 
+
+A larger calibration amount may be useful for SUTs with highly variant execution times. Specify this option with:
+```yaml
+AFLForkserverExecutor:
+  maxCalibrationCases: 500 # Defaults to 300
+```
+
+AFLForkserverExecutor supports specifying a manual timeout value.  This timeout is used to determine when an execution of the SUT has hung.  This is an optional parameter, and when not manual timeout is specified, the executor will instead automatically compute a timeout value based on the initial seeds. Specifying this value will override the timeout values calculated by calibration.
+
+Care must be taken when manually specifying this value, as a timeout that is too short will result in test cases being erroneously identified as hanging, and a timeout value that is too long will result in degraded fuzzing performance.
 
 Add the following configuration section to specify this value:
 ```yaml
@@ -107,8 +146,66 @@ AFLForkserverExecutor:
   timeoutInMs: 100 #This would specify a 100ms timeout value
 ```
 
-# AFLFavoredFeedback 
-AFLFavoredFeedback supports adjusting the relative weights of the components used to compute the fitness of each test case.  Because test cases are sorted in storage by their fitness, and the Input Generators provided by VMF use a weighted random selection that favors more fit test cases, changing the fitness computation changes which test cases are selected for mutation.
+AFLForkserverExecutor also supports configuring memory limits for SUTs. Using sane memory limits will prevent SUTs that have leaky memory from consuming large amounts of machine resources, potentially reducing fuzzing performance. However, overriding the safe default value of 128MB may be necessary for SUTs that use large amounts of memory, or utilize memory-intensive sanitizers such as ASAN (the useASAN configuration removes the memory limit).
+
+To specify a SUT memory limit, use the following configuration:
+```yaml
+AFLForkserverExecutor:
+  memoryLimitInMB: 256 # This would specify a 256MB memory limit
+```
+
+## Debug Logs
+AFLForkserverExecutor can record SUT stdout and stderr data. These logs are useful when debugging a potential issue with the fuzzing campaign, such as a SUT that's missing command line arguments, or libraries. It may also indicate some errors in your config. 
+
+To enable this debug logging, set the `debugLog` to `true` and optionally change the default locations for files using the `stdout` and `stderr` configurations in conjunction with `debugLog`. For example:
+```yaml
+AFLForkserverExecutor:
+  debugLog: true # Enable SUT stdout/stderr debug logs
+  stdout: mysut_stdout # OPTIONAL file name for stdout
+  stderr: mysut_stderr # OPTIONAL file name for stderr
+```
+
+## Coverage Maps
+SUT binaries may have non-default map sizes built in at compile-time. AFLForkserverExecutor attempts auto-detection of this map size by probing the SUT, however, in cases where this process fails, you may specify the map size via the `mapSize` configuration. For example:
+```yaml
+AFLForkserverExecutor:
+  mapSize: 65536 # Specify a map-size of 65KB
+```
+
+Further, AFLForkserverExecutor offers a few options for deciding when to record coverage data during the fuzzing campaign. For each test case, the executor will decide based on the configuration whether to commit the coverage bitmap to storage. The configuration options `alwaysWriteTraceBits`, `traceBitsOnNewCoverage`, and `writeStats` control these capabilities.
+
+When `traceBitsOnNewCoverage` is set to true, the executor will only write coverage data to storage if the associated test case discovers new coverage. This is the default behavior. 
+```yaml
+AFLForkserverExecutor:
+  traceBitsOnNewCoverage: true # Defaults to true
+```
+
+When `alwaysWriteTraceBits` is set to true, the executor will always save the coverage bitmap to storage.
+```yaml
+AFLForkserverExecutor:
+  alwaysWriteTraceBits: true 
+```
+
+Finally, `writeStats` will record cumulative coverage data to storage. This is useful for output modules that display incremental progress during the fuzzing campaign. 
+```yaml
+AFLForkserverExecutor:
+  writeStats: true
+```
+
+## Sanitizers & Alternative SUT instrumentation
+AFLForkserverExecutor supports SUTs that are instrumented with CmpLog, ASAN, LSAN, MSA and UBSAN. When enabled, AFLForkserverExecutor may include an additional coverage map (in the case of CmpLog), or unique error codes (in the case of the sanitizers). Alternatively, some SUTs, either by some instrumentation or through source-level implementation, may exit with specific error codes, which can be specified with the `customExitCode` configuration option, to indicate crashing behavior. 
+CmpLog-instrumented SUTs are required for RedPawn, which is documented below. 
+For sanitizer-instrumented SUTs, configure the AFLForkserverExecutor with _one_ of `useASAN`, `useLSAN`, `useMSAN`, `useUBSAN`; AFLForkserverExecutor does not currently support SUTs instrumented with multiple sanitizers.
+
+Here's an example of enabling fuzzing of an ASAN-instrumented SUT: 
+```yaml
+AFLForkserverExecutor:
+    useASAN: true
+```
+ASAN significantly increases SUT memory usage. To accomodate this, enabling `useASAN` will disable the SUT process's memory limit (unless explicitly specified with `memoryLimitInMB`.
+
+# AFLFeedback and AFLFavoredFeedback 
+AFLFeedback and AFLFavoredFeedback supports adjusting the relative weights of the components used to compute the fitness of each test case.  Because test cases are sorted in storage by their fitness, and the Input Generators provided by VMF use a weighted random selection that favors more fit test cases, changing the fitness computation changes which test cases are selected for mutation.
 
 AFLFeedback and AFLFavoredFeedback compute fitness as a function of code coverage, execution speed, and test case size.  AFLFavoredFeeback adds an additional factor, "favored", that increases the fitness of the test cases that reach unique areas of the code.  By increasing the relative weights a particular value, you can alter the fitness computation to more heavily weight faster test cases (speedWeight), smaller test cases (sizeWeight), or favored test cases (favoredWeight).  
 
@@ -125,6 +222,34 @@ AFLFavoredFeedback:
   sizeWeight: 1.0            #   sizeWeight should be 0.0-10.0 (0.0 will remove this factor. Must be nonnegative.)
   speedWeight: 5.0           #   speedWeight should be 0.0-10.0 (0.0 will remove this factor. Must be nonnegative.)
 ```
+
+# AFLMutators
+VMF includes a collection of mutators that are based on the mutation strategies used in AFL++.  Each mutator fills in a new StorageEntry with a copy of the input buffer that has modified or mutated in some way.  The exact mutations are described below.
+
+## Bit and Byte Flipping Mutators
+The following mutators all take an input test data buffer and randomly flip bits or bytes within the data (0s are turned into 1s, and 1s are turned into 0s).  These mutators will never change the size of the input, because they only flip existing values.
+|Mutator|What is Flipped?|
+|-----|-----|
+|AFLFlipBitMutator|1 bit|
+|AFLFlipByteMutator|1 byte|
+|AFLFlip2BitMutator|2 consecutive bits|
+|AFLFlip2ByteMutator|2 consecutive bytes|
+|AFLFlip4BitMutator|4 consecutive bits|
+|AFLFlip4ByteMutator|4 consecutive bytes|
+
+## RandomByte Mutators
+The following mutators manipulate a random byte from th input test data buffer.  These mutators never change the size of the input, because they only modify a single byte from the input.
+- The AFLRandomByteMutator selects a random byte in the input buffer and then combines that byte with a random 1 byte value using an XOR operation.
+- The AFLRandomByteAddSubMutator selects a random byte in the input buffer, subtracts a random 1 byte value from that byte, and then adds a different random byte value.
+
+## Delete, Clone, and Splice Mutators
+Each of these mutators does change the size of the input buffer.
+
+The AFLCloneMutator clones a randomly selected portion of the input data, such that a section of the original input buffer is repeated in a random location within the buffer.  The insertion location and the size of the section are both randomized.  However, 25% of the time the mutator does a larger insertion of repeated bytes (up to 32768 bytes).
+
+The AFLDeleteMutator removed a randomly selection portion of the input data.  This mutator can only work on input that are at least 2 bytes in length.  If it is called on shorter inputs, it will simply duplicate the input without mutation.
+
+The AFLSpliceMutator take the input test buffer, and splices in data from a second unrelated test case.  The size of the resulting test case buffer will match the size of the second unrelated test cases, but the buffer will start with bytes from the input test buffer and end with bytes from the second test case.
 
 # KleeInitialization
 
@@ -255,6 +380,83 @@ MOPTInputGenerator:
   corePeriodLength:  500000  # Number of testcases executed during core period
   pMin: 0                    # Minimum mutator probability (0 means ignore and use adaptive value)
   ```
+# RedPawn
+RedPawn is an input-to-state (I2S) analysis tool comparable to [RedQueen](https://www.ndss-symposium.org/wp-content/uploads/2019/02/ndss2019_04A-2_Aschermann_paper.pdf). Input-to-State analysis provides a lightweight alternative to full-blown taint tracking for overcoming common fuzzing bottlenecks such as "magic bytes", where there is a single correct value that random bitflip mutations are exceedingly unlikely to guess. RedPawn is able to extract or solve for the required value by inspecting comparison log data from the SUT, thus overcoming these limitations and achieving higher coverage. RedPawn is implemented as an InputGenerator module, the RedPawnInputGenerator.
+
+### Requirements and usage
+RedPawn uses [AFL++'s CmpLog instrumentation](https://github.com/AFLplusplus/AFLplusplus/blob/stable/instrumentation/README.cmplog.md), which when added to the SUT causes a log of compare operations that take place to be sent to RedPawn for analysis. The use of RedPawn requires compiling two versions of the SUT: one built with normal AFL instrumentation, and a second with the CmpLog instrumentation (requires setting `AFL_LLVM_CMPLOG` at compile time, see CmpLog documentation).
+
+See the MagicBytesSUT for a complete working example with configuration.
+
+With RedPawn, a crash is quickly found: `./bin/vader -c ./test/config/defaultModules_RedPawn.yaml -c ./test/magicBytesSUT/magicbytes_redpawn.yaml`
+
+Without RedPawn, no crash is found: `./bin/vader -c ./test/config/defaultModules.yaml -c ./test/magicBytesSUT/magicbytes.yaml`
+
+As with all of our example configurations, the [test/config/defaultModules.yaml](../../test/config/defaultModules_RedPawn.yaml) configuration file can be used with your own SUT.
+
+Note that RedPawn requires two additional executors:
+
+- An additional executor to be configured to execute the CmpLog version of the SUT. RedPawn finds this executor module by name, which must be called `cmplogExecutor`.
+
+- An additional standard (AFL instrumented, non-CmpLog) executor that it can use for colorization, an internal step during which additional entropy is added to analyzed testcases. RedPawn finds this executor module by name, which must be called `colorizationExecutor`.
+
+The RedPawnInputGenerator runs once on each new testcase that is discovered while fuzzing. As such, it also requires a controller that can detect when new coverage is found and switch to the RedPawnInputGenerator. The `NewCoverageController` can be used for this purpose, and is the controller that is selected in our default configuration.
+
+The following yaml configuration sections show an example usage of RedPawnInputGenerator:
+
+```yaml
+vmfModules:
+  storage:
+    className: SimpleStorage
+  controller:
+    className: NewCoverageController
+    children:
+      - className: MOPTInputGenerator
+      - className: RedPawnInputGenerator
+      ...
+  RedPawnInputGenerator:
+    children:
+      - id: colorizationExecutor
+        className: AFLForkserverExecutor
+      - id: cmplogExecutor
+        className: AFLForkserverExecutor
+
+NewCoverageController:
+  primaryInputGenerator: MOPTInputGenerator
+  newCoverageInputGenerator: RedPawnInputGenerator
+
+# Main executor
+AFLForkserverExecutor:
+  sutArgv: ["path/to/sut/sut", "@@"]
+  
+# Executor that includes CmpLog instrumentation
+cmplogExecutor:
+  sutArgv: ["path/to/sut/sut_cmplog", "@@"]
+  cmpLogEnabled: true # This flag enables CmpLog
+  memoryLimitInMB: 400 # Additional memory for CmpLog
+  writeStats: false # Only main executor reports stats
+
+# Executor that has only AFL coverage instrumentation
+# The alwaysWriteTraceBits flag must be set for this executor.
+colorizationExecutor:
+  sutArgv: ["path/to/sut/sut", "@@"]
+  alwaysWriteTraceBits: true #must be set
+  writeStats: false # Only main executor reports stats
+```
+
+### Notes
+The reported exec/s speed by the stats module does not account for time spent in RedPawn, and so the fuzzer will appear to slow down when RedPawn is enabled.
+
+RedPawn runs once for each new testcase and will typically dominate the fuzzer's activity early on in fuzzing while new coverage is still being rapidly found. This is expected behavior.
+
+In the RedPawn logs:
+
+"testcases in queue" refers to how many new unique coverage testcases RedPawn has yet to be process.
+
+"testcases generated from last seed testcases" displays how many new testcases were created by RedPawn using just the last single testcase.
+
+"testcases generated total" displays how many testcases RedPawn has generated total for the entire executution.
+
 
 # StatsOutput
 The StatsOutput module writes periodic performance metrics for the VMF fuzzer.  By default, this module writes the performance metrics to the console and log file every 5 seconds.  You will likely want to turn down this data rate for an actual fuzzing campaign.
@@ -271,6 +473,37 @@ StatsOutput:
   sendToServer: true #use this setting for distributed fuzzing
   outputRateInSeconds: 60 #this would set the output rate to once a minute
 ```
+# Controller Modules
+Note that all controllers also support a number of distributed fuzzing related configuration options -- see [Controller Settings for Distributed Fuzzing](#controller-settings)
+
+## IterativeController
+The IterativeController simply iterates through each module, calling them in sequence.  This controller supports one InputGenerator, one Executor and Feedback module, and any number of Initialization and Output modules.  The Executor, Feedback, and InputGeneration modules are required.
+
+In addition to the distributed fuzzing configuration options, this controller supports a `runTimeInMinutes` parameter which controls whether or not the controller will shut down automatically after fuzzing for a specific period of time.  The default value for this parameter, which means the controller will not shutdown until the user terminates the fuzzer.  Note that this the minimum time that the fuzzer must run before terminating, and the actual run time may be slightly longer, particularly for slow running SUTs, as the controller only terminates after the completion of the current fuzzing loop.
+
+```yaml
+IterativeController:
+  runTimeInMinutes: 60 #This would configure the fuzzer to run for an hour
+```
+
+## NewCoverageController
+The NewCoverageController is similar to the IterativeController, except that it supports two InputGenerator modules.  This controller will temporarily toggle to an alternative input generator every time there is are new, interesting test cases saved in storage (typically this occurs due to new coverage, though the exact decision is made in the feedback module).  The examineTestCaseResults() method is called on both input generators during each pass through the fuzzing loop, but the addNewTestCases() method is called on only the active input generator.
+
+For example, the configuration below is used to have the RedPawnInputGenerator execute each time there is a test case with new code coverage.  The RedPawnInputGenerator will run each time there is a new saved test case identified by the feedback module.  This allows RedPawn the opportunity to generate new test cases that are based on this new, interesting test case.
+```yaml
+controller:
+  primaryInputGenerator: MOPTInputGenerator
+  newCoverageInputGenerator: RedPawnInputGenerator
+```
+
+Note: In order to temporarily toggle to an alternatte InputGenerator, the newCoverageInputGenerator must have a concept of completion (specifically, an examineTestCaseResults() method that will return true, indicating that the input generation strategy is complete).  MOPTInputGenerator and GeneticAlgorithmInputGenerator are not appropriate to use as new coverage input generators because their examineTestCaseResults() methods always return false, indicating that that are not done.
+
+The NewCoverageController supports the `runTimeInMinutes` parameter with the same behavior as the IterativeController.
+
+## RunOnceController 
+The RunOnceController runs each of its submodules exactly once and then completes.  This module is currently used to support server based corpus minimization, but it could be used to implement other kinds of behaviors that should occur only once.  This Controller supports any number of initializationModules, inputGeneratorModules, and outputModules.  Up to one executor and feedback modules are supported.  All module types are optional, however a feedback module cannot be specified without an executor to go with it, and if an executor module is used a feedback modules must be provided as well.
+
+This module will not do anything unless at lease one submodule is specified in the configuration file.  It does not provide any additional configuration options (beyond the distributed fuzzing related options that are supported by the base ControllerModule class).
 
 # Distributed Fuzzing Modules and Configuration Options
 These modules and settings are only used when running VMF in distributed fuzzing mode.
@@ -330,11 +563,6 @@ CorpusMinimization:
 
 Note: this module  relies on the "FILE_URL" key being written by another module in the system (e.g. ServerCorpusInitialization with `writeServerURL` set to true).
 
-## RunOnceController 
-The RunOnceController runs each of its submodules exactly once and then completes.  This module is currently used to support server based corpus minimization, but it could be used to implement other kinds of behaviors that should occur only once.
-
-This module will not do anything unless at lease one submodule is specified in the configuration file.  It does not provide any additional configuration options (beyond those supported by the base ControllerModule class).
-
 ## Parameters for Distributed Fuzzing
 
 ### StatsOutput Settings
@@ -351,7 +579,7 @@ The `corpusUpdateTags` parameter controls which test case tags are retrieved by 
 
 To set these parameters, set a value in the config section for the controller.  For example, if you are using IterativeController, and want the fuzzer to run for 3 hours before performing the first corpus update, and then do an update hourly after that, use the following settings:
 ```yaml
-controller: #The controller module name is always "controller" and not a more class specific name
+IterativeController:
   corpusInitialUpdateMins: 180 #The first corpus update should be 3 hours into fuzzing
   corpusUpdateRateMins: 60 #Subsequence updates are once an hour
 ```

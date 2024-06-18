@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -30,7 +30,7 @@
 
 #include "StorageEntry.hpp"
 
-namespace vader
+namespace vmf
 {
 class StorageEntry; //forward declaration
 
@@ -49,10 +49,38 @@ public:
      * @brief Called by StorageEntry when the primary key is changed
      * 
      * StorageEntry will call this method on the associated StorageEntryListener
-     * whenever the primary key value is written.
+     * whenever the primary key value is written.  This method does not need to be called
+     * for metadata or local entries.
+     * 
      * @param entry the entry for which the primary key was updated
      */
     virtual void notifyPrimaryKeyUpdated(StorageEntry* entry) = 0;
+
+    /**
+     * @brief Called by StorageEntry when a tag is set
+     * 
+     * StorageEntry will call this method on the associated StorageEntryListener
+     * whenever a tag is set on a StorageEntry.  This method must not be called for metadata
+     * or local entries.  Metadata may not be tagged at all.  Local entries may be tagged,
+     * but the StorageModule should not be notified when they are.
+     * 
+     * @param entry the entry for which the tag was set
+     * @param tagId the handle for the tag
+     */
+    virtual void notifyTagSet(StorageEntry* entry, int tagId) = 0;
+
+    /**
+     * @brief Called by StorageEntry when a tag is removed
+     * 
+     * StorageEntry will call this method on the associated StorageEntryListener
+     * whenever a tag is removed on a StorageEntry.  This method must not be called for metadata
+     * or local entries.  Metadata may not be tagged at all.  Local entries may be tagged,
+     * but the StorageModule should not be notified when they are.
+     * 
+     * @param entry the entry for which the tag was removed
+     * @param tagId the handle for the tag
+     */
+    virtual void notifyTagRemoved(StorageEntry* entry, int tagId) = 0;
 };
 
 }

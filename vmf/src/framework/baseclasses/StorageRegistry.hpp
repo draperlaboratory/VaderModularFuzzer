@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -32,7 +32,7 @@
 #include <vector>
 #include <algorithm>
 
-namespace vader
+namespace vmf
 {
 /**
  * @brief This class is used to configure which fields and tags will be maintained in storage.
@@ -74,12 +74,16 @@ public:
     ~StorageRegistry();
     bool validateRegistration();
     int registerKey(std::string keyName, storageTypes type, accessType access);
+    int registerIntKey(std::string keyName, accessType access, int defaultValue);
+    int registerFloatKey(std::string keyName, accessType access, float defaultValue);
     int registerTag(std::string tagName, accessType access);
     void registerForAllTags(accessType access);
     std::vector<std::string> getTagNames();
     std::vector<int> getTagHandles();
     int getNumKeys(storageTypes type);
     int getNumTags();
+    std::vector<int> getIntKeyDefaults();
+    std::vector<float> getFloatKeyDefaults();
     int getSortByKey();
     storageTypes getSortByType();
     sortOrder getSortByOrder();
@@ -91,14 +95,17 @@ private:
         std::string name;
         bool isRead;
         bool isWritten;
+        bool hasDefault;
     };
 
-    int addIfNotPresent(std::vector<registryInfo>& keyList, std::string keyName, accessType access);
+    int addIfNotPresent(std::vector<registryInfo>& keyList, std::string keyName, accessType access, bool& wasNew);
     bool validateList(std::vector<registryInfo>& keyList, std::string listName);
 
     std::vector<registryInfo> tagNames;
     std::vector<registryInfo> intKeys;
+    std::vector<int> intDefaults;
     std::vector<registryInfo> floatKeys;
+    std::vector<float> floatDefaults;
     std::vector<registryInfo> bufferKeys;
 
     int sortByKeyHandle;

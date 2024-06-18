@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -34,13 +34,17 @@
 #include "Iterator.hpp"
 #include <memory>
 
-namespace vader
+namespace vmf
 {
 /**
- * @brief Base class for Vader Storage Modules
+ * @brief Base class for VMF Storage Modules
  *
  * Storage modules provide for storage of test cases and their associated data.  Support
  * for global metadata variables is provided as well.
+ * 
+ * Implementors of this base class must also implement all methods in StorageEntryLister.
+ * Note that the StorageEntryListener methods, init(), and configure(), are not intended to be used 
+ * by other modules.  clearNewAndLocalEntries() should only be called by Controller modules.
  *
  */
 class StorageModule : public Module, public StorageEntryListener {
@@ -49,13 +53,13 @@ public:
     /** Destructor */
     virtual ~StorageModule() {};
 
-    //-----------------Used by the Vader Application-----------------------
+    //-----------------Used by the VMF Application-----------------------
     virtual void init(ConfigInterface& config) = 0;
 
     /**
      * @brief Configure storage
      *
-     * This method should only be called by the vader application, and must be
+     * This method should only be called by the VMF application, and must be
      * called before anything is read or written to storage.
      *
      * @param registry the fields and tags that must be maintained by storage
@@ -63,36 +67,23 @@ public:
      */
     virtual void configure(StorageRegistry* registry, StorageRegistry* metadata) = 0;
 
-    //-----------------Used by the Storage Entry--------------------------
+    //-----------------Used by the VMF Controller-----------------------
     /**
-     * @brief Notify storage that the sort by key value has changed
-     * 
-     * This method should only be called by the StorageEntry itself, to notify
-     * storage when the sort by key is changed.  User's of storage do not need
-     * to call this method directly.
-     * 
-     * @param entry the storage entry that changed
-     */
-    virtual void notifyPrimaryKeyUpdated(StorageEntry* entry) = 0;
-
-    //-----------------Used by the Vader Controller-----------------------
-    /**
-     * @brief Clear the list of new entries and tags
+     * @brief Clear the list of new entries
      *
      * This method should only be called by the controller module.  After calling this,
-     * getNewEntries and getNewEntriesByTag will not return any elements untill createNewEntry
-     * or tagEntry is called again.  All new entries must be either saved or discarded prior to calling
-     * this method, or memory leaks may occur.
+     * getNewEntries and getNewEntriesByTag will not return any elements until createNewEntry
+     * is called again.
      */
-    virtual void clearNewEntriesAndTags() = 0;
+    virtual void clearNewAndLocalEntries() = 0;
 
-    //-----------------Used by Vader modules-----------------
+    //-----------------Used by VMF modules-----------------
 
     /**
      * @brief Create a New Entry object
      *
      * New entries are not sorted, and need not neccesarily have yet defined the sort by fields.
-     * New entries will be cleared on each call to clearNewEntriesAndTags unless saveEntry() is called,
+     * New entries will be cleared on each call to clearNewAndLocalEntries unless saveEntry() is called,
      * indicating that the entry should be saved in long term storage.
      *
      * @return StorageEntry* a pointer to the newly created entry
@@ -100,9 +91,36 @@ public:
     virtual StorageEntry* createNewEntry() = 0; 
 
     /**
+     * @brief Create a local Storage Entry object
+     *
+     * Local entries are to be used only as temporary, local variables.  They are only
+     * accessible to the module that created them, and to any submodules that that module
+     * passes them to.  Local entries will not persist on the next call to the fuzzing loop
+     * (they are cleared on each call to clearNewAndLocalEntries).  Local entries cannot be saved,
+     * and will not be returned by any of the other methods in storage.
+     *
+     * @return StorageEntry* a pointer to the newly created local entry
+     */
+    virtual StorageEntry* createLocalEntry() = 0; 
+
+    /**
+     * @brief Manually remove a local Storage Entry object (the value of the provided pointer will be null after this call)
+     * 
+     * This method does not have to called, as local entries are automatically freed on every call
+     * to clearNewAndLocalEntries.  However, if a module wants to create a large number of local StorageEntries
+     * it may be useful to be able to free them to avoid using massive amounts of memory within storage.
+     * 
+     * @param entry the entry to delete
+     * @throws RuntimeException if this method is called on a non-local entry (one that was created with createLocalEntry)
+     */
+    virtual void removeLocalEntry(StorageEntry*& entry) = 0;
+
+    /**
      * @brief Get all the new entries
      *
-     * Returns an iterator that will step through all of the new entries.
+     * Returns an iterator that will step through all of the new entries.  The entries will
+     * be ordered in the order in which they were created (with the entry that was created
+     * first returned first from the iterator).
      *
      * @return std::unique_ptr<Iterator> the iterator
      */
@@ -112,6 +130,8 @@ public:
      * @brief Get all the new entries that have the provided tag
      *
      * Returns an iterator that will step through all of the new entries that have the provided tag.
+     * The entries will be ordered in the order in which they were tagged (with the entry that was tagged
+     * first returned first from the iterator).
      *
      * @return std::unique_ptr<Iterator> the iterator
      */
@@ -121,7 +141,7 @@ public:
      * @brief Get the New Entries That Will Be Saved
      *
      * Returns an interator that will step through of the entries that were saved since the last
-     * call to clearNewEntriesAndTags();
+     * call to clearNewAndLocalEntries();
      *
      * @return std::unique_ptr<Iterator> the iterator
      */
@@ -147,46 +167,6 @@ public:
     virtual void removeEntry(StorageEntry* e) = 0;
 
     /**
-     * @brief Tag a entry as having a particular attribute
-     *
-     * The tag must have been previously registed with the StorageRegistry.  All
-     * new entries that are tagged will be automatically saved as well.
-     *
-     * @param e the entry to tag
-     * @param tagId the tag handle (as returned from a call to StorageRegistry.registerTag)
-     */
-    virtual void tagEntry(StorageEntry* e, int tagId) = 0;
-
-    /**
-     * @brief Remove a tag from an entry
-     * 
-     * This removes a tag from a previously tagged entry.  Untagging an entry will
-     * not change anything about whether it is saved.
-     * 
-     * @param e the entry to remove the tag from
-     * @param tagId the tag handle (as returned from a call to StorageRegistry.registerTag)
-     */
-    virtual void unTagEntry(StorageEntry* e, int tagId) = 0;
-
-    /**
-     * @brief Check if an entry has a particular tag.
-     * 
-     *
-     * @param e the entry to check the tag on.
-     * @param tagId the tag handle (as returned from a call to StorageRegistry.registerTag)
-     */
-    virtual bool entryHasTag(StorageEntry* e, int tagId) = 0;  
-
-    /**
-     * @brief Return all the tags for this storage entry
-     * This is returned as a list of tag handles
-     * 
-     * @param e the entry of interest
-     * @return std::vector<int> the list of tag handles
-     */
-    virtual std::vector<int> getEntryTagList(StorageEntry* e) = 0;
-
-    /**
      * @brief Get all the tag handles that storage is tracking
      * This returns the list of all registered tag handles in storage.
      * Modules that want to generically handle all tags should use this
@@ -208,7 +188,7 @@ public:
     virtual std::string tagHandleToString(int tagId) = 0;
 
     /**
-     * @brief Get all the entries that have been previously tagged with the provided tag.
+     * @brief Get all the saved entries that have been previously tagged with the provided tag.
      *
      * Returns an iterator that can be used to step through all of the tagged entries.
      * Entries are sorted using the sort by fields that were configured in the StorageRegistry.
@@ -216,7 +196,7 @@ public:
      * @param tagId the tag handle (as returned from a call to StoragRegistry.registerTag)
      * @return std::unique_ptr<Iterator> the iterator
      */
-    virtual std::unique_ptr<Iterator> getEntriesByTag(int tagId) = 0;
+    virtual std::unique_ptr<Iterator> getSavedEntriesByTag(int tagId) = 0;
 
     /**
      * @brief Get all the entries in long term storage (regardless of whether or not they have been tagged)
@@ -226,10 +206,10 @@ public:
      *
      * @return std::unique_ptr<Iterator> the iterator
      */
-    virtual std::unique_ptr<Iterator> getEntries() = 0;
+    virtual std::unique_ptr<Iterator> getSavedEntries() = 0;
 
     /**
-     * @brief Retrieves a storage entry by it's unique ID
+     * @brief Retrieves a saved storage entry by it's unique ID
      * 
      * This can be used for modules that need to keep track of a complex data structure
      * that cannot be maintained within storage.
@@ -237,21 +217,21 @@ public:
      * @param id the id to retrieve
      * @return StorageEntry* or a nullptr if no such entry is found
      */
-    virtual StorageEntry* getEntryByID(unsigned long id) = 0;
+    virtual StorageEntry* getSavedEntryByID(unsigned long id) = 0;
 
     /**
-     * @brief Retrieves a storage entry with a particular tag by it's unique ID
+     * @brief Retrieves a saved storage entry with a particular tag by it's unique ID
      * 
      * This can be used for modules that need to keep track of a complex data structure
      * that cannot be maintained within storage.  This version of the method constrains
      * the lookup to entries that also have the specified tag.  In some implementations of
-     * storage this will be faster than the version of getEntryByID that does not take a tag.
+     * storage this will be faster than the version of getSavedEntryByID that does not take a tag.
      * 
      * @param id the id to retrieve
      * @param tagId the tag handle (as returned from a call to StoragRegistry.registerTag)
      * @return StorageEntry* or a nullptr if no such entry is found
      */
-    virtual StorageEntry* getEntryByID(unsigned long id, int tagId) = 0;
+    virtual StorageEntry* getSavedEntryByID(unsigned long id, int tagId) = 0;
 
     /**
      * @brief Returns the metadata object

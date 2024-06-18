@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -33,7 +33,7 @@
 #include "RuntimeException.hpp"
 #include <vector>
 
-namespace vader
+namespace vmf
 {
 /**
  * @brief The class that stores information about each test case
@@ -44,13 +44,25 @@ namespace vader
 class StorageEntry
 {
 public:
-    StorageEntry(bool isMetadata, StorageEntryListener* listener);
+    StorageEntry(bool isMetadata, bool isLocal, StorageEntryListener* listener);
+    /**
+     * @brief Not defined.  StorageEntry should never be copied.
+     * All allocations/access for this object should be via the Storage Module.
+     * 
+     * Be careful when accessing metadata to access it as a reference:
+     *   StorageEntry& metadata = storage->getMetadata();
+     * Attempts to write the following code will result in a compiler
+     * error because the copy constructor would be used instead:
+     *   StorageEntry metdata = storage->getMetadata();
+     */
+    StorageEntry (const StorageEntry&) = delete;
     ~StorageEntry();
 
     static void init(StorageRegistry& registry);
     static void initMetadata(StorageRegistry& metadata);
 
     unsigned long getID() const;
+    bool isLocalEntry() const;
 
     bool operator == ( const StorageEntry& e );
     bool sortByValueIsLessThan( const StorageEntry& e );
@@ -63,8 +75,16 @@ public:
     float getFloatValue(int key) const;
 
     char* allocateBuffer(int key, int size);
+    char* allocateAndCopyBuffer(int key, int size, char* srcBuffer);
+    char* allocateAndCopyBuffer(int key, StorageEntry* srcEntry);
+    bool hasBuffer(int key) const;
     int getBufferSize(int key) const;
     char* getBufferPointer(int key) const;
+
+    void addTag(int tagId);
+    void removeTag(int tagId);
+    bool hasTag(int tagId);
+    std::vector<int> getTagList();
 
 private:
     static bool checkThatRangeIsValid(int key, int max);
@@ -76,6 +96,12 @@ private:
     static int maxInts;
     static int maxFloats;
     static int maxBuffers;
+    static int maxTags;
+    //default values
+    static std::vector<int> intDefaults;
+    static std::vector<float> floatDefaults;
+    static std::vector<int> intMetadataDefaults;
+    static std::vector<float> floatMetadataDefaults;
     //metadata specific parameters
     static int maxIntsMetadata;
     static int maxFloatsMetadata;
@@ -83,11 +109,14 @@ private:
 
     unsigned long uid;
     bool isMetadataEntry;
+    bool isLocal;
     std::vector<int> intValues;
     std::vector<float> floatValues;
     std::vector<char*> bufferValues;
     std::vector<int> bufferSizes;///Size will equal UNALLOCATED_BUFFER if the buffer is not yet allocated
     const int UNALLOCATED_BUFFER = -1;
+    std::vector<bool> tagValues;
+    
     StorageEntryListener* listener;
 };
 }

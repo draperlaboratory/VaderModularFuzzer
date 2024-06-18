@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -28,39 +28,27 @@
  * ===========================================================================*/
 #pragma once
 
-#include "ExecutorModule.hpp"
 #include "StorageUserModule.hpp"
 #include "StorageEntry.hpp"
+#include "Iterator.hpp"
+#include "Logging.hpp"
 
-namespace vader
+namespace vmf
 {
 /**
- * @brief The base class for all Vader feedback modules.
+ * @brief The base class for all VMF feedback modules.
  *
- * Feedback modules evalute the results of running a test case and determine how
- * good those results are.  The feedback module is responsible for determining whether or not
- * test cases should be maintained in long term storage, based on the information
- * that an executor provides about the test case execution results.
- * 
- * Typically the feedback module will write the sortByKey value that is used to
- * sort storage.
+ * Feedback modules evaluate the results of running a test case and determine whether 
+ * the test case is interesting enough to keep in long term storage.  This decision is 
+ * made based on the information that an executor provides about the test case execution results.  
+ * Typically feedback modules will also write the sortByKey value that is used to sort test cases 
+ * in long term storage.
  */
 class FeedbackModule: public StorageUserModule
 {
 public:
     virtual void registerStorageNeeds(StorageRegistry& registry) = 0;
     virtual void registerMetadataNeeds(StorageRegistry& registry) {};
-
-    /**
-     * @brief Set the ExecutorModule object
-     * Each feedback module will need access to the test execution results
-     * in order to evaluate them.  These are retrieve directly from the executor.
-     * Often a downcast to a compatible execution is needed in the implementation, as execution 
-     * results are specific to the executor type.
-     * 
-     * @param executor 
-     */
-    virtual void setExecutor(ExecutorModule* executor) = 0;
 
     /**
      * @brief Evaluate the test case results
@@ -71,11 +59,9 @@ public:
      * 4) write any metadata metrics to storage (e.g. total number of crashes)
      * 
      * @param storage 
-     * @param e 
-     * @return true if the test case is interesting enough to be saved
-     * @return false if it is not
+     * @param entries 
      */
-    virtual bool evaluateTestCaseResults(StorageModule& storage, StorageEntry* e) = 0;
+    virtual void evaluateTestCaseResults(StorageModule& storage, std::unique_ptr<Iterator>& entries) = 0;
     virtual ~FeedbackModule() {};
     
       /**
@@ -108,6 +94,42 @@ public:
                         RuntimeException::CONFIGURATION_ERROR);
                 }
                 
+            }
+        }
+        return theModule;
+    }
+
+    /**
+     * @brief Helper method to return a single Feedback submodule from config by name
+     * This method will retrieve a single Feedback submodule by name for the specified parent modules.
+     * If there are no Feedback submodules with the specified name, then an nullptr will be returned.  
+     * 
+     * @param config the ConfigInterface object
+     * @param parentName the name of the parent module
+     * @param childName the name of the child module to finde
+     * @return FeedbackModule* the submodule, or nullptr if none is found
+     */
+    static FeedbackModule* getFeedbackSubmoduleByName(ConfigInterface& config, std::string parentName, std::string childName)
+    {
+        FeedbackModule* theModule = nullptr;
+        std::vector<Module*> modules = config.getSubModules(parentName);
+        for(Module* m: modules)
+        {
+            if(childName == m->getModuleName())
+            {
+                if(isAnInstance(m))
+                {
+                    theModule = castTo(m);
+                    break;
+                }
+                else
+                {
+                    LOG_ERROR << parentName << " requested an Feedback submodule named " << childName 
+                               << ", but that submodules is not of type Feedback.";
+                    throw RuntimeException(
+                        "Configuration file contained a module with this name, but it was not an executor module",
+                        RuntimeException::CONFIGURATION_ERROR);
+                }
             }
         }
         return theModule;

@@ -11,11 +11,12 @@ A VMF configuration file consists of the following top-level sections:
 * [`vmfFramework`](#vmfFramework) - provides VMF framework configuration
 * [`vmfModules`](#vmfModules) - provides module configuration information
 * [`vmfDistributed`](#vmfDistributed) - provides distributed fuzzing configuration
+* [`vmfClassSet`](#vmfClassSet) - provides a variable-based reusable list of submodules
 * Any module specific parameters - these are listed in a section named by the module id or classname (see note below).
 
 The parameters for specific core modules are documented in [Core modules README](/docs/coremodules/core_modules_readme.md) and [Core modules configuration](/docs/coremodules/core_modules_configuration.md).  
 
-Note that configuration options for individual modules are listed under the id of the module, if one was specified, or the classname is there was no id.  The storage and controller module always have the ids `storage` and `controller` respectively, so any configuration options are listed under those ids.
+Note that configuration options for individual modules are listed under the id of the module, if one was specified, or the classname is there was no id.  
 
 For example:
 ```yaml
@@ -23,13 +24,13 @@ For example:
 StatsOutput: 
   sendToServer: true
 
-#Config options for the controller module (even though the classname is IterativeController)
-controller: 
+#Config options for the controller module
+IterativeController: 
   corpusUpdateRateMins: 30
   corpusInitialUpdateMins: 10
 
-#Config options for the storage module (even though the classname is SimpleStorage)
-storage:
+#Config options for the storage module 
+SimpleStorage:
   sortByKey: FITNESS
 ```
 
@@ -153,7 +154,7 @@ Status: Optional (though almost always needed)
 
 Default value: empty
 
-Usage: The list of submodules for this controller.  Each submodule must contain a "className" and may optionally contain an "id".
+Usage: The list of submodules for this controller.  Submodules can be listed individually or using a reusable list of modules called a ["classSet"](#vmfClassSet).  To list submodules individually, provide a "className" for each module (and  optionally provide an "id").
 
 For example:
 ```yaml
@@ -176,7 +177,7 @@ Default value: empty
 
 Usage: An optional list of submodules for a particular module.  The module must be a submodule of the specified "controller" module or have parent modules that are children of the "controller" module.  If the module was declared with an "id" then "<className or ID>" will be replaced by the id.  Otherwise, "<className or ID>" will be the classname of the module.
 
-Each submodule must contain a "className" and may optionally contain an "id".
+Submodules can be listed individually or using a reusable list of modules called a ["classSet"](#vmfClassSet).  To list submodules individually, provide a "className" for each module (and  optionally provide an "id").
 
 ## <a id="vmfDistributed"></a>Section: `vmfDistributed`  
 
@@ -241,3 +242,42 @@ Status: Optional
 Default value: -1 (disabled)
 
 Usage: This parameter controls an initial random sleep for each VMF that occurs just after the VMF registers with the server, and before it asks the server for tasking.  By default this is not enabled, but it is useful to enable for distributed fuzzing configurations that include a large number of VMFs, as it minimizes the concurrent requests to the CDMS server.  Use a value of -1 to disable this feature.
+
+## <a id="vmfClassSet"></a>Section: `vmfClassSet`
+
+This section provides a space to define lists of submodules as YAML anchors that can be used in defining the children of a module.  This section may be omitted entirely if submodules are instead listed individually in your VMF configuration.
+
+* Anchors are specified by `&` before the anchor name
+* Aliases use `*` to reference an anchor name
+
+By convention, anchor names are in UPPER_CASE with underscores.
+
+The following fragment shows a common use case, defining lists of mutators.  Note that each element listed is the classname of a module.  Module ids cannot be used when using this syntax: 
+
+```yaml
+vmfClassSet:
+  - &BIT_MUTATORS [AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator]
+  - &BYTE_MUTATORS [AFLFlipByteMutator, AFLFlip2ByteMutator, AFLFlip4ByteMutator]
+  - &OTHER_AFL [AFLRandomByteMutator, AFLDeleteMutator, AFLCloneMutator, AFLSpliceMutator]
+```
+
+These submodule lists can then be used to define the children of an input generator.  For example:
+
+```yaml
+  GeneticAlgorithmInputGenerator:
+      children:
+        - classSet: *BIT_MUTATORS
+        - classSet: *BYTE_MUTATORS
+        - classSet: *OTHER_AFL
+```
+
+Note that the YAML syntax supports multiple ways of defining lists.
+
+```yaml
+vmfClassSet:
+  - &STANDALONE_MODULES [DirectoryBasedSeedGen, SaveCorpusOutput, StatsOutput]
+  - &DISTRIBUTED_MODULES
+    - ServerSeedInitialization
+    - StatsOutput
+    - ServerCorpusOutput
+```

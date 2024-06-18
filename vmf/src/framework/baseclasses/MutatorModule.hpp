@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -30,13 +30,15 @@
 
 #include "StorageUserModule.hpp"
 #include "StorageEntry.hpp"
+#include "Logging.hpp"
 
-namespace vader
+namespace vmf
 {
 /**
- * @brief The base class for all Vader mutator modules.
+ * @brief The base class for all VMF mutator modules.
  *
- * Mutator modules create a test case by mutating an existing test case.
+ * Mutator modules mutate the provided data buffer.  
+ * Mutator modules are typically submodules of InputGeneratorModules.
  *
  */
 class MutatorModule: public StorageUserModule
@@ -46,14 +48,17 @@ public:
     virtual void registerMetadataNeeds(StorageRegistry& registry) {};
     /**
      * @brief Main method for a mutator module
-     * This method should create a new test case, using the provided
+     * This method should mutate the provided new test case, using the provided
      * baseEntry as starting point for mutation.
      * 
      * @param storage the storage module
      * @param baseEntry the base entry to mutate from
+     * @param newEntry the new entry in which to store the mutated data
+     * @param testCaseKey the data field in the entry to mutate
      * @return StorageEntry* the new test case
      */
-    virtual StorageEntry* createTestCase(StorageModule& storage, StorageEntry* baseEntry) = 0;
+    virtual void mutateTestCase(StorageModule& storage, StorageEntry* baseEntry, StorageEntry* newEntry, int testCaseKey) = 0;
+    
     virtual ~MutatorModule() {};
 
   /**
@@ -86,6 +91,42 @@ public:
                         RuntimeException::CONFIGURATION_ERROR);
                 }
                 
+            }
+        }
+        return theModule;
+    }
+
+    /**
+     * @brief Helper method to return a single Mutator submodule from config by name
+     * This method will retrieve a single Mutator submodule by name for the specified parent modules.
+     * If there are no Mutator submodules with the specified name, then an nullptr will be returned.  
+     * 
+     * @param config the ConfigInterface object
+     * @param parentName the name of the parent module
+     * @param childName the name of the child module to finde
+     * @return MutatorModule* the submodule, or nullptr if none is found
+     */
+    static MutatorModule* getMutatorSubmoduleByName(ConfigInterface& config, std::string parentName, std::string childName)
+    {
+        MutatorModule* theModule = nullptr;
+        std::vector<Module*> modules = config.getSubModules(parentName);
+        for(Module* m: modules)
+        {
+            if(childName == m->getModuleName())
+            {
+                if(isAnInstance(m))
+                {
+                    theModule = castTo(m);
+                    break;
+                }
+                else
+                {
+                    LOG_ERROR << parentName << " requested an Mutator submodule named " << childName 
+                               << ", but that submodules is not of type Mutator.";
+                    throw RuntimeException(
+                        "Configuration file contained a module with this name, but it was not an executor module",
+                        RuntimeException::CONFIGURATION_ERROR);
+                }
             }
         }
         return theModule;

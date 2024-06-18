@@ -1,0 +1,48 @@
+vmfModules:
+  storage:
+    className: SimpleStorage
+  controller:
+    className: NewCoverageController
+    children:
+      - id: primaryInputGen
+        className: MOPTInputGenerator
+      - id: newCoverageInputGen
+        className: MOPTInputGenerator
+      - className: DirectoryBasedSeedGen
+      - className: AFLForkserverExecutor
+      - className: AFLFavoredFeedback
+      - className: SaveCorpusOutput
+      - className: StatsOutput
+  CorpusMinimization:
+    children:
+      - className: AFLForkserverExecutor
+  primaryInputGen:
+    children:
+      - className: AFLFlipBitMutator
+      - className: AFLFlip2BitMutator
+      - className: AFLFlip4BitMutator
+      - className: AFLFlipByteMutator
+      - className: AFLFlip2ByteMutator
+      - className: AFLFlip4ByteMutator
+      - className: AFLRandomByteAddSubMutator
+      - className: AFLRandomByteMutator
+      - className: AFLDeleteMutator
+      - className: AFLCloneMutator
+      - className: AFLSpliceMutator      
+  newCoverageInputGen:
+    children:
+      - className: AFLFlipBitMutator
+      - className: AFLFlip2BitMutator
+      - className: AFLFlip4BitMutator
+      - className: AFLFlipByteMutator
+      - className: AFLFlip2ByteMutator
+      - className: AFLFlip4ByteMutator
+      - className: AFLRandomByteAddSubMutator
+      - className: AFLRandomByteMutator
+      - className: AFLDeleteMutator
+      - className: AFLCloneMutator
+      - className: AFLSpliceMutator
+
+NewCoverageController:
+  primaryInputGenerator: primaryInputGen
+  newCoverageInputGenerator: newCoverageInputGen

@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -31,7 +31,7 @@
 #include <string>
 #include <cmath>
 
-using namespace vader;
+using namespace vmf;
 
 namespace my {
 namespace project {
@@ -82,7 +82,7 @@ protected:
         metadata = new StorageRegistry();
         meta_int_key = metadata->registerKey(
             "META_INT",
-            StorageRegistry::FLOAT,
+            StorageRegistry::INT,
             StorageRegistry::READ_WRITE
         );
         meta_float_key = registry->registerKey(
@@ -144,7 +144,7 @@ protected:
 
     bool isSaveListInOrder()
     {
-        std::unique_ptr<Iterator> itr = storage->getEntries();
+        std::unique_ptr<Iterator> itr = storage->getSavedEntries();
 
         // empty of single element lists are always sorted.
         if (itr->getSize() < 2)
@@ -192,7 +192,7 @@ protected:
 TEST_F(StorageModuleTest, listsEmptyOnInit)
 {
     ASSERT_EQ(storage->getNewEntries()->getSize(), 0) << "newList not empty.";
-    ASSERT_EQ(storage->getEntries()->getSize(), 0) << "entryList not empty.";
+    ASSERT_EQ(storage->getSavedEntries()->getSize(), 0) << "entryList not empty.";
 }
 
 TEST_F(StorageModuleTest, createNewEntry)
@@ -208,6 +208,41 @@ TEST_F(StorageModuleTest, createNewEntry)
     EXPECT_EQ(storage->getNewEntries()->getSize(), size + 1);
 }
 
+TEST_F(StorageModuleTest, createNewEntryTestOrder)
+{
+    // check that the entries list is empty
+    int size = storage->getNewEntries()->getSize();
+    ASSERT_EQ(size, 0);
+
+    // Create 3 new storage entries
+    StorageEntry* entry1 = storage->createNewEntry();
+    StorageEntry* entry2 = storage->createNewEntry();
+    StorageEntry* entry3 = storage->createNewEntry();
+
+    // check that new entries are returned in the order of creation
+    std::unique_ptr<Iterator> newEntries =  storage->getNewEntries();
+    ASSERT_EQ(newEntries->getSize(), 3);
+    ASSERT_EQ(newEntries->getNext()->getID(), entry1->getID());
+    ASSERT_EQ(newEntries->getNext()->getID(), entry2->getID());
+    ASSERT_EQ(newEntries->getNext()->getID(), entry3->getID());
+}
+
+TEST_F(StorageModuleTest, testTagMethods)
+{
+    // Create a new storage entry
+    StorageEntry* entry = storage->createNewEntry();
+
+    GTEST_COUT << "Checking tag handles\n";
+    // Check that storage has the right number of tags
+    std::vector<int> tagHandles = storage->getListOfTagHandles();
+    ASSERT_EQ(tagHandles.size(),3); //3 tags are registered in the setup of this test case
+
+    // check that the tag list is empty
+    GTEST_COUT << "Checking tag list\n";
+    std::vector<int> tags = entry->getTagList();
+    ASSERT_EQ(tags.size(),0);
+}
+
 TEST_F(StorageModuleTest, saveEntryThrowOnMetadata)
 {
     // Simple case: test metadata save failure
@@ -218,7 +253,7 @@ TEST_F(StorageModuleTest, saveEntryThrowOnMetadata)
 TEST_F(StorageModuleTest, saveEntryIntKey)
 {
     // Starting point
-    int size = storage->getEntries()->getSize();
+    int size = storage->getSavedEntries()->getSize();
     EXPECT_EQ(size, 0) << "Initial size not 0";
 
     StorageEntry* entry;
@@ -231,7 +266,7 @@ TEST_F(StorageModuleTest, saveEntryIntKey)
         entry = storage->createNewEntry();
         entry->setValue(int_key, i);
         storage->saveEntry(entry);
-        EXPECT_EQ(storage->getEntries()->getSize(), ++size) << "Size was not as expected";
+        EXPECT_EQ(storage->getSavedEntries()->getSize(), ++size) << "Size was not as expected";
         EXPECT_TRUE(isSaveListInOrder()) << "Save list was out of order";
     }
 
@@ -240,17 +275,17 @@ TEST_F(StorageModuleTest, saveEntryIntKey)
     GTEST_COUT << "Adding 5 int entries (decreasing values)\n";
     for (int i = 10; i > 5; i--)
     {
-        size = storage->getEntries()->getSize();
+        size = storage->getSavedEntries()->getSize();
         entry = storage->createNewEntry();
         entry->setValue(int_key, i);
         storage->saveEntry(entry);
-        EXPECT_EQ(storage->getEntries()->getSize(), size + 1) << "Size was not as expected (decreasing values)";
+        EXPECT_EQ(storage->getSavedEntries()->getSize(), size + 1) << "Size was not as expected (decreasing values)";
         EXPECT_TRUE(isSaveListInOrder()) << "Save list was out of order (decreasing values)";
     }
 
     //Check that the int values are correct
     GTEST_COUT << "Checking that int values are correct\n";
-    std::unique_ptr<Iterator> allEntries = storage->getEntries();
+    std::unique_ptr<Iterator> allEntries = storage->getSavedEntries();
     int count = 0;
     while(allEntries->hasNext())
     {
@@ -264,11 +299,11 @@ TEST_F(StorageModuleTest, saveEntryIntKey)
     GTEST_COUT << "Adding 5 int entries (duplicate values)\n";
     for (int i = 1; i < 6; i++)
     {
-        size = storage->getEntries()->getSize();
+        size = storage->getSavedEntries()->getSize();
         entry = storage->createNewEntry();
         entry->setValue(int_key, i);
         storage->saveEntry(entry);
-        EXPECT_EQ(storage->getEntries()->getSize(), size + 1) << "Size was not as expected";
+        EXPECT_EQ(storage->getSavedEntries()->getSize(), size + 1) << "Size was not as expected";
         EXPECT_TRUE(isSaveListInOrder()) << "Save list was out of order";
     }
 }
@@ -276,25 +311,25 @@ TEST_F(StorageModuleTest, saveEntryIntKey)
 TEST_F(StorageModuleTest, saveEntryFloatKey)
 {
     // Starting point
-    int size = storage->getEntries()->getSize();
+    int size = storage->getSavedEntries()->getSize();
     EXPECT_EQ(size, 0);
     StorageEntry* entry = storage->createNewEntry();
 
     GTEST_COUT << "Adding 5 float entries\n";
     for (int i = 1; i < 6; i++)
     {
-        size = storage->getEntries()->getSize();
+        size = storage->getSavedEntries()->getSize();
         entry = storage->createNewEntry();
         entry->setValue(int_key, i);
         entry->setValue(float_key, i/10);
         storage->saveEntry(entry);
-        EXPECT_EQ(storage->getEntries()->getSize(), size + 1) << "Size was not as expected";
+        EXPECT_EQ(storage->getSavedEntries()->getSize(), size + 1) << "Size was not as expected";
         EXPECT_TRUE(isSaveListInOrder()) << "Save list was out of order";
     }
     
     //Check that float values are correct
     GTEST_COUT << "Checking that float entries are correct\n";
-    std::unique_ptr<Iterator> allEntries = storage->getEntries();
+    std::unique_ptr<Iterator> allEntries = storage->getSavedEntries();
     int count = 0;
     while(allEntries->hasNext())
     {
@@ -311,7 +346,7 @@ TEST_F(StorageModuleTest, saveEntryFloatKey)
 TEST_F(StorageModuleTest, saveEntryBufferKey)
 {
     // Starting point
-    int size = storage->getEntries()->getSize();
+    int size = storage->getSavedEntries()->getSize();
     EXPECT_EQ(size, 0);
     char* buf;
     StorageEntry* entry;
@@ -320,18 +355,18 @@ TEST_F(StorageModuleTest, saveEntryBufferKey)
     // check that they are iserted in order.
     for (int i = 1; i < 6; i++)
     {
-        size = storage->getEntries()->getSize();
+        size = storage->getSavedEntries()->getSize();
         entry = storage->createNewEntry();
         entry->setValue(int_key, i);
         buf = entry->allocateBuffer(buf_key, 10);
         buf[9] = i;
         storage->saveEntry(entry);
-        EXPECT_EQ(storage->getEntries()->getSize(), size + 1);
+        EXPECT_EQ(storage->getSavedEntries()->getSize(), size + 1);
         EXPECT_TRUE(isSaveListInOrder());
     }
 
     //Check that the buffer values are correct
-    std::unique_ptr<Iterator> allEntries = storage->getEntries();
+    std::unique_ptr<Iterator> allEntries = storage->getSavedEntries();
     int count = 0;
     while(allEntries->hasNext())
     {
@@ -356,7 +391,7 @@ TEST_F(StorageModuleTest, removeEntryThrowOnMetadata)
     EXPECT_THROW(storage->removeEntry(&meta_entry), RuntimeException);
 }
 
-TEST_F(StorageModuleTest, clearNewEntriesAndTags)
+TEST_F(StorageModuleTest, clearNewAndLocalEntries)
 {
     addNInts(50);
     std::unique_ptr<Iterator> allEntries = storage->getNewEntries();
@@ -396,13 +431,13 @@ TEST_F(StorageModuleTest, clearNewEntriesAndTags)
         ASSERT_TRUE(found) << "To be saved entry did not have correct id";
     }
 
-    storage->clearNewEntriesAndTags(); //This deletes the unsaved entries
+    storage->clearNewAndLocalEntries(); //This deletes the unsaved entries
 
-    ASSERT_EQ(storage->getEntries()->getSize(), savedIds.size()) << "getEntries size not as expected";
+    ASSERT_EQ(storage->getSavedEntries()->getSize(), savedIds.size()) << "getSavedEntries size not as expected";
     ASSERT_EQ(storage->getNewEntries()->getSize(), 0) << "getNewEntries size not as expected";
 
     //Now retrieve the saved entries and make sure they are correct
-    std::unique_ptr<Iterator> savedEntries = storage->getEntries();
+    std::unique_ptr<Iterator> savedEntries = storage->getSavedEntries();
     count = 0;
     while(savedEntries->hasNext())
     {
@@ -425,7 +460,7 @@ TEST_F(StorageModuleTest, clearNewEntriesAndTags)
 TEST_F(StorageModuleTest, removeEntry)
 {
     // Starting point
-    int size = storage->getEntries()->getSize();
+    int size = storage->getSavedEntries()->getSize();
     EXPECT_EQ(size, 0);
     StorageEntry* entry;
 
@@ -444,14 +479,14 @@ TEST_F(StorageModuleTest, removeEntry)
     {
         entry = entries.back();
         entries.pop_back();
-        size = storage->getEntries()->getSize();
+        size = storage->getSavedEntries()->getSize();
         storage->removeEntry(entry);
         entry = nullptr;
-        storage->clearNewEntriesAndTags(); //remove doesn't take effect until this is called
-        EXPECT_EQ(storage->getEntries()->getSize(), size - 1) << "Storage size was not as expected";
+        storage->clearNewAndLocalEntries(); //remove doesn't take effect until this is called
+        EXPECT_EQ(storage->getSavedEntries()->getSize(), size - 1) << "Storage size was not as expected";
     }
 
-    EXPECT_EQ(storage->getEntries()->getSize(), 0) << "Final storage size was not as expected";
+    EXPECT_EQ(storage->getSavedEntries()->getSize(), 0) << "Final storage size was not as expected";
 
     //Now add some more entries
     addNInts(50);
@@ -472,8 +507,8 @@ TEST_F(StorageModuleTest, removeEntry)
     }
 
     //This removes the non-saved entries
-    storage->clearNewEntriesAndTags();
-    ASSERT_EQ(storage->getEntries()->getSize(), savedEntries.size()) << "getEntries size not as expected";
+    storage->clearNewAndLocalEntries();
+    ASSERT_EQ(storage->getSavedEntries()->getSize(), savedEntries.size()) << "getSavedEntries size not as expected";
 
     //Now delete the first 5 saved entries
     for(int i=0; i<5; i++)
@@ -482,11 +517,11 @@ TEST_F(StorageModuleTest, removeEntry)
     }
     
     //This actually deletes the entries
-    storage->clearNewEntriesAndTags();
-    ASSERT_EQ(storage->getEntries()->getSize(), savedEntries.size() - 5) << "getEntries size not as expected after removal";
+    storage->clearNewAndLocalEntries();
+    ASSERT_EQ(storage->getSavedEntries()->getSize(), savedEntries.size() - 5) << "getSavedEntries size not as expected after removal";
 
     //Now make sure the right entries are left
-    std::unique_ptr<Iterator> allEntries2 = storage->getEntries();
+    std::unique_ptr<Iterator> allEntries2 = storage->getSavedEntries();
     for(int i=0; i<allEntries2->getSize(); i++)
     {
         StorageEntry* e = allEntries2->getNext();
@@ -499,7 +534,7 @@ TEST_F(StorageModuleTest, removeEntry)
 TEST_F(StorageModuleTest, removeWithoutClear)
 {
     // Starting point
-    int size = storage->getEntries()->getSize();
+    int size = storage->getSavedEntries()->getSize();
     EXPECT_EQ(size, 0);
     StorageEntry* entry;
 
@@ -513,17 +548,17 @@ TEST_F(StorageModuleTest, removeWithoutClear)
         storage->saveEntry(entry);
     }
      //We should have 3 
-    EXPECT_EQ(storage->getEntries()->getSize(),3);
+    EXPECT_EQ(storage->getSavedEntries()->getSize(),3);
 
     //Now remove the first one
-    entry = storage->getEntries()->getNext();
+    entry = storage->getSavedEntries()->getNext();
     storage->removeEntry(entry);
 
     //This does the actual delete
-    storage->clearNewEntriesAndTags();
+    storage->clearNewAndLocalEntries();
 
     //Make sure there are two entries and they are the right ones
-    std::unique_ptr<Iterator> entryList = storage->getEntries();
+    std::unique_ptr<Iterator> entryList = storage->getSavedEntries();
     EXPECT_EQ(entryList->getSize(), 2);
     EXPECT_EQ(entryList->getNext()->getIntValue(int_key), 2);
     EXPECT_EQ(entryList->getNext()->getIntValue(int_key), 3);
@@ -532,7 +567,7 @@ TEST_F(StorageModuleTest, removeWithoutClear)
 TEST_F(StorageModuleTest, tagEntry)
 {
     // Starting point
-    int size = storage->getEntries()->getSize();
+    int size = storage->getSavedEntries()->getSize();
     ASSERT_EQ(size, 0);
     StorageEntry* entry1;
     StorageEntry* entry2;
@@ -553,97 +588,122 @@ TEST_F(StorageModuleTest, tagEntry)
     //tag the 4th entry (without saving first)
     ASSERT_TRUE(entries->hasNext());
     entry1 = entries->getNext();
-    storage->tagEntry(entry1,test_tag);
+    entry1->addTag(test_tag);
     idList.push_back(entry1->getID());
 
     //save and tag the 5th entry
     ASSERT_TRUE(entries->hasNext());
     entry2 = entries->getNext();
     storage->saveEntry(entry2);
-    storage->tagEntry(entry2,test_tag);
+    entry2->addTag(test_tag);
     idList.push_back(entry2->getID());
+    GTEST_COUT << entry2->getID() << " was saved and then tagged\n";
 
     //tag and save the 6th entry (order is opposite from the 5th one)
     ASSERT_TRUE(entries->hasNext());
     entry3 = entries->getNext();
-    storage->tagEntry(entry3,test_tag);
+    entry3->addTag(test_tag);
     storage->saveEntry(entry3);
     idList.push_back(entry3->getID());
-
+    GTEST_COUT << entry3->getID() << " was tagged and then saved\n";
 
     GTEST_COUT << "Checking that entries are on the tagged list\n";
-    //Check that both entries are on the tagged list
+    //Check that all 3 entries are on the new tagged list
     std::unique_ptr<Iterator> newTaggedEntries = storage->getNewEntriesByTag(test_tag);
     ASSERT_EQ(newTaggedEntries->getSize(),3) << "Wrong number of newly tagged entries";
-    //Make sure they are the right entries
+    //Make sure they are the right entries, and that they are being returned in order
     for(int i=0; i<3; i++)
     {
-        ASSERT_TRUE(contains(newTaggedEntries->getNext()->getID(), idList)) << "getNewEntriesByTag list has unexpected entry id for index: " << i;
+        ASSERT_EQ(newTaggedEntries->getNext()->getID(),idList[i]) << "getNewEntriesByTag list has unexpected entry id for index: " << i;
     }
 
-    GTEST_COUT << "Calling clearNewEntriesAndTags\n";
-    storage->clearNewEntriesAndTags();
+    GTEST_COUT << "Calling clearNewAndLocalEntries\n";
+    storage->clearNewAndLocalEntries();
 
-    GTEST_COUT << "Checking that tagged entries are there after clearing\n";
+    //Remove this entry1 as it should have been deleted
+    remove(idList.begin(),idList.end(),entry1->getID());
+
+    GTEST_COUT << "Checking that the saved entries are there after clearing\n";
     //Make sure they are there after clearing new entries and tags
     //Check for them on the entry list
-    std::unique_ptr<Iterator> savedEntries = storage->getEntries();
-    ASSERT_EQ(savedEntries->getSize(),3) << "Wrong number of total entries after clearing";
-    for(int i=0; i<3; i++)
+    std::unique_ptr<Iterator> savedEntries = storage->getSavedEntries();
+    ASSERT_EQ(savedEntries->getSize(),2) << "Wrong number of total entries after clearing";
+    for(int i=0; i<2; i++)
     {
         StorageEntry* nextEntry = savedEntries->getNext();
         ASSERT_NE(nullptr, nextEntry);
-        ASSERT_TRUE(contains(nextEntry->getID(), idList)) << "getEntries list has unexpected entry id for index: " << i;
+        ASSERT_TRUE(contains(nextEntry->getID(), idList)) << "getSavedEntries list has unexpected entry id for index: " << i;
     }
 
     //Check for them on the tag list
     GTEST_COUT << "Checking that tagged entries are on the tag list after clearing\n";
-    std::unique_ptr<Iterator> taggedEntries = storage->getEntriesByTag(test_tag);
-    ASSERT_EQ(taggedEntries->getSize(),3) << "Wrong number of tagged entries after clearing";
-    for(int i=0; i<3; i++)
+    std::unique_ptr<Iterator> taggedEntries = storage->getSavedEntriesByTag(test_tag);
+    ASSERT_EQ(taggedEntries->getSize(),2) << "Wrong number of tagged entries after clearing";
+    for(int i=0; i<2; i++)
     {
         StorageEntry* nextEntry = taggedEntries->getNext();
+        GTEST_COUT << "Entry " << nextEntry->getID() << " is on the tag list";
         ASSERT_NE(nullptr, nextEntry);
-        ASSERT_TRUE(contains(nextEntry->getID(), idList)) << "getEntriesByTag list has unexpected entry id for index: " << i;
-        
+        ASSERT_TRUE(contains(nextEntry->getID(), idList)) << "getSavedEntriesByTag list has unexpected entry id for index: " << i;
+
         //Test the other tag handling methods
-        ASSERT_TRUE(storage->entryHasTag(nextEntry, test_tag));
-        std::vector<int> tList = storage->getEntryTagList(nextEntry);
+        ASSERT_TRUE(nextEntry->hasTag(test_tag));
+        std::vector<int> tList = nextEntry->getTagList();
         ASSERT_EQ(tList.size(),1);
         ASSERT_EQ(tList[0],test_tag);
     }
 
     GTEST_COUT << "Deleting a tagged entry\n";
     //Now delete a tagged entry
-    remove(idList.begin(),idList.end(),entry1->getID());
-    storage->removeEntry(entry1);
-    storage->clearNewEntriesAndTags(); //delete takes effect upon clear
+    remove(idList.begin(),idList.end(),entry2->getID());
+    storage->removeEntry(entry2);
+    storage->clearNewAndLocalEntries(); //delete takes effect upon clear
   
     GTEST_COUT << "Checking that deletion worked correctly\n";
     //Make sure it's gone from the both the entry list and the tagged list
-    std::unique_ptr<Iterator> savedEntries2 = storage->getEntries();
-    ASSERT_EQ(savedEntries2->getSize(),2) << "Wrong number of total entries after deletion";
-    for(int i=0; i<2; i++)
+    std::unique_ptr<Iterator> savedEntries2 = storage->getSavedEntries();
+    ASSERT_EQ(savedEntries2->getSize(),1) << "Wrong number of total entries after deletion";
+    for(int i=0; i<1; i++)
     {
         StorageEntry* nextEntry = savedEntries2->getNext();
         ASSERT_NE(nullptr, nextEntry);
-        ASSERT_TRUE(contains(nextEntry->getID(), idList)) << "getEntries (after remove) has unexpected entry id for index: " << i;
+        ASSERT_TRUE(contains(nextEntry->getID(), idList)) << "getSavedEntries (after remove) has unexpected entry id for index: " << i;
     }
 
-    std::unique_ptr<Iterator> taggedEntries2 = storage->getEntriesByTag(test_tag);
-    ASSERT_EQ(taggedEntries2->getSize(),2) << "Wrong number of tagged entries after deletion";
-    for(int i=0; i<2; i++)
+    std::unique_ptr<Iterator> taggedEntries2 = storage->getSavedEntriesByTag(test_tag);
+    ASSERT_EQ(taggedEntries2->getSize(),1) << "Wrong number of tagged entries after deletion";
+    for(int i=0; i<1; i++)
     {
         StorageEntry* nextEntry = taggedEntries2->getNext();
         ASSERT_NE(nullptr, nextEntry);
-        ASSERT_TRUE(contains(nextEntry->getID(), idList)) << "getEntriesByTag (after remove) has unexpected entry id for index: " << i;
+        ASSERT_TRUE(contains(nextEntry->getID(), idList)) << "getSavedEntriesByTag (after remove) has unexpected entry id for index: " << i;
     }
+
+    //Now add and save a new entry, and make sure it gets on the tag list too
+    GTEST_COUT << "Now adding and saving one more, and tagging it after save\n";
+    StorageEntry* newEntry = storage->createNewEntry();
+    storage->saveEntry(newEntry);
+
+    storage->clearNewAndLocalEntries();
+
+    newEntry->addTag(test_tag);
+    idList.push_back(newEntry->getID());
+
+    std::unique_ptr<Iterator> taggedEntries3 = storage->getSavedEntriesByTag(test_tag);
+    ASSERT_EQ(taggedEntries3->getSize(),2) << "Wrong number of tagged entries after adding another one";
+    for(int i=0; i<2; i++)
+    {
+        StorageEntry* nextEntry = taggedEntries3->getNext();
+        ASSERT_NE(nullptr, nextEntry);
+        ASSERT_TRUE(contains(nextEntry->getID(), idList)) << "getSavedEntriesByTag (after adding another one) has unexpected entry id for index: " << i;
+    }
+
 }
 
 TEST_F(StorageModuleTest, untagEntry)
 {
     // Starting point
-    int size = storage->getEntries()->getSize();
+    int size = storage->getSavedEntries()->getSize();
     ASSERT_EQ(size, 0);
     std::vector<int> taggedIdList;
 
@@ -658,30 +718,30 @@ TEST_F(StorageModuleTest, untagEntry)
         storage->saveEntry(entry);
         if(i % 2 == 0)
         {
-            storage->tagEntry(entry, test_tag);
+            entry->addTag(test_tag);
             taggedIdList.push_back(entry->getID());
-            ASSERT_TRUE(storage->entryHasTag(entry, test_tag));
+            ASSERT_TRUE(entry->hasTag(test_tag));
         }
     }
 
     std::unique_ptr<Iterator> newTaggedEntries = storage->getNewEntriesByTag(test_tag);
-    std::unique_ptr<Iterator> taggedEntries = storage->getEntriesByTag(test_tag);
+    std::unique_ptr<Iterator> taggedEntries = storage->getSavedEntriesByTag(test_tag);
     ASSERT_EQ(newTaggedEntries->getSize(), 5) << "Wrong number of new tagged entries";
     ASSERT_EQ(taggedEntries->getSize(), 5) << "Wrong number of tagged entries";
 
     //Now untag the last one
-    storage->unTagEntry(entry, test_tag);
+    entry->removeTag(test_tag);
     remove(taggedIdList.begin(),taggedIdList.end(),entry->getID());
     std::unique_ptr<Iterator> newTaggedEntries2 = storage->getNewEntriesByTag(test_tag);
-    std::unique_ptr<Iterator> taggedEntries2 = storage->getEntriesByTag(test_tag);
+    std::unique_ptr<Iterator> taggedEntries2 = storage->getSavedEntriesByTag(test_tag);
     ASSERT_EQ(newTaggedEntries2->getSize(), 4) << "Wrong number of new tagged entries after untagging";
     ASSERT_EQ(taggedEntries2->getSize(), 4) << "Wrong number of tagged entries after untagging";
-    ASSERT_FALSE(storage->entryHasTag(entry, test_tag));
+    ASSERT_FALSE(entry->hasTag(test_tag));
 
-    //Make sure it's correct after clearNewEntriesAndTags
-    storage->clearNewEntriesAndTags();
+    //Make sure it's correct after clearNewAndLocalEntries
+    storage->clearNewAndLocalEntries();
     std::unique_ptr<Iterator> newTaggedEntries3 = storage->getNewEntriesByTag(test_tag);
-    std::unique_ptr<Iterator> taggedEntries3 = storage->getEntriesByTag(test_tag);
+    std::unique_ptr<Iterator> taggedEntries3 = storage->getSavedEntriesByTag(test_tag);
     ASSERT_EQ(newTaggedEntries3->getSize(), 0) << "Wrong number of new tagged entries after clearing";
     ASSERT_EQ(taggedEntries3->getSize(), 4) << "Wrong number of tagged entries after clearing";
 
@@ -690,17 +750,18 @@ TEST_F(StorageModuleTest, untagEntry)
     {
         StorageEntry* nextEntry = taggedEntries3->getNext();
         ASSERT_NE(nullptr, nextEntry);
-        ASSERT_TRUE(contains(nextEntry->getID(), taggedIdList)) << "getEntriesByTag (after remove) has unexpected entry id for index: " << i;
-        ASSERT_TRUE(storage->entryHasTag(nextEntry, test_tag));
+        ASSERT_TRUE(contains(nextEntry->getID(), taggedIdList)) << "getSavedEntriesByTag (after remove) has unexpected entry id for index: " << i;
+        ASSERT_TRUE(nextEntry->hasTag(test_tag));
     }
 }
 
-TEST_F(StorageModuleTest, getEntryByID)
+TEST_F(StorageModuleTest, getSavedEntryByID)
 {
     // Starting point
-    int size = storage->getEntries()->getSize();
+    int size = storage->getSavedEntries()->getSize();
     ASSERT_EQ(size, 0);
     std::vector<long> taggedIdList;
+    std::vector<long> taggedIdList2;
 
     std::vector<StorageEntry*> entries;
     StorageEntry* entry;
@@ -713,29 +774,120 @@ TEST_F(StorageModuleTest, getEntryByID)
         storage->saveEntry(entry);
         if(i % 2 == 0)
         {
-            storage->tagEntry(entry, test_tag);
+            entry->addTag(test_tag);
             taggedIdList.push_back(entry->getID());
+            GTEST_COUT << "TEST_TAG on entry " << entry->getID() << "\n";
+        }
+        if(i % 3 == 0)
+        {
+            entry->addTag(test_tag2);
+            taggedIdList2.push_back(entry->getID());
+            GTEST_COUT << "TEST_TAG2 on entry " << entry->getID() << "\n";
         }
     }
 
-    entry = storage->getEntryByID(taggedIdList[2]);
-    ASSERT_EQ(entry->getID(), taggedIdList[2]) << "getEntryByID returned wrong value";
+    GTEST_COUT << "Testing retrieving by ID\n";
+    entry = storage->getSavedEntryByID(taggedIdList[2]);
+    ASSERT_EQ(entry->getID(), taggedIdList[2]) << "getSavedEntryByID returned wrong value";
 
-    entry = storage->getEntryByID(taggedIdList[4]);
-    ASSERT_EQ(entry->getID(), taggedIdList[4]) << "getEntryByID returned wrong value";
+    entry = storage->getSavedEntryByID(taggedIdList[4]);
+    ASSERT_EQ(entry->getID(), taggedIdList[4]) << "getSavedEntryByID returned wrong value";
 
-    entry = storage->getEntryByID(taggedIdList[1], test_tag);
-    ASSERT_EQ(entry->getID(), taggedIdList[1]) << "getEntryByID with tag returned wrong value";
+    GTEST_COUT << "Testing retrieving by ID and tag\n";
+    entry = storage->getSavedEntryByID(taggedIdList[1], test_tag);
+    ASSERT_EQ(entry->getID(), taggedIdList[1]) << "getSavedEntryByID with tag returned wrong value";
 
-    entry = storage->getEntryByID(taggedIdList[3], test_tag);
-    ASSERT_EQ(entry->getID(), taggedIdList[3]) << "getEntryByID with tag returned wrong value";
+    entry = storage->getSavedEntryByID(taggedIdList[3], test_tag);
+    ASSERT_EQ(entry->getID(), taggedIdList[3]) << "getSavedEntryByID with tag returned wrong value";
+
+    GTEST_COUT << "Testing tag exclusions\n";
+    //Make sure that the get by tag property excludes tags as well
+    //taggedIdList[0] should be tagged with test_tag but not test_tag2 (second entry)
+    //taggedIdList2[0] should be tagged with only test_tag2 (third entry)
+    //taggedIdList2[2] should be tagged with both tags (sixth entry)
+    entry = storage->getSavedEntryByID(taggedIdList[0]);
+    ASSERT_EQ(entry->getID(), taggedIdList[0]) << "Entry 2 not found";
+    entry = storage->getSavedEntryByID(taggedIdList[0], test_tag);
+    ASSERT_EQ(entry->getID(), taggedIdList[0]) << "Entry 2 not found with test_tag";
+    entry = storage->getSavedEntryByID(taggedIdList[0], test_tag2);
+    ASSERT_TRUE(nullptr == entry) << "Entry 2 not null with test_tag2";
+
+    GTEST_COUT << "Testing tag exclusions for entry 3\n";
+    entry = storage->getSavedEntryByID(taggedIdList2[0]);
+    ASSERT_EQ(entry->getID(), taggedIdList2[0]) << "Entry 3 not found";
+    entry = storage->getSavedEntryByID(taggedIdList2[0], test_tag2);
+    ASSERT_EQ(entry->getID(), taggedIdList2[0]) << "Entry 3 not found with test_tag2";
+    entry = storage->getSavedEntryByID(taggedIdList2[0], test_tag);
+    ASSERT_TRUE(nullptr == entry) << "Entry 3 not null with test_tag";
+
+    GTEST_COUT << "Testing tag exclusiong for entry 6\n";
+    entry = storage->getSavedEntryByID(taggedIdList[2]);
+    ASSERT_NE(nullptr, entry);
+    GTEST_COUT << "ID=" << entry->getID() << "\n";
+    ASSERT_EQ(entry->getID(), taggedIdList[2]) << "Entry 6 not found";
+    entry = storage->getSavedEntryByID(taggedIdList[2], test_tag);
+    ASSERT_NE(nullptr, entry);
+    ASSERT_EQ(entry->getID(), taggedIdList[2]) << "Entry 6 not found with test_tag";
+    entry = storage->getSavedEntryByID(taggedIdList[2], test_tag2);
+    ASSERT_NE(nullptr, entry);
+    ASSERT_EQ(entry->getID(), taggedIdList[2]) << "Entry 6 not null with test_tag2";
+
+    GTEST_COUT << "Testing tags *after clearing*\n";
+    storage->clearNewAndLocalEntries(); //Make sure these methods work correctly after clearing
+
+    entry = storage->getSavedEntryByID(taggedIdList[2]);
+    ASSERT_NE(nullptr, entry);
+    ASSERT_EQ(entry->getID(), taggedIdList[2]) << "getSavedEntryByID returned wrong value (after clearing)";
+
+    entry = storage->getSavedEntryByID(taggedIdList[4]);
+    ASSERT_NE(nullptr, entry);
+    ASSERT_EQ(entry->getID(), taggedIdList[4]) << "getSavedEntryByID returned wrong value (after clearing)";
+
+    entry = storage->getSavedEntryByID(taggedIdList[1], test_tag);
+    ASSERT_NE(nullptr, entry);
+    ASSERT_EQ(entry->getID(), taggedIdList[1]) << "getSavedEntryByID with tag returned wrong value (after clearing)";
+
+    entry = storage->getSavedEntryByID(taggedIdList[3], test_tag);
+    ASSERT_NE(nullptr, entry);
+    ASSERT_EQ(entry->getID(), taggedIdList[3]) << "getSavedEntryByID with tag returned wrong value (after clearing)";
  
+     //Make sure that the get by tag property excludes tags as well
+    //taggedIdList[0] should be tagged with test_tag but not test_tag2 (second entry)
+    //taggedIdList2[0] should be tagged with only test_tag2 (third entry)
+    //taggedIdList[3] should be tagged with both tags (sixth entry)
+    entry = storage->getSavedEntryByID(taggedIdList[0]);
+    ASSERT_NE(nullptr, entry);
+    ASSERT_EQ(entry->getID(), taggedIdList[0]) << "Entry 2 not found";
+    entry = storage->getSavedEntryByID(taggedIdList[0], test_tag);
+    ASSERT_NE(nullptr, entry);
+    ASSERT_EQ(entry->getID(), taggedIdList[0]) << "Entry 2 not found with test_tag";
+    entry = storage->getSavedEntryByID(taggedIdList[0], test_tag2);
+    ASSERT_TRUE(nullptr == entry) << "Entry 2 not null with test_tag2";
+
+    entry = storage->getSavedEntryByID(taggedIdList2[0]);
+    ASSERT_NE(nullptr, entry);
+    ASSERT_EQ(entry->getID(), taggedIdList2[0]) << "Entry 3 not found";
+    entry = storage->getSavedEntryByID(taggedIdList2[0], test_tag2);
+    ASSERT_NE(nullptr, entry);
+    ASSERT_EQ(entry->getID(), taggedIdList2[0]) << "Entry 3 not found with test_tag2";
+    entry = storage->getSavedEntryByID(taggedIdList2[0], test_tag);
+    ASSERT_TRUE(nullptr == entry) << "Entry 3 not null with test_tag";
+
+    entry = storage->getSavedEntryByID(taggedIdList[2]);
+    ASSERT_NE(nullptr, entry);
+    ASSERT_EQ(entry->getID(), taggedIdList[2]) << "Entry 6 not found";
+    entry = storage->getSavedEntryByID(taggedIdList[2], test_tag);
+    ASSERT_NE(nullptr, entry);
+    ASSERT_EQ(entry->getID(), taggedIdList[2]) << "Entry 6 not found with test_tag";
+    entry = storage->getSavedEntryByID(taggedIdList[2], test_tag2);
+    ASSERT_NE(nullptr, entry);
+    ASSERT_EQ(entry->getID(), taggedIdList[2]) << "Entry 6 not null with test_tag2";
 }
 
 TEST_F(StorageModuleTest, updatePrimaryKey)
 {
     // Starting point
-    int size = storage->getEntries()->getSize();
+    int size = storage->getSavedEntries()->getSize();
     ASSERT_EQ(size, 0);
 
     //Add 50 elements with random keys
@@ -748,10 +900,10 @@ TEST_F(StorageModuleTest, updatePrimaryKey)
     }
 
     //Clear new list
-    storage->clearNewEntriesAndTags();
+    storage->clearNewAndLocalEntries();
 
     //Update the fitness on every 10th one
-    std::unique_ptr<Iterator> allEntries = storage->getEntries();
+    std::unique_ptr<Iterator> allEntries = storage->getSavedEntries();
     int count = 0;
     while(allEntries->hasNext())
     {
@@ -769,7 +921,7 @@ TEST_F(StorageModuleTest, updatePrimaryKey)
     EXPECT_TRUE(isSaveListInOrder()) << "List out of order after updating all entries";
 
     //Update the fitness on every 3rd one
-    std::unique_ptr<Iterator> allEntries2 = storage->getEntries();
+    std::unique_ptr<Iterator> allEntries2 = storage->getSavedEntries();
     count = 0;
     while(allEntries2->hasNext())
     {
@@ -803,19 +955,19 @@ TEST_F(StorageModuleTest, moreTagTests)
     }
 
     StorageEntry* theEntry = storage->createNewEntry();
-    storage->tagEntry(theEntry,test_tag);
-    handles = storage->getEntryTagList(theEntry);
+    theEntry->addTag(test_tag);
+    handles = theEntry->getTagList();
     ASSERT_EQ(handles.size(),1);
     ASSERT_EQ(handles[0],test_tag);
 
-    storage->tagEntry(theEntry,test_tag2);
-    handles = storage->getEntryTagList(theEntry);
+    theEntry->addTag(test_tag2);
+    handles = theEntry->getTagList();
     ASSERT_EQ(handles.size(),2);
     ASSERT_EQ(handles[0],test_tag);
     ASSERT_EQ(handles[1],test_tag2);
 
-    storage->tagEntry(theEntry,test_tag3);
-    handles = storage->getEntryTagList(theEntry);
+    theEntry->addTag(test_tag3);
+    handles = theEntry->getTagList();
     ASSERT_EQ(handles.size(),3);
     ASSERT_EQ(handles[0],test_tag);
     ASSERT_EQ(handles[1],test_tag2);
@@ -823,7 +975,182 @@ TEST_F(StorageModuleTest, moreTagTests)
 
 }
 
+TEST_F(StorageModuleTest, StorageEntryBufferTests)
+{
+    StorageEntry* e1 = storage->createNewEntry();
+    StorageEntry* e2 = storage->createNewEntry();
+    StorageEntry* e3 = storage->createNewEntry();
 
+    char* buff1 = e1->allocateBuffer(buf_key, 4);
+    buff1[0] = 'V';
+    buff1[1] = 'M';
+    buff1[2] = 'F';
+    buff1[3] = '!';
+
+    ASSERT_TRUE(e1->hasBuffer(buf_key));
+    ASSERT_FALSE(e2->hasBuffer(buf_key));
+    ASSERT_FALSE(e3->hasBuffer(buf_key));
+
+    char* buff2 = e2->allocateAndCopyBuffer(buf_key, 4, buff1);
+    ASSERT_TRUE(e2->hasBuffer(buf_key));
+    int size2 = e2->getBufferSize(buf_key);
+    ASSERT_EQ(size2, 4);
+    buff2[3] = '#';
+    ASSERT_EQ('V',buff2[0]);
+    ASSERT_EQ('M',buff2[1]);
+    ASSERT_EQ('F',buff2[2]);
+    ASSERT_EQ('#',buff2[3]);
+
+    char* buff3 = e3->allocateAndCopyBuffer(buf_key, e2);    
+    ASSERT_TRUE(e3->hasBuffer(buf_key));
+    int size3 = e3->getBufferSize(buf_key);
+    ASSERT_EQ(size3, 4);
+    buff3[0] = '-';
+    ASSERT_EQ('-',buff3[0]);
+    ASSERT_EQ('M',buff3[1]);
+    ASSERT_EQ('F',buff3[2]);
+    ASSERT_EQ('#',buff3[3]);
+}
+
+TEST_F(StorageModuleTest, LocalEntryTest)
+{
+    StorageEntry* e = storage->createNewEntry();
+    e->addTag(test_tag);
+
+    GTEST_COUT << "Creating local entries\n";
+    StorageEntry* tmp1 = storage->createLocalEntry();
+    StorageEntry* tmp2 = storage->createLocalEntry();
+    StorageEntry* tmp3 = storage->createLocalEntry();
+
+    //Make sure only the non-local entry is returned from storage
+    std::unique_ptr<Iterator> entries = storage->getNewEntries();
+    ASSERT_EQ(entries->getSize(), 1);
+    ASSERT_EQ(entries->getNext()->getID(), e->getID());
+
+    GTEST_COUT << "Testing tagging of local entries\n";
+    try
+    {
+        tmp2->addTag(test_tag);
+        tmp3->addTag(test_tag);
+    } 
+    catch (RuntimeException e)
+    {
+        FAIL() << e.getReason();
+    }
+
+    ASSERT_TRUE(tmp2->hasTag(test_tag));
+    ASSERT_TRUE(tmp3->hasTag(test_tag));
+
+    GTEST_COUT << "Setting key in local entry\n";
+    tmp2->setValue(int_key, 5);
+    ASSERT_EQ(tmp2->getIntValue(int_key), 5);
+
+    GTEST_COUT << "Testing get new entries by tag\n";
+    //Make sure only the non-local entry is returned from storage
+    std::unique_ptr<Iterator> entries2 = storage->getNewEntriesByTag(test_tag);
+    ASSERT_EQ(entries2->getSize(), 1);
+    ASSERT_EQ(entries2->getNext()->getID(), e->getID());
+
+    GTEST_COUT << "Testing removal of local entry\n";
+    storage->saveEntry(e);
+        GTEST_COUT << "VAL=" << tmp2;
+    storage->removeLocalEntry(tmp2);
+    GTEST_COUT << "VAL=" << tmp2;
+    ASSERT_TRUE(nullptr == tmp2);
+
+    GTEST_COUT << "Testing error handling\n";
+    //Try to save a local entry
+    try
+    {
+        storage->saveEntry(tmp1);
+        FAIL() << "Exception should have been thrown";
+    } catch (RuntimeException e)
+    {
+        //Exception is expected here
+    }
+
+    //Try to remove a local entry
+    try
+    {
+        storage->removeEntry(tmp1);
+        FAIL() << "Exception should have been thrown";
+    } catch (RuntimeException e)
+    {
+        //Exception is expected here
+    }
+
+    //Try to remove a non-local entry with removeLocalEntry
+    try
+    {
+        storage->removeLocalEntry(e);
+        FAIL() << "Exception should have been thrown";
+    } catch (RuntimeException e)
+    {
+        //Exception is expected here
+    }
+
+    GTEST_COUT << "Testing clear new entries\n";
+    storage->clearNewAndLocalEntries();
+
+    //Make sure only the non-local entry is returned from storage
+    std::unique_ptr<Iterator> entries3 = storage->getSavedEntries();
+    ASSERT_EQ(entries3->getSize(), 1);
+    ASSERT_EQ(entries3->getNext()->getID(), e->getID());
+}
+
+TEST_F(StorageModuleTest, MetadataTest)
+{
+    StorageEntry& metadata = storage->getMetadata();
+
+    metadata.setValue(meta_int_key, 45);
+    int x = metadata.getIntValue(meta_int_key);
+    ASSERT_EQ(x, 45) << "VALUE NOT SET";
+
+    //This should still be 45 with another copy of metadata
+    StorageEntry& metadata2 = storage->getMetadata();
+    x = metadata2.getIntValue(meta_int_key);
+    ASSERT_EQ(x, 45) << "SET VALUE DOES NOT PERSIST";
+}
+
+TEST_F(StorageModuleTest, IncrementTest)
+{
+    StorageEntry* e1 = storage->createNewEntry();
+    ASSERT_EQ(0, e1->getIntValue(int_key));
+    e1->incrementIntValue(int_key);
+    ASSERT_EQ(1, e1->getIntValue(int_key));
+    e1->incrementIntValue(int_key);
+    ASSERT_EQ(2, e1->getIntValue(int_key));
+    e1->incrementIntValue(int_key);
+    ASSERT_EQ(3, e1->getIntValue(int_key));
+
+    try
+    {
+    StorageEntry& metadata = storage->getMetadata();
+    ASSERT_EQ(0, metadata.getIntValue(meta_int_key));
+    int x = metadata.incrementIntValue(meta_int_key);
+    ASSERT_EQ(1, metadata.getIntValue(meta_int_key));
+    ASSERT_EQ(1, x) << "Return value not 1";
+    x = metadata.incrementIntValue(meta_int_key);
+    ASSERT_EQ(2, metadata.getIntValue(meta_int_key));
+    ASSERT_EQ(2, x) << "Return value not 2";
+    x = metadata.incrementIntValue(meta_int_key);
+    ASSERT_EQ(3, metadata.getIntValue(meta_int_key));
+    ASSERT_EQ(3, x) << "Return value not 3";
+    } 
+    catch (BaseException e)
+    {
+        GTEST_COUT << e.getReason();
+        FAIL();
+    }
+
+    StorageEntry& metadata2 = storage->getMetadata();
+    ASSERT_EQ(3, metadata2.getIntValue(meta_int_key)) << "Metadata doesn't persist when accessed again";
+
+    storage->clearNewAndLocalEntries();
+
+    StorageEntry& metadata3 = storage->getMetadata();
+    ASSERT_EQ(3, metadata3.getIntValue(meta_int_key)) << "Metadata doesn't persist after clear";
+}
 
 }  // namespace
 }  // namespace project

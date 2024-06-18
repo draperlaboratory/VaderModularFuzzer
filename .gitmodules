@@ -1,18 +1,3 @@
-[submodule "LibAFL-legacy"]
-	path = vmf/submodules/LibAFL-legacy
-	url = https://github.com/AFLplusplus/LibAFL-legacy
-[submodule "external/projects/AFLplusplus"]
-	path = vmf/submodules/AFLplusplus
-	url = https://github.com/AFLplusplus/AFLplusplus
-[submodule "external/projects/googletest"]
-	path = vmf/submodules/googletest
-	url = https://github.com/google/googletest.git
-[submodule "submodules/yaml-cpp"]
-	path = vmf/submodules/yaml-cpp
-	url = https://github.com/jbeder/yaml-cpp
 [submodule "submodules/klee"]
 	path = submodules/klee
 	url = https://github.com/klee/klee
-[submodule "submodules/plog"]
-	path = vmf/submodules/plog
-	url = https://github.com/SergiusTheBest/plog.git

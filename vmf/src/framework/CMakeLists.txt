@@ -1,7 +1,7 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
-# <vader@draper.com>
+# Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+# <vmf@draper.com>
 #  
 # Effort sponsored by the U.S. Government under Other Transaction number
 # W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -29,21 +29,16 @@
 
 # Create the common library.
 add_library(VMFFramework SHARED
-    app/BaseException.cpp
-    app/CDMSClient.cpp
-    app/ConfigInterface.cpp
-    app/ConfigManager.cpp
-    app/json11.cpp
-    app/Logging.cpp
-    app/ModuleFactory.cpp
-    app/Plugins.cpp
-    app/RuntimeException.cpp
-    app/VaderApplication.cpp
-    app/VaderUtil.cpp
+    util/BaseException.cpp
+    util/CDMSClient.cpp
+    util/ConfigInterface.cpp
+    util/Logging.cpp
+    util/ModuleFactory.cpp
+    util/RuntimeException.cpp
+    util/VmfUtil.cpp
+    util/VmfRand.cpp
     baseclasses/ControllerModule.cpp
-    baseclasses/IterativeController.cpp
     baseclasses/OutputScheduler.cpp
-    baseclasses/RunOnceController.cpp
     baseclasses/SimpleIterator.cpp
     baseclasses/SimpleStorage.cpp
     baseclasses/StorageEntry.cpp
@@ -51,24 +46,17 @@ add_library(VMFFramework SHARED
 )
 
 target_link_libraries(VMFFramework
+  PUBLIC
+    plog
+    json11 
+    stdc++fs
   PRIVATE
-  yaml
-  restclient
+    restclient-cpp
 )
 
 target_include_directories(VMFFramework PUBLIC
-  ${PROJECT_SOURCE_DIR}/vmf/src/framework/baseclasses
-  ${PROJECT_SOURCE_DIR}/vmf/src/framework/app
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/formatter
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/initilization
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/inputgeneration
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/mutator
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/common/output
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/linux/executor
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/linux/feedback
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/linux/initialization
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/linux/mutator
-  ${PROJECT_SOURCE_DIR}/vmf/src/coremodules/linux/output
+  ${CMAKE_CURRENT_LIST_DIR}/baseclasses
+  ${CMAKE_CURRENT_LIST_DIR}/util
 )
 
 set_vmf_compile_options(VMFFramework)
@@ -79,5 +67,7 @@ install(TARGETS VMFFramework
 
 # install public headers
 
-file(GLOB PUBLIC_HEADERS app/*.hpp baseclasses/*.hpp)
+file(GLOB PUBLIC_HEADERS util/*.hpp baseclasses/*.hpp)
 install(FILES ${PUBLIC_HEADERS} DESTINATION ${CMAKE_INSTALL_PREFIX}/include/vmf COMPONENT CPP_INCLUDES)
+
+add_subdirectory(app)

@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -28,7 +28,7 @@
  * ===========================================================================*/
 #include "SimpleStorage.hpp"
 
-using namespace vader;
+using namespace vmf;
 
 #include "ModuleFactory.hpp"
 REGISTER_MODULE(SimpleStorage);
@@ -59,7 +59,7 @@ SimpleStorage::SimpleStorage(std::string name) : StorageModule(name)
 SimpleStorage::~SimpleStorage()
 {
     //First resolve any lingering memory actions
-    clearNewEntriesAndTags();
+    clearNewAndLocalEntries();
 
     //Now delete all entries in long term storage
     for(StorageEntry* entry: entryList)
@@ -98,10 +98,12 @@ void SimpleStorage::configure(StorageRegistry* registry, StorageRegistry* metada
         std::list<StorageEntry*>* newTagListEntry = new std::list<StorageEntry*>;
         tagList.push_back(*tagListEntry);
         newTagList.push_back(*newTagListEntry);
+	delete tagListEntry; // These were copied into tagLists, can delete now
+	delete newTagListEntry;
     }
 
     //Construct the metadata object
-    metadataEntry = new StorageEntry(true, this);
+    metadataEntry = new StorageEntry(true, false, this);
     initialized = true;
 
     //Save a copy of this information, so it does not have to be created each time
@@ -113,7 +115,7 @@ void SimpleStorage::configure(StorageRegistry* registry, StorageRegistry* metada
 * Treat all "new entries" as no longer being new.  The parameters needed by the provided
 * comparison function must be computed on each new entry prior to this process.
 */
-void SimpleStorage::clearNewEntriesAndTags()
+void SimpleStorage::clearNewAndLocalEntries()
 {
     //Clear the list of "new" elements
     for(StorageEntry* newEntry: newList)
@@ -128,13 +130,20 @@ void SimpleStorage::clearNewEntriesAndTags()
     }
     newList.clear();
 
+    //Clear the local elements
+    for(StorageEntry* localEntry: localList)
+    {
+        delete localEntry;
+    }
+    localList.clear();
+
     //Delete all the entries that were flagged for deletion
     for(StorageEntry* e: deleteList)
     {
          //Remove the entry from any tagged lists
         for(size_t i=0; i<tagList.size(); i++)
         {
-	    removeEntryIfPresent(tagList[i],e);
+	        removeEntryIfPresent(tagList[i],e);
             //does not need to be removed from newTagList because this list is cleared fully
             //later in this method
         }
@@ -169,7 +178,7 @@ StorageEntry* SimpleStorage::createNewEntry()
 {
     if(initialized)
     {
-        StorageEntry* entry = new StorageEntry(false, this);
+        StorageEntry* entry = new StorageEntry(false, false, this);
         newList.push_back(entry); //a pointer to the new entry, for quick lookup of new elements
         return entry;
     }
@@ -179,11 +188,45 @@ StorageEntry* SimpleStorage::createNewEntry()
     }
 }
 
+StorageEntry* SimpleStorage::createLocalEntry()
+{
+    if(initialized)
+    {
+        StorageEntry* entry = new StorageEntry(false, true, this);
+        localList.push_back(entry);
+        return entry;
+    }
+    else
+    {
+        throw RuntimeException("Storage must be initialized before use.", RuntimeException::USAGE_ERROR);
+    }
+}; 
+
+void SimpleStorage::removeLocalEntry(StorageEntry*& entry)
+{
+    if(entry->isLocalEntry())
+    {
+        localList.remove(entry);
+        delete entry;
+        entry = nullptr;
+    }
+    else
+    {
+         throw RuntimeException("removaLocalEntry() can only be called on entries that were allocated with createLocalEntry()", 
+                                RuntimeException::USAGE_ERROR);
+    }
+};
+
 void SimpleStorage::saveEntry(StorageEntry* e)
 {
     if(e->getID() == metadataEntry->getID())
     {
         throw RuntimeException( "Metadata cannot be saved",RuntimeException::USAGE_ERROR);
+    }
+
+    if(e->isLocalEntry())
+    {
+        throw RuntimeException("Local entries cannot be saved", RuntimeException::USAGE_ERROR);
     }
 
     //Save a reference to the entry for a quick look-up of newly saved entries
@@ -194,12 +237,22 @@ void SimpleStorage::saveEntry(StorageEntry* e)
         saveList.push_back(e);
 
         insertEntrySorted(entryList,e,sortDescending);
+
+        //If the entry has any tags, we need to update the tagList to reflect those tags
+        //(as the tags were initially only set on the newTagList)
+        std::vector<int> setTagIds = e->getTagList();
+
+        //For each tag that has been set, add it to the appropriate tagList
+        for(int tagId: setTagIds)
+        {
+            insertEntrySorted(tagList[tagId],e,sortDescending);
+        }
     }
 }
 
 /**
  * @brief Remove an entry from storage
- * This flags an entry for removal.  The actual deletion will happen during clearNewEntriesAndTags.
+ * This flags an entry for removal.  The actual deletion will happen during clearNewAndLocalEntries.
  *
  * @param e the storage entry to remove
  */
@@ -209,6 +262,11 @@ void SimpleStorage::removeEntry(StorageEntry* e)
     if(e->getID() == metadataEntry->getID())
     {
         throw RuntimeException( "Metadata cannot be removed",RuntimeException::USAGE_ERROR);
+    }
+
+    if(e->isLocalEntry())
+    {
+        throw RuntimeException("Local entries cannot be removed", RuntimeException::USAGE_ERROR);
     }
 
     deleteList.push_back(e);
@@ -325,123 +383,64 @@ void SimpleStorage::insertEntrySorted(std::list<StorageEntry*>& list, StorageEnt
     }
 }
 
-void SimpleStorage::tagEntry(StorageEntry* e, int tagId)
+void SimpleStorage::notifyTagSet(StorageEntry* e, int tagId)
 {
-
     if(e->getID() == metadataEntry->getID())
     {
-        throw RuntimeException( "Metadata cannot be tagged",RuntimeException::USAGE_ERROR);
+        throw RuntimeException( "StorageEntry should not allow tagging of Metadata",RuntimeException::USAGE_ERROR);
+    }
+
+    if(e->isLocalEntry())
+    {
+        throw RuntimeException("StorageEntry should not notify Storage if local entries are tagged", 
+                                RuntimeException::USAGE_ERROR);
     }
 
     checkThatTagIsValid(tagId, numTags);
 
-    //Note: Technically a non-new entry could be tagged with this method, though
-    //it would still appear on the newTagList.  This is likely a desireable behavior, however.
-    if(!containsEntry(tagList[tagId], e))
+    //Check to see if this is a new entry
+    bool isNew = containsEntry(newList, e);
+    bool isOnSaveList = containsEntry(saveList, e);
+    //New entries go on the newTagList
+    if(isNew)
     {
-        insertEntrySorted(tagList[tagId],e,sortDescending);
-    }
-
-    if(!containsEntry(newTagList[tagId],e))
-    {
-        newTagList[tagId].push_back(e);
-    }
-
-    //If this is a new entry, then also add the entry to the save list, 
-    //if it is not already there.
-    //Note: This be fastest if the entry is saved prior to tagging
-    bool alreadyOnSavedList = containsEntry(saveList,e);
-    if(!alreadyOnSavedList)
-    {
-        //Confirm that this is a new entry
-        bool isNew = containsEntry(newList, e);
-        if(isNew)
+        //Write this entry to the newTagList for this tagId (if it is not already there)
+        if(!containsEntry(newTagList[tagId],e))
         {
-            saveEntry(e);
+            newTagList[tagId].push_back(e);
         }
-        //else, this is an old entry, and hence has been already saved
     }
 
-    //Check to see if the entry already has a tagMap entry, and if not,
-    //create one.  Then update the flag for this tag in the tagMap.
-    long uid = e->getID();
-    auto search = tagMap.find(uid);
-    if (search != tagMap.end())
+    //Saved entries go on the tagList (this includes entries that are new but that have just been saved)
+    if(!isNew || isOnSaveList)
     {
-        //This entry already has a tag map, so set the flag for this tag
-        (search->second)[tagId] = true;
-    }
-    else
-    {
-        //Create a tagMap entry to track the tags for this storage entry
-        auto& vec = tagMap[uid];
-        vec.resize(numTags);
-        for(int i=0; i<numTags; i++)
+        //Write this entry to the TagList for this tagId (if it is not already there)
+        if(!containsEntry(tagList[tagId], e))
         {
-            vec[i] = false;
+            insertEntrySorted(tagList[tagId],e,sortDescending);
         }
-        vec[tagId] = true; //set the flag for the current tag
-        
     }
-
 }
 
-void SimpleStorage::unTagEntry(StorageEntry* e, int tagId)
+void SimpleStorage::notifyTagRemoved(StorageEntry* e, int tagId)
 {
     if(e->getID() == metadataEntry->getID())
     {
-        throw RuntimeException( "Metadata cannot be tagged",RuntimeException::USAGE_ERROR);
+        throw RuntimeException( "StorageEntry should not allow tagging of Metadata",RuntimeException::USAGE_ERROR);
+    }
+
+    if(e->isLocalEntry())
+    {
+        throw RuntimeException("StorageEntry should not notify Storage about local entry tags", 
+                                RuntimeException::USAGE_ERROR);
     }
 
     checkThatTagIsValid(tagId, numTags);
 
     removeEntryIfPresent(tagList[tagId],e);
     removeEntryIfPresent(newTagList[tagId],e);
-
-    //Update the tagMap flag for this tag as well
-    long uid = e->getID();
-    auto search = tagMap.find(uid);
-    if (search != tagMap.end())
-    {   
-        (search->second)[tagId] = false;
-    }
-    //If there is no tagMap entry, then it wasn't tagged in the first place
-    //and there is nothing to do here
-
 }
 
-bool SimpleStorage::entryHasTag(StorageEntry* e, int tagId)
-{
-    bool hasTag = false;
-
-    checkThatTagIsValid(tagId, numTags);
-    long uid = e->getID();
-    auto search = tagMap.find(uid); 
-    if (search != tagMap.end())
-    {
-        hasTag = search->second[tagId];
-    }
-    //If there is no tagMap entry, then it wasn't tagged in the first place
-
-    return hasTag;
-}
-
-std::vector<int> SimpleStorage::getEntryTagList(StorageEntry* e)
-{   std::vector<int> tags;
-    long uid = e->getID();
-    auto search = tagMap.find(uid);
-    if (search != tagMap.end())
-    {
-        for(int i = 0; i<numTags; i++)
-        {
-            if(search->second[i])
-            {
-                tags.push_back(i);
-            }
-        } 
-    }
-    return tags;
-}
 std::vector<int> SimpleStorage::getListOfTagHandles()
 {
     return tagHandles;
@@ -453,7 +452,7 @@ std::string SimpleStorage::tagHandleToString(int tagId)
     return tagNames[tagId];
 }
 
-std::unique_ptr<Iterator> SimpleStorage::getEntriesByTag(int tagId)
+std::unique_ptr<Iterator> SimpleStorage::getSavedEntriesByTag(int tagId)
 {
     checkThatTagIsValid(tagId, numTags);
 
@@ -478,14 +477,14 @@ std::unique_ptr<Iterator> SimpleStorage::getNewEntriesThatWillBeSaved()
     return returnPointer;
 }
 
-std::unique_ptr<Iterator> SimpleStorage::getEntries()
+std::unique_ptr<Iterator> SimpleStorage::getSavedEntries()
 {
     SimpleIterator* theIterator = new SimpleIterator(entryList);
     std::unique_ptr<Iterator> returnPointer(theIterator);
     return returnPointer;
 }
 
-StorageEntry* SimpleStorage::getEntryByID(unsigned long id)
+StorageEntry* SimpleStorage::getSavedEntryByID(unsigned long id)
 {
     for(StorageEntry* nextEntry: entryList)
     {
@@ -500,11 +499,11 @@ StorageEntry* SimpleStorage::getEntryByID(unsigned long id)
     return nullptr;
 }
 
- StorageEntry* SimpleStorage::getEntryByID(unsigned long id, int tagId)
+ StorageEntry* SimpleStorage::getSavedEntryByID(unsigned long id, int tagId)
  {
     checkThatTagIsValid(tagId, numTags);
 
-    for(StorageEntry* nextEntry: newTagList[tagId])
+    for(StorageEntry* nextEntry: tagList[tagId])
     {
         if(id == nextEntry->getID())
         {

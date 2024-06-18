@@ -1,7 +1,7 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2023 The Charles Stark Draper Laboratory, Inc.
- * <vader@draper.com>
+ * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
  *  
  * Effort sponsored by the U.S. Government under Other Transaction number
  * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
@@ -30,15 +30,18 @@
 
 
 #include "StorageUserModule.hpp"
+#include "Logging.hpp"
 
-namespace vader
+namespace vmf
 {
 /**
- * @brief Base class for Vader output modules
+ * @brief Base class for VMF output modules
  *
- * Output modules are used to examine the results of test cases.  They are fairly general purpose and
- * may be used to output information to a human operator, to trim the corpose of test cases, or to perform
- * any other function that should occur periodically as test cases execute.
+ * Output modules are used to examine the results of test cases.  They are fairly 
+ * general purpose and may be used to output information to a human operator, to 
+ * trim the corpus of test cases, or to perform any other function that should occur 
+ * periodically as test cases execute. OutputModules are schedulable, and indicate a preferred 
+ * scheduling rate to the Controller managing them.
  */
 class OutputModule : public StorageUserModule {
 public:
@@ -156,6 +159,42 @@ public:
                         RuntimeException::CONFIGURATION_ERROR);
                 }
                 
+            }
+        }
+        return theModule;
+    }
+
+    /**
+     * @brief Helper method to return a single Output submodule from config by name
+     * This method will retrieve a single Output submodule by name for the specified parent modules.
+     * If there are no Output submodules with the specified name, then an nullptr will be returned.  
+     * 
+     * @param config the ConfigInterface object
+     * @param parentName the name of the parent module
+     * @param childName the name of the child module to finde
+     * @return OutputModule* the submodule, or nullptr if none is found
+     */
+    static OutputModule* getOutputSubmoduleByName(ConfigInterface& config, std::string parentName, std::string childName)
+    {
+        OutputModule* theModule = nullptr;
+        std::vector<Module*> modules = config.getSubModules(parentName);
+        for(Module* m: modules)
+        {
+            if(childName == m->getModuleName())
+            {
+                if(isAnInstance(m))
+                {
+                    theModule = castTo(m);
+                    break;
+                }
+                else
+                {
+                    LOG_ERROR << parentName << " requested an Output submodule named " << childName 
+                               << ", but that submodules is not of type Output.";
+                    throw RuntimeException(
+                        "Configuration file contained a module with this name, but it was not an executor module",
+                        RuntimeException::CONFIGURATION_ERROR);
+                }
             }
         }
         return theModule;
