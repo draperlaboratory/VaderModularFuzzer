@@ -120,6 +120,6 @@ public:
     static size_t choose_block_len(VmfRand &rand, size_t limit);
     
 private:
-    VmfRand rand;
+    VmfRand* rand;
 };
 }

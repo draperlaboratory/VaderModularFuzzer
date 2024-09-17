@@ -75,7 +75,7 @@ Module* AFLDeleteMutator::build(std::string name)
  */
 void AFLDeleteMutator::init(ConfigInterface& config)
 {
-
+    rand = VmfRand::getInstance();
 }
 
 /**
@@ -86,7 +86,7 @@ void AFLDeleteMutator::init(ConfigInterface& config)
 AFLDeleteMutator::AFLDeleteMutator(std::string name) :
     MutatorModule(name)
 {
-    rand.randInit();
+    rand = nullptr;
 }
 
 /**
@@ -111,6 +111,10 @@ void AFLDeleteMutator::registerStorageNeeds(StorageRegistry& registry)
  
 void AFLDeleteMutator::mutateTestCase(StorageModule& storage, StorageEntry* baseEntry, StorageEntry* newEntry, int testCaseKey)
 {
+    if (rand == nullptr)
+    {
+	throw RuntimeException("VmfRand was null, mutator was not initialized before use.");
+    }
 
     int size = baseEntry->getBufferSize(testCaseKey);
     char* buffer = baseEntry->getBufferPointer(testCaseKey);
@@ -126,8 +130,8 @@ void AFLDeleteMutator::mutateTestCase(StorageModule& storage, StorageEntry* base
         return;  //This is the libAFL implementation
     }
 
-    int del_len = choose_block_len(rand, size - 1);
-    int del_from = rand.randBelow(size - del_len + 1);
+    int del_len = choose_block_len(*rand, size - 1);
+    int del_from = rand->randBelow(size - del_len + 1);
 
     int newSize = size - del_len;
 

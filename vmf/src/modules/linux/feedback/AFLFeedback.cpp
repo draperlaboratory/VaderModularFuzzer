@@ -91,35 +91,24 @@ void AFLFeedback::registerStorageNeeds(StorageRegistry& registry)
 {
     //Inputs
     testCaseKey = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_ONLY);
-    execTimeKey = registry.registerKey("EXEC_TIME_US", StorageRegistry::INT, StorageRegistry::READ_ONLY);
-    coverageByteCountKey = registry.registerKey("COVERAGE_COUNT", StorageRegistry::INT, StorageRegistry::READ_ONLY);
-   
-    crashedTag = registry.registerTag("CRASHED", StorageRegistry::WRITE_ONLY);
-    hungTag = registry.registerTag("HUNG", StorageRegistry::WRITE_ONLY);
-    normalTag = registry.registerTag("RAN_SUCCESSFULLY", StorageRegistry::WRITE_ONLY);
-    hasNewCoverageTag = registry.registerTag("HAS_NEW_COVERAGE", StorageRegistry::WRITE_ONLY);
+    execTimeKey = registry.registerKey("EXEC_TIME_US", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+    coverageByteCountKey = registry.registerKey("COVERAGE_COUNT", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+    hasNewCoverageTag = registry.registerTag("HAS_NEW_COVERAGE", StorageRegistry::READ_ONLY);
 
     //Outputs
     fitnessKey = registry.registerKey("FITNESS", StorageRegistry::FLOAT, StorageRegistry::WRITE_ONLY);
 }
   
-void AFLFeedback::registerMetadataNeeds(StorageRegistry& registry)
-{
-    crashedTotalMetadata = registry.registerKey("TOTAL_CRASHED_CASES", StorageRegistry::INT, StorageRegistry::WRITE_ONLY);
-    hungTotalMetadata = registry.registerKey("TOTAL_HUNG_CASES", StorageRegistry::INT, StorageRegistry::WRITE_ONLY);
-}
 
 
 void AFLFeedback::evaluateTestCaseResults(StorageModule& storage, std::unique_ptr<Iterator>& entries)
 {
-    StorageEntry& metadata = storage.getMetadata();
-
     while(entries->hasNext())
     {
         StorageEntry* e = entries->getNext();
 
         //Compute average metrics
-        int execTime = getExecTimeMs(e);
+        unsigned int execTime = getExecTimeMs(e);
         avgExecTime = ((avgExecTime * numTestCases) + execTime)/(numTestCases + 1);
         if (execTime > maxExecTime)
             maxExecTime = execTime;
@@ -130,16 +119,6 @@ void AFLFeedback::evaluateTestCaseResults(StorageModule& storage, std::unique_pt
             maxTestCaseSize = size;
 
         numTestCases++;
-
-        //Update metadata for anything crashed or hung
-        if(e->hasTag(crashedTag))
-        {
-            metadata.incrementIntValue(crashedTotalMetadata);
-        }
-        else if(e->hasTag(hungTag))
-        {
-            metadata.incrementIntValue(hungTotalMetadata);
-        }
 
         //Then check to see if any new paths were uncovered by this test case
         if(e->hasTag(hasNewCoverageTag))
@@ -161,8 +140,8 @@ void AFLFeedback::evaluateTestCaseResults(StorageModule& storage, std::unique_pt
 
 float AFLFeedback::computeFitness(StorageModule& storage, StorageEntry* e)
 {
-    int coverage = e->getIntValue(coverageByteCountKey); 
-    int execTime = getExecTimeMs(e);
+    unsigned int coverage = e->getUIntValue(coverageByteCountKey); 
+    unsigned int execTime = getExecTimeMs(e);
     int size = e->getBufferSize(testCaseKey);
 
     float fitness = 0;
@@ -211,10 +190,10 @@ float AFLFeedback::computeFitness(StorageModule& storage, StorageEntry* e)
     return fitness;
 }
 
-int AFLFeedback::getExecTimeMs(StorageEntry* e)
+unsigned int AFLFeedback::getExecTimeMs(StorageEntry* e)
 {
-    int execTimeUs = e->getIntValue(execTimeKey);
-    int execTimeMs = 1;
+    unsigned int execTimeUs = e->getUIntValue(execTimeKey);
+    unsigned int execTimeMs = 1;
     if(execTimeUs > 1000) //This is needed to prevent an execution time of 0ms
     {
         execTimeMs = execTimeUs / 1000;

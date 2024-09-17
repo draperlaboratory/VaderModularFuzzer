@@ -12,6 +12,8 @@
 ### Upgrading from an Earlier Release of VMF?
 See [migration-4.0.0.md](docs/migration-4.0.0.md) for a list of the API changes in VMF 4.0.0.
 
+***Note: VMF is compatible with compiler instrumentation from AFL++ 4.10c or earlier, due to an update in the forkserver interface that was introduced in 4.20c.  VMF will be updated in a future release to fix this compatibility issue.***
+
 ### VMF Compatibility
 
 As of now, VMF can be run in Docker and on the following distributions of Linux:
@@ -23,6 +25,7 @@ As of now, VMF can be run in Docker and on the following distributions of Linux:
 - Ubuntu 20.04, and 22.04
 
 VMF depends on several open source projects, but uses a "batteries-included" philosophy to dependencies where practical.
+
 The sources of particular versions of these dependencies live inside of the VMF tree.  
 For more information about VMF's included package, and other required dependencies, see
 [External Projects](docs/external_projects.md)

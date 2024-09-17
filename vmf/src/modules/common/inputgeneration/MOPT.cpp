@@ -32,7 +32,6 @@
 #include "MutatorModule.hpp"
 #include "RuntimeException.hpp"
 #include "Logging.hpp"
-#include <random>
 #include <iomanip>
 
 using namespace vmf;
@@ -55,7 +54,6 @@ MOPT::MOPT(std::vector<MutatorModule*>* _mutators, int _numSwarms, int _pilotPer
     pilotPeriod = _pilotPeriod;
     corePeriod = _corePeriod;
     currentSwarm = 0;
-    srand(time(0));
     currentMode = PILOT_MODE;
     swarms = new std::vector<MOPTSwarm*>();
     for (unsigned int i = 0; i < numSwarms; i++)
@@ -98,6 +96,8 @@ MOPT::MOPT(std::vector<MutatorModule*>* _mutators, int _numSwarms, int _pilotPer
 	v_min = 0.30 / numMutators; // 30% is spread evenly, 70% is decided by MOPT
     else
 	v_min = _pMin;
+
+    rand = VmfRand::getInstance();
 }
 
 MOPT::~MOPT()
@@ -165,7 +165,7 @@ void MOPT::ranTestCases(int numTestCases, bool allowPrint)
             // If all swarms have a fitness of 0, then pick a swarm randomly.
             // This can happen late in fuzzing when new testcases become rare.
             if (bestFitness == 0)
-                currentSwarm = rand() % numSwarms;
+                currentSwarm = rand -> randBelow(numSwarms);
 
             if (allowPrint)
             {

@@ -134,6 +134,10 @@ TEST(MOPTTest, testPickBetterMutator)
     // Typically it's at least 70% or so.
     EXPECT_GT(selected0Percent, 55.0);
 
+    for(MutatorModule* m: *mutators)
+    {
+        delete m;
+    }
     mutators -> clear();
     delete mutators;
     delete mopt;

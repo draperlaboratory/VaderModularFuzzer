@@ -28,67 +28,36 @@
  * ===========================================================================*/
 #pragma once
 
-// include common modules
-#include "ControllerModule.hpp"
-#include "ExecutorModule.hpp"
-#include "FeedbackModule.hpp"
-#include "InputGeneratorModule.hpp"
-#include "InitializationModule.hpp"
-#include "OutputModule.hpp"
-#include "StorageModule.hpp"
-#include "RuntimeException.hpp"
-
-#include <vector>
-
+#include "ControllerModulePattern.hpp"
 
 namespace vmf
 {
 /**
  * @brief Controller runs every provided module exactly once before shutting down
- * This Controller supports any number of initializationModules, inputGeneratorModules, and outputModules.
- * Up to one executor and feedback modules are supported.  All module types are optional, however
+ * This Controller supports any number of modules.  All module types are optional, however
  * a feedback module cannot be specified without an executor to go with it, and if
  * an executor module is used a feedback modules must be provided as well.
+ * Note: Scheduling preferences of output modules are ignored with this controller --
+ * all output modules run once at the end of the one loop through the fuzzer.
  */
-class RunOnceController : public ControllerModule {
+class RunOnceController : public ControllerModulePattern {
 public:
 
     static Module* build(std::string name);
     virtual void init(ConfigInterface& config);
 
-    virtual void registerStorageNeeds(StorageRegistry& registry);
-    virtual void registerMetadataNeeds(StorageRegistry& registry);
+    //This controller has no additional storage needs
+    //virtual void registerStorageNeeds(StorageRegistry& registry);
+    //virtual void registerMetadataNeeds(StorageRegistry& registry);
 
     virtual bool run(StorageModule& storage, bool isFirstPass);
 
     RunOnceController(std::string name);
     virtual ~RunOnceController();
 
-protected:
-
-    virtual void calibrate(StorageModule& storage);
-    virtual void executeTestCases(bool firstPass, StorageModule& storage);
-
-    ///The list of InitializationModules being used by this controller
-    std::vector<InitializationModule*> initializations;
-    
-    ///The list of InputGeneratorModules being used by this controller
-    std::vector<InputGeneratorModule*> inputGenerators; 
-   
-    ///The ExecutorModule being used by this controller
-    ExecutorModule* executor;
-   
-    ///The FeedbackModule being used by this controller
-    FeedbackModule* feedback; 
-    
-    ///The list of OutputModules being used by this controller
+private:
+    ///Because output modules are not scheduled, this controller does not use the OutputScheduler class
     std::vector<OutputModule*> outputs;
-
-    ///The handle to the TOTAL_TEST_CASES metadata field
-    int totalNumTestCasesMetadataKey;
-
-    ///This is the number of new test cases executed on this execution of the fuzzing loop
-    int newCasesCount;
 
 };
 }

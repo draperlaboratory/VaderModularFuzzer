@@ -28,6 +28,7 @@
  * ===========================================================================*/
 
 #pragma once
+#include "VmfRand.hpp"
 
 namespace vmf
 {
@@ -61,6 +62,7 @@ public:
     int getExecs(int mutator);
     void updateFitness();
 private:
+    float genRandomWeight();
     unsigned int numMutators;
     double fitness;
     int* finds_total, *finds_iteration;
@@ -69,5 +71,6 @@ private:
     double* v_now;
     double* L_best;
     double* eff_best;
+    VmfRand* rand;
 };
 }

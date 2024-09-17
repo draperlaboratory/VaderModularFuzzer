@@ -4,7 +4,7 @@ vmfModules:
   storage:
     className: SimpleStorage
   controller:
-    className: RunOnceController
+    className: AnalysisController
     children:
       - className: ServerCorpusInitialization
       - className: AFLForkserverExecutor
@@ -16,6 +16,16 @@ vmfModules:
   CorpusMinimization:
     children:
       - className: AFLForkserverExecutor
+        id: CorpusMinExecutor
+# Modules-specific parameters
+#(The SUT-specific portions of these all defined using YAML anchors)
+AFLForkserverExecutor:
+  sutArgv: *SUT_ARGV
+
 CorpusMinimization:
   frequencyInMinutes: 0
   minimizeOnShutdown: false #ServerCorpusMinOutput will call upon this module to run
+  
+CorpusMinExecutor:
+  sutArgv: *SUT_ARGV
+  alwaysWriteTraceBits: true

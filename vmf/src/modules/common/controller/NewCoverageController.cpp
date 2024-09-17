@@ -53,32 +53,18 @@ Module* NewCoverageController::build(std::string name)
 void NewCoverageController::init(ConfigInterface& config)
 {
 
-    ControllerModule::init(config);
-    runTimeMinutes = config.getIntParam(getModuleName(),"runTimeInMinutes", 0);
-
-    executor = nullptr;
-    feedback = nullptr;
-
-    // We require exactly 1 executor and 1 feedback module
-    executor = ExecutorModule::getExecutorSubmodule(config, getModuleName());
-    feedback = FeedbackModule::getFeedbackSubmodule(config, getModuleName());
-
-    // Initialization and input generators we can support multiple
-    std::vector<InputGeneratorModule*> inputGenerators;
-    inputGenerators = InputGeneratorModule::getInputGeneratorSubmodules(config, getModuleName());    
-    outScheduler.setOutputModules(OutputModule::getOutputSubmodules(config, getModuleName()));
-    initializations = InitializationModule::getInitializationSubmodules(config, getModuleName());
+    ControllerModulePattern::init(config);
 
     // Validate the configuration
-    if (nullptr == executor)
+    if (1 != executors.size())
     {
-        throw RuntimeException("NewCoverageController requires an ExecutorModule",
+        throw RuntimeException("NewCoverageController requires a single ExecutorModule",
                                 RuntimeException::CONFIGURATION_ERROR);
     }
 
-    if (nullptr == feedback)
+    if (1 != feedbacks.size())
     {
-        throw RuntimeException("NewCoverageController requires a FeedbackModule",
+        throw RuntimeException("NewCoverageController requires a single FeedbackModule",
                                 RuntimeException::CONFIGURATION_ERROR);
     }
 
@@ -92,14 +78,14 @@ void NewCoverageController::init(ConfigInterface& config)
 
     if (primaryInputGen == nullptr)
     {
-	throw RuntimeException("NewCoverageController requires primaryInputGenerator",
-			RuntimeException::CONFIGURATION_ERROR);
+        throw RuntimeException("NewCoverageController requires primaryInputGenerator",
+                RuntimeException::CONFIGURATION_ERROR);
     }
 
     if (newCoverageInputGen == nullptr)
     {
-	throw RuntimeException("NewCoverageController requires newCoverageInputGenerator",
-			RuntimeException::CONFIGURATION_ERROR);
+        throw RuntimeException("NewCoverageController requires newCoverageInputGenerator",
+                RuntimeException::CONFIGURATION_ERROR);
     }
 
     // We start off using the primaryInputGen
@@ -107,15 +93,13 @@ void NewCoverageController::init(ConfigInterface& config)
 }
 
 /**
- * @brief Construct a new Iterative Controller object
+ * @brief Construct a new New Coverage Controller object
  * 
  * @param name the name o the module
  */
 NewCoverageController::NewCoverageController(
     std::string name) :
-    ControllerModule(name),
-    initializations(),
-    stopSignalReceived(false)
+    ControllerModulePattern(name)
 {
 
 }
@@ -125,55 +109,31 @@ NewCoverageController::~NewCoverageController()
     
 }
 
-void NewCoverageController::registerStorageNeeds(StorageRegistry& registry)
-{
-    ControllerModule::registerStorageNeeds(registry);
-}
-
-void NewCoverageController::registerMetadataNeeds(StorageRegistry& registry)
-{
-    totalNumTestCasesMetadataKey = registry.registerKey("TOTAL_TEST_CASES", StorageRegistry::INT, StorageRegistry::WRITE_ONLY);
-}
 
 bool NewCoverageController::run(StorageModule& storage, bool firstPass)
 {
     bool done = false;
-    time_t now;
     if (firstPass)
     {
-        LOG_INFO << "Performing setup and calibration.";
-        setup(storage);
-
-        calibrate(storage);
-        startTime = time(0);
-
-        LOG_INFO << "Starting Fuzzing.";
-        if(runTimeMinutes > 0)
-        {
-            LOG_INFO << "Controller configured to run for " << runTimeMinutes << " minutes.";
-        }
-        else
-        {
-            LOG_INFO << "Controller configured to run until stopped manually.";
-        }
+        performInitialSetupAndCalibration(storage);
     }
 
     // Call the current input generator to make new test cases.
     // Skip generating on the first pass because we use initial seeds instead.
     if (!firstPass)
     {
-	// Clear out tags
-	storage.clearNewAndLocalEntries();
+        // Clear out tags
+        storage.clearNewAndLocalEntries();
 
-	//generateNewTestCases(storage);
-	currentInputGen->addNewTestCases(storage);
+        //generateNewTestCases(storage);
+        currentInputGen->addNewTestCases(storage);
     }
 
     // Run all the testcases we just generated (or got from the initial seeds)
-    executeTestCases(storage);
+    executeTestCases(firstPass, storage);
 
     // Run output modules etc
-    analyzeResults(storage);
+    analyzeResults(firstPass, storage);
 
     // We call examineTestCaseResults on all InputGenerators
     bool primaryRunAgain = primaryInputGen -> examineTestCaseResults(storage);
@@ -188,82 +148,26 @@ bool NewCoverageController::run(StorageModule& storage, bool firstPass)
     // Pick the next input generator for the next cycle
     selectNextInputGenerator();
 
-    // Detect exiting early if configured to only run for N minutes.
-    // runTimeMinutes == 0 means no limit.
-    now = time(0);
-    if (runTimeMinutes>0)
-    {
-        double runTime = difftime(now, startTime) / 60; //time in minutes
-
-        if(runTime >= runTimeMinutes)
-        {
-            LOG_INFO << "Fuzzing complete -- run time of " << runTime << " minutes.";
-            done = true;
-        }
-    }
+    done = hasExecutionTimeCompleted();
 
     return done;
-}
-
-/**
- * @brief Helper method to run each of the initilization modules
- * Each module will be called once.  Subclasses may override this method to provide
- * different behavior.
- * @param storage the storage module
- */
-void NewCoverageController::setup(StorageModule& storage)
-{
-    for (InitializationModule* m: initializations)
-    {
-        m->run(storage);
-    }
-}
-
-/**
- * @brief Calls upon the executor module to calibrate
- * Each of the initial test cases in storage will be passed to the executor
- * for callibration.  
- * Subclasses may override this method to provide different behavior.
- * 
- * @param storage 
- */
-void NewCoverageController::calibrate(StorageModule& storage)
-{
-    //Provide each test case in the initial corpus to the executor for calibration
-    
-    std::unique_ptr<Iterator> storageIterator = storage.getNewEntries();
-    if(storageIterator->getSize()>0)
-    {
-        executor->runCalibrationCases(storage, storageIterator);
-    }
-    else
-    {
-        LOG_ERROR << "There are no seed test cases in storage to callibrate the executor with.";
-    }
 }
 
 
 /**
  * @brief Helper method to execute all the new test cases.
+ * This version of the method determines whether or not new coverage
+ * was found on this pass, and sets the foundNewCoverageThisCycle flag accordingly
+ * @param firstPass whether or not this the first pass through execution
  * @param storage the storage module
  */
-void NewCoverageController::executeTestCases(StorageModule& storage)
+void NewCoverageController::executeTestCases(bool firstPass, StorageModule& storage)
 {
-
-    std::unique_ptr<Iterator> storageIterator = storage.getNewEntries();
-    newCasesCount = storageIterator->getSize();
-
-    executor->runTestCases(storage, storageIterator);
-    storageIterator->resetIndex();
-    feedback->evaluateTestCaseResults(storage, storageIterator);
-
-    //Update TOTAL_TEST_CASES metadata
-    StorageEntry& metadata = storage.getMetadata();
-    int totalCasesCount =  metadata.getIntValue(totalNumTestCasesMetadataKey) + newCasesCount;
-    metadata.setValue(totalNumTestCasesMetadataKey, totalCasesCount);
+    ControllerModulePattern::executeTestCases(firstPass, storage);
 
     // Look up how many of this batch will be saved.
     // If more than zero, we switch to the newCoverageInputGen.
+    std::unique_ptr<Iterator> storageIterator = storage.getNewEntries();
     storageIterator = storage.getNewEntriesThatWillBeSaved();
     foundNewCoverageThisCycle = storageIterator->getSize() > 0;
 }
@@ -280,34 +184,21 @@ void NewCoverageController::selectNextInputGenerator()
     // then don't change the input generator.
     if (inputGenRunAgain)
     {
-	// LOG_INFO << "Keeping current input generator: " << currentInputGen -> getModuleName();
-	return;
+        //LOG_DEBUG<< "Keeping current input generator: " << currentInputGen -> getModuleName();
+        return;
     }
 
     // Otherwise, if there was new coverage use the new coverage input gen.
     if (foundNewCoverageThisCycle)
     {
-	//LOG_INFO << "New coverage, switching to newCovInputGen";
-	currentInputGen = newCoverageInputGen;
-	return;
+        //LOG_DEBUG << "New coverage, switching to newCovInputGen";
+        currentInputGen = newCoverageInputGen;
+        return;
     }
 
     // If no new coverage and no input generator wanted to run again, then
     // default to primary.
-    // LOG_INFO << "Defaulting back to primary input gen";
+    // LOG_DEBUG << "Defaulting back to primary input gen";
     currentInputGen = primaryInputGen;
 }
 
-/**
- * @brief Helper method to call each of the output modules
- * Each module will be given a chance to run, using the OutputScheduler
- * for appropriately scheduling output modules.
- * Subclasses may override this method to provide different behavior.
- * 
- * @param storage
- */
-void NewCoverageController::analyzeResults(StorageModule& storage)
-{
-    //The output scheduler handles determining which output modules are ready to run
-    outScheduler.runOutputModules(newCasesCount, storage);
-}

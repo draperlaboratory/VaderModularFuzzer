@@ -9,11 +9,14 @@ vmfModules:
       - className: DirectoryBasedSeedGen
       - className: AFLForkserverExecutor
       - className: AFLFavoredFeedback
+      - className: CorpusMinimization
       - className: SaveCorpusOutput
+      - className: ComputeStats
       - className: StatsOutput
   CorpusMinimization:
     children:
       - className: AFLForkserverExecutor
+        id: CorpusMinExecutor
   MOPTInputGenerator:
     children:
       - className: AFLFlipBitMutator
@@ -34,6 +37,30 @@ vmfModules:
       - id: cmplogExecutor
         className: AFLForkserverExecutor
 
-NewCoverageController:
+# Modules-specific parameters
+#(The SUT-specific portions of these all defined using YAML anchors)
+
+NewCoverageController: #This specifies which input generator is primary
   primaryInputGenerator: MOPTInputGenerator
   newCoverageInputGenerator: RedPawnInputGenerator
+
+AFLForkserverExecutor: #Main fuzzing loop executor
+  sutArgv: *SUT_ARGV
+
+DirectoryBasedSeedGen: 
+  inputDir: *INPUT_DIR
+
+CorpusMinExecutor: #Executor used only for corpus minimization
+  sutArgv: *SUT_ARGV
+  alwaysWriteTraceBits: true
+
+colorizationExecutor: #Red Pawn colorization executor
+  sutArgv: *SUT_ARGV
+  alwaysWriteTraceBits: true
+  writeStats: false
+
+cmplogExecutor: #Red Pawn cmplog executor
+  sutArgv: *CMPLOG_SUT_ARGV
+  memoryLimitInMB: *CMPLOG_MEM_LIMIT_MB  #cmplog needs extra memory
+  cmpLogEnabled: true
+  writeStats: false

@@ -61,6 +61,7 @@ public:
     virtual void notifyPrimaryKeyUpdated(StorageEntry* entry);
     virtual void notifyTagSet(StorageEntry* entry, int tagId);
     virtual void notifyTagRemoved(StorageEntry* entry, int tagId);
+    virtual void notifyTempBufferSet(StorageEntry* entry, bool isMetadata);
 
     //--------Used by modules-----------------
     //These methods are for local entries only
@@ -90,6 +91,10 @@ public:
     //These methods are helper methods for working with tags in a generic way
     virtual std::vector<int> getListOfTagHandles(); //Get a list of all the tags ids used by storage
     virtual std::string tagHandleToString(int tagId); //Convert a tag id to a human readable string
+
+    //These methods are helper methods for working with keys in a generic way
+    virtual std::vector<int> getListOfMetadataKeyHandles(StorageRegistry::storageTypes type);
+    virtual std::string metadataKeyHandleToString(int handle); //Convert a key handle to a human readable string
 
     //This method returns the one and only metadata storage entry
     virtual StorageEntry& getMetadata();
@@ -140,6 +145,28 @@ private:
      */
     std::list<StorageEntry*> deleteList;
 
+    /**
+     * @brief Temporary storage for entries with modified temporary buffers
+     * 
+     * This list is used to clear temporary buffers when clearNewAndLocalEntries is called.
+     */
+    std::list<StorageEntry*> tempBufferModList;
+
+    /**
+     * @brief The list of temp buffer handles
+     * 
+     * This is retrieved from the storage registry and used to know which buffers to clear
+     * on the entries on the tempBufferModList;
+     */
+    std::vector<int> tmpBufferHandles;
+
+
+    /**
+     * @brief Flag to indicate whether or not metadata temp buffers have been set
+     * 
+     */
+    bool metadataTempBuffSet;
+
     //NOTE: Be careful when accessing these datastructures (tagList and newTagList)
     //Using a for-each loop can cause accidental copies (using tagList[i] should prevent this)
     //See: https://stackoverflow.com/questions/51387535/c-range-based-for-loop-is-the-container-copied
@@ -174,11 +201,17 @@ private:
     ///The metadata object
     StorageEntry* metadataEntry;
 
-    ///Human readable version of tag names (indexed by tag handle)
-    std::vector<std::string> tagNames;
+    ///Map of human readable version of tag names (indexed by tag handle)
+    std::unordered_map<int,std::string> tagNameMap;
+
+    ///Map of human readable key names (indexed by key handle)
+    std::unordered_map<int,std::string> metaKeyNameMap;
 
     ///List of tag handles
     std::vector<int> tagHandles;
+
+    //Map of data types to key handles
+    std::unordered_map<StorageRegistry::storageTypes,std::vector<int>> metaKeyHandleMap;
 
 };
 }

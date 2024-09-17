@@ -53,8 +53,6 @@ class ServerCorpusInitialization: public InitializationModule
 
     private:
         bool   writeServerURL;
-        int    testCaseKey;
-        int    serverTestCaseTag;
         int    fileURLKey;
 
         std::string tags;

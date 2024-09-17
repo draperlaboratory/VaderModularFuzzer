@@ -57,48 +57,22 @@ private:
 
     void outputStatistics();
 
-    //These are the statistics collected/computed
-    ///Total Fuzzer executions
-    int currentTotal;
-    ///Total unique/interesting test cases
-    int uniqueTotal; 
-    ///Total number of detected test cases that crash
-    int crashes; 
-    ///Total number of crashes that are unique
-    int uniqueCrashes;
-    ///Total number of detected test cases that hang
-    int hangs; 
-    ///Total number of hangs that are unique
-    int uniqueHangs; 
-    ///Total coverage bytes
-    int bytesCovered; 
-    ///Total coverage map size
-    int mapSize;
-    ///Time since last interesting test case was found (in seconds)
-    float timeSinceLastFound;
-    ///Percentage of the coverage map that is being filled
-    float mapPercentFull; 
-    /// Average executions per second
-    float casePerSec;
-    /// Recent executions per second (since last call to output module)
-    float latestCasePerSec;
-
     // When true, stats are sent to the server, when false, they are send to the logger instead
     bool writeToServer;
     int outputRate;
-    void computeExecutionsPerSecond(int totalTestCaseCount);
+
     int totalTCCountMetadataKey;
     int totalCrashedCountMetadataKey;
     int totalHungCountMetadataKey;
     int totalBytesCoveredMetadataKey;
     int mapSizeMetadataKey;  
+    int secondsSinceLastUniqueMetadataKey;
+    int uniqueTCCountMetadataKey;
+    int uniqueCrashedCountMetadataKey;
+    int uniqueHungCountMetadataKey;
+    int latestExecPerSecMetadataKey;
+    int averageExecPerSecMetadataKey;
 
-    int crashedTag;
-    int hungTag;
 
-    time_t timeLastPrintedStats;
-    time_t timeLastInterestingTestCaseFound;
-    int prevTestCaseTotal;
-    double total_time;
 };
 }

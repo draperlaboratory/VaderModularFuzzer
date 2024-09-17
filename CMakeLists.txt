@@ -46,6 +46,9 @@ set(CMAKE_CXX_COMPILER g++)
 # Use address sanitizer?
 #add_compile_options(-fsanitize=address)
 #add_link_options(-fsanitize=address)
+#Or if those flags don't work, then use these:
+#set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
+#set (CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
 
 # Add debug info?
 #add_link_options(-g)
@@ -55,7 +58,7 @@ set(CMAKE_CXX_COMPILER g++)
 set(CMAKE_EXPORT_COMPILE_COMMANDS True)
 
 #############################################################
-project(VMF VERSION 4.0.0
+project(VMF VERSION 4.1.0
     LANGUAGES CXX )
 #############################################################
 

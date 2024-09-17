@@ -29,7 +29,7 @@
 #include "ServerSeedInitialization.hpp"
 #include "Logging.hpp"
 #include "CDMSClient.hpp"
-#include "json11.hpp"
+#include "CDMSCommandAndCorpusHandler.hpp"
 
 
 using namespace vmf;
@@ -75,23 +75,13 @@ void ServerSeedInitialization::init(ConfigInterface& config)
 
 void ServerSeedInitialization::registerStorageNeeds(StorageRegistry& registry)
 {
-    testCaseKey = registry.registerKey("TEST_CASE",StorageRegistry::BUFFER,StorageRegistry::WRITE_ONLY);
-    serverTestCaseTag = registry.registerTag("SERVER_TC", StorageRegistry::WRITE_ONLY);
+    CDMSCommandAndCorpusHandler::getInstance().registerStorageNeeds(registry);
 }
 
 
 void ServerSeedInitialization::run(StorageModule& storage)
 {
-
-    CDMSClient* client = CDMSClient::getInstance();
-
     LOG_INFO << "About to request initial seeds from CDMS";
-
-    json11::Json json = client->getCorpusInitialSeeds(tags, getMinCorpus);
-
-    //A new test case is created for each test case on the file list, with the
-    //"SERVER_TC" tag set so it is flagged as coming from the server
-    client->createNewTestCasesFromJson(storage, json, testCaseKey, serverTestCaseTag);
-    
+    CDMSCommandAndCorpusHandler::getInstance().loadCorpusInitialSeeds(storage,tags,getMinCorpus);
 }
 

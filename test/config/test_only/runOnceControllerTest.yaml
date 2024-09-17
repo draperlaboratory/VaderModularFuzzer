@@ -7,4 +7,5 @@ vmfModules:
     - className: DirectoryBasedSeedGen
     - className: AFLForkserverExecutor
     - className: AFLFeedback
+    - className: ComputeStats
     - className: StatsOutput

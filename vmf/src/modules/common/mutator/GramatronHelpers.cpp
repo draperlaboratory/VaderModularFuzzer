@@ -16,6 +16,7 @@
  * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
  * ===========================================================================*/
 #include "GramatronHelpers.hpp"
+#include "VmfRand.hpp"
 
 using namespace vmf;
 
@@ -30,6 +31,7 @@ Array* vmf::gen_input(PDA *pda_s, Array* input, int curr_state) {
     pdaState* state_ptr;
     trigger* trigger_ptr;
 
+    VmfRand* rand = VmfRand::getInstance();
     int randval;
 
     // Generating an input for the first time
@@ -46,7 +48,7 @@ Array* vmf::gen_input(PDA *pda_s, Array* input, int curr_state) {
         state_ptr = pda_s->state_ptr() + curr_state;
 
         // Get a random trigger based on the number of triggers/transition functions out of the automata current state
-        randval = rand() % (state_ptr->trigger_len);
+        randval = rand->randBelow(state_ptr->trigger_len);
         trigger_ptr = (state_ptr->ptr) + randval;
 
         // Insert into the dynamic array (essentially the PDA walk)

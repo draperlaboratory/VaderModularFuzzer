@@ -26,30 +26,25 @@
  *  
  * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
  * ===========================================================================*/
-#ifndef MYMUTATOR_H
-#define MYMUTATOR_H
+#pragma once
 
-#include "MutatorModule.hpp"
-#include "StorageEntry.hpp"
+#include "InitializationModule.hpp"
 
 using namespace vmf;
 
-class MyMutator : public MutatorModule
+class TemplateInitialization : public InitializationModule
 {
 public:
     static Module* build(std::string name);
     virtual void init(ConfigInterface& config);
     
-    MyMutator(std::string name);
-    virtual ~MyMutator();
+    TemplateInitialization(std::string name);
+    virtual ~TemplateInitialization();
     virtual void registerStorageNeeds(StorageRegistry& registry);
-    virtual void mutateTestCase(StorageModule& storage, StorageEntry* baseEntry, StorageEntry* newEntry, int testCaseKey);
-    
+    //virtual void registerMetadataNeeds(StorageRegistry& registry);
+
+    virtual void run(StorageModule& storage);
+  
 private:
+    int testCaseKey;
 };
-
-#endif
-
-/* Local Variables:  */
-/* mode: c++         */
-/* End:              */

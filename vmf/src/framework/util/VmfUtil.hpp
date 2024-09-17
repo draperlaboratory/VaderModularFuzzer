@@ -80,18 +80,16 @@ class VmfUtil
 {
 public:
     static uint64_t getCurTime(void);
+    static uint64_t getCurTimeSecs(void);
   
     static void createDirectory(const char* path);
     static bool directoryExists(std::string dir);
     static int createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, std::string directory);
-    static int createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, std::string directory, int filenameKey, int serverTestCaseTag);
     static void writeBufferToFile(std::string baseDir, std::string fileName, const char* buffer, int size);
     static std::string getExecutablePath();
     static int selectWeightedRandomValue(int min, int max);
+    static size_t hashBuffer(char * buff, int len);
     static bool commandLineUnzip(std::string zipFilePath, std::string outputDir);
     static bool commandLineZip(std::string zipFilePath, std::string inputDir);
-    
-private:
-    static int createNewTestCasesFromDirImpl(StorageModule& storage, int testCaseKey, std::string directory, int filenameKey, int serverTestCaseTag);
 };
 }

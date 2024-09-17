@@ -31,6 +31,7 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <unordered_map>
 
 namespace vmf
 {
@@ -46,11 +47,16 @@ public:
     enum storageTypes
     {
         INT,
+        UINT,
         FLOAT,
-        BUFFER //Note: Storage cannot be sorted by a BUFFER type
+        BUFFER, //Note: Storage cannot be sorted by a BUFFER or BUFFER_TEMP type
+        BUFFER_TEMP //BUFFER_TEMP is for data that is kept around only for one pass through the fuzzing loop
     };
+    //Note: If other data types are added to storage, be careful to update the other classes
+    //that rely on these type definitions (including the implementations of StorageModule).
 
     static storageTypes stringToStorageType(std::string type);
+    static std::string storageTypeToString(storageTypes type);
 
     ///The types of access that users using storage could have for fields
     enum accessType
@@ -75,14 +81,19 @@ public:
     bool validateRegistration();
     int registerKey(std::string keyName, storageTypes type, accessType access);
     int registerIntKey(std::string keyName, accessType access, int defaultValue);
+    int registerUIntKey(std::string keyName, accessType access, unsigned int defaultValue);
     int registerFloatKey(std::string keyName, accessType access, float defaultValue);
     int registerTag(std::string tagName, accessType access);
     void registerForAllTags(accessType access);
-    std::vector<std::string> getTagNames();
+    void registerToReadAllKeys();
+    std::unordered_map<int,std::string> getTagNameMap();
     std::vector<int> getTagHandles();
     int getNumKeys(storageTypes type);
+    std::vector<int> getKeyHandles(storageTypes type);
+    std::unordered_map<int,std::string> getKeyNameMap();
     int getNumTags();
     std::vector<int> getIntKeyDefaults();
+    std::vector<unsigned int> getUIntKeyDefaults();
     std::vector<float> getFloatKeyDefaults();
     int getSortByKey();
     storageTypes getSortByType();
@@ -90,23 +101,29 @@ public:
 
 private:
 
+    ///List of all of the values in storageTypes, useful for anything needing to iterate over all the types
+    static std::vector<storageTypes> storageTypeList;
+
     struct registryInfo
     {
         std::string name;
+        int handle;
         bool isRead;
         bool isWritten;
         bool hasDefault;
     };
 
-    int addIfNotPresent(std::vector<registryInfo>& keyList, std::string keyName, accessType access, bool& wasNew);
+    int addIfNotPresent(int typeMask,std::vector<registryInfo>& keyList, std::string keyName, accessType access, bool& wasNew);
     bool validateList(std::vector<registryInfo>& keyList, std::string listName);
+    template <class T> int registerWithDefault(std::string keyName, accessType access, int typeMask, std::vector<registryInfo>& keyList, std::vector<T>& defaultList, T defaultValue);
+    void setIsReadOnAllKeys(std::vector<registryInfo> keyList);
 
     std::vector<registryInfo> tagNames;
-    std::vector<registryInfo> intKeys;
     std::vector<int> intDefaults;
-    std::vector<registryInfo> floatKeys;
+    std::vector<unsigned int> uintDefaults;
     std::vector<float> floatDefaults;
-    std::vector<registryInfo> bufferKeys;
+
+    std::unordered_map<storageTypes,std::vector<registryInfo>> registryMap;
 
     int sortByKeyHandle;
     storageTypes sortByType;
@@ -114,6 +131,7 @@ private:
 
     bool readAllTags;
     bool writeAllTags;
+    bool readAllKeys;
 
 };
 }

@@ -1,7 +1,7 @@
 # Writing a New Module
 VMF was designed to be a modular, extensible framework that enables the integration of new fuzzing tools and techniques.  Each integrate tool is associated with one or more VMF "modules".  VMF uses a storage-centric design, with a controller module that manages the interaction between other VMF modules.  All data sharing between modules is via a central configurable storage component.
 
-This document describes how to develop new modules within VMF.
+This document describes how to develop new modules within VMF.  Templates for each of the major module types are provided in [/vmf/src/samples/moduleTemplates/](../vmf/src/samples/moduleTemplates/).  See the [README.md](../vmf/src/samples/README.md) in samples for more information on these templates.
 
 * [Common Module Methods](#common-module-methods)
     + [Example Module](#example-module)
@@ -56,32 +56,33 @@ By convention, when naming your module, use the first part of the base class nam
 # Common Module Methods
 
 ## Example Module
-This section uses a new mutator module (MyMutator) as an example to discuss common module methods.  Full source code for MyMutator is included at [vmf/src/samples/module/MyMutator.hpp](../vmf/src/samples/module/MyMutator.hpp) and [vmf/src/samples/module/MyMutator.cpp](../vmf/src/samples/module/MyMutator.cpp)
+This section uses a template mutator module (TemplateMutator) as an example to discuss common module methods.  Full source code for TemplateMutator is included at [vmf/src/samples/moduleTemplates/TemplateMutator.hpp](../vmf/src/samples/moduleTemplates/TemplateMutator.hpp) and [vmf/src/samples/moduleTemplates/TemplateMutator.cpp](../vmf/src/samples/moduleTemplates/TemplateMutator.cpp).
 
-The example header file for MyMutator.hpp is provided method.  Within this header file are methods that are common to all module types, as well as the one method that is required specifically for Mutator Modules (mutateTestCase). Each of these common methods will be discussed in detail in this section.
+Within this template header file are methods that are common to all module types, as well as the one method that is required specifically for Mutator Modules (mutateTestCase). Each of these common methods will be discussed in detail in this section.
 
 ```c++
 #pragma once
-#include "common/MutatorModule.hpp"
 
-namespace vmf
-{
+#include "MutatorModule.hpp"
+#include "StorageEntry.hpp"
 
-class MyMutator: public MutatorModule
+using namespace vmf;
+
+class TemplateMutator : public MutatorModule
 {
 public:
-
     static Module* build(std::string name);
     virtual void init(ConfigInterface& config);
-
-    MyMutator(std::string name);
-    virtual ~MyMutatorMutator();
+    
+    TemplateMutator(std::string name);
+    virtual ~TemplateMutator();
     virtual void registerStorageNeeds(StorageRegistry& registry);
-    virtual void mutateTestCase(StorageModule& storage, StorageEntry* baseEntry, StorageEntry* newEntry, int testCaseKey);  //This is MutatorModule specific
+    //virtual void registerMetadataNeeds(StorageRegistry& registry);
 
+    virtual void mutateTestCase(StorageModule& storage, StorageEntry* baseEntry, StorageEntry* newEntry, int testCaseKey);
+    
+private:
 };
-}
-
 ```
 
 ## Where to Put New Module Code
@@ -108,9 +109,9 @@ A number of steps are needed in order to configure VMF to use a new module.  Sev
 All modules are required to implement a build method in order to support name based construction of the module from the VMF config file.  The build method simply needs to return a new instance of the module
 
 ```c++
-Module* MyMutator::build(std::string name)
+Module* TemplateMutator::build(std::string name)
 {
-    return new MyMutator(name);
+    return new TemplateMutator(name);
 }
 
 ```
@@ -118,7 +119,7 @@ Module* MyMutator::build(std::string name)
 Note that the module constructor takes a name string.  This is required by the module based class constructor in order to uniquely identify the module (this is the same "name" that is discussed later in the configuration section).  Be sure to pass this name to the parent constructor.
 
 ```c+
-MyMutator::MyMutator(std::string name) :
+TemplateMutator::TemplateMutator(std::string name) :
     MutatorModule(name)
 {
 
@@ -188,7 +189,7 @@ All  modules will need to register their module with the [ModuleFactory](../vmf/
   it available for use via VMF configuration files.
  */
 #include "common/ModuleFactory.hpp"
-REGISTER_MODULE(MyMutator);
+REGISTER_MODULE(TemplateMutator);
 ```
 
 ## Adding the Module to the VMF Configuration File
@@ -203,7 +204,7 @@ vmfModules:
   ...
   GeneticAlgorithmInputGenerator:
     children:
-     - className: MyMutator
+     - className: TemplateMutator
 
 ```
 
@@ -215,7 +216,7 @@ vmfModules:
   GeneticAlgorithmInputGenerator:
     children:
      - id : Mutator1
-       className: MyMutator
+       className: TemplateMutator
 
 
 ```
@@ -256,7 +257,7 @@ StorageEntry& metadata = storage->getMetadata();
 ```
 
 Some common metadata keys used in the VMF core modules:
-- "TOTAL_CRASHED_CASES" : Produced by AFLFeedback, this is the total number of test cases that crashed.  This is smaller than the number that are tagged as "CRASHED", because AFLFeedback only saves the test cases that have unique code coverage.
+- "TOTAL_CRASHED_CASES" : Produced by ComputeStats, this is the total number of test cases that crashed.  This is smaller than the number that are tagged as "CRASHED", because AFLFeedback only saves the test cases that have unique code coverage.
 - "TOTAL_HUNG_CASES" : Same as "TOTAL_CRASHED_CASES" but for test cases that hand or timeout.
 
 # Using Storage
@@ -364,7 +365,9 @@ See [StorageModule.hpp](../vmf/src/framework/baseclasses/StorageModule.hpp) for 
 Each module type requires one or more additional methods that are specific to that module type.  High level documentation of these methods is provided here, but the header file for each module class provides more detailed parameter by parameter documentation.  See the links in [Module Types](#module-types).
 
 ## ControllerModule
-It is unusual to need to write a new ControllerModule.   Implementers of the ControllerModule must implement several methods that provide top level control of the fuzzing loop.   Consider implementing a subclass of IterativeController if possible, and at the very least use IterativeController as an example, as there are a number of functions that the Controller needs to perform within its methods.  The helper class [vmf/src/framework/baseclasses/OutputScheduler.hpp](../vmf/src/framework/baseclasses/OutputScheduler.hpp) should be used to facilitate scheduling output modules at their desired rate.
+It is unusual to need to write a new ControllerModule.   Implementers of the ControllerModule must implement several methods that provide top level control of the fuzzing loop.   VMF includes a helper base class, [vmf/src/framework/baseclasses/ControllerModulePattern.hpp](../vmf/src/framework/baseclasses/ControllerModulePattern.hpp), that will be useful for many controller implementations. because it breaks down each step of a notional fuzzing loop into a series of helper methods.  ControllerModulePattern breasks down each step of a notional fuzzing loop into  an initial set of methods that can be re-used by subclasses.  Note that this pattern relies on the [vmf/src/framework/baseclasses/OutputScheduler.hpp](../vmf/src/framework/baseclasses/OutputScheduler.hpp) class to facilitate scheduling output modules at their desired rate.  It also relies on the [vmf/src/framework/util/CDMSCommandAndCorpusHandler.hpp](../vmf/src/framework/util/CDMSCommandAndCorpusHandler.hpp) for command handling for distributed fuzzing.
+
+IterativeController, NewCoverageController, AnalysisController and RunOnceController are all based on the ControllerModulePattern helper class, and may be useful as examples of controller implementations.
 
 ### Run()
 The run method will be called over and over to execute one pass through the fuzzing loop.  Controllers may optionally return false from this method to indicate that fuzzing is complete, or they may continue until interupted by an external factor.

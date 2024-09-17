@@ -68,15 +68,19 @@ public:
     bool sortByValueIsLessThan( const StorageEntry& e );
 
     void setValue(int key, int value);
+    void setValue(int key, unsigned int value);
     void setValue(int key, float value);
     int incrementIntValue(int key);
+    unsigned int incrementUIntValue(int key);
 
     int getIntValue(int key) const;
+    unsigned int getUIntValue(int key) const;
     float getFloatValue(int key) const;
 
     char* allocateBuffer(int key, int size);
     char* allocateAndCopyBuffer(int key, int size, char* srcBuffer);
     char* allocateAndCopyBuffer(int key, StorageEntry* srcEntry);
+    void clearBuffer(int key);
     bool hasBuffer(int key) const;
     int getBufferSize(int key) const;
     char* getBufferPointer(int key) const;
@@ -87,33 +91,43 @@ public:
     std::vector<int> getTagList();
 
 private:
-    static bool checkThatRangeIsValid(int key, int max);
+    static int getHandleIndex(int handle, int expectedType, bool isMetadata, int entryMax, int metaMax);
+    static int getBufferHandleIndex(int handle, int isMetadata, bool& isTmpBuffer);
 
     //Note: This is not a multi-threaded implementation
     static unsigned long uidCounter;
     static int pKey;
     static StorageRegistry::storageTypes pKeyType;
     static int maxInts;
+    static int maxUInts;
     static int maxFloats;
     static int maxBuffers;
+    static int maxTempBuffers;
     static int maxTags;
     //default values
     static std::vector<int> intDefaults;
+    static std::vector<unsigned int> uintDefaults;
     static std::vector<float> floatDefaults;
     static std::vector<int> intMetadataDefaults;
+    static std::vector<unsigned int> uintMetadataDefaults;
     static std::vector<float> floatMetadataDefaults;
     //metadata specific parameters
     static int maxIntsMetadata;
+    static int maxUIntsMetadata;
     static int maxFloatsMetadata;
     static int maxBuffersMetadata;
+    static int maxTempBuffersMetadata;
 
     unsigned long uid;
     bool isMetadataEntry;
     bool isLocal;
     std::vector<int> intValues;
+    std::vector<unsigned int> uintValues;
     std::vector<float> floatValues;
     std::vector<char*> bufferValues;
     std::vector<int> bufferSizes;///Size will equal UNALLOCATED_BUFFER if the buffer is not yet allocated
+    std::vector<char*> tmpBufferValues;
+    std::vector<int> tmpBufferSizes;
     const int UNALLOCATED_BUFFER = -1;
     std::vector<bool> tagValues;
     

@@ -149,6 +149,7 @@ void SaveCorpusOutput::run(StorageModule& storage)
 
 }
 
+
 /**
  * @brief Helper method to output a test case
  * This method simply outputs the test case to a file on disk.  

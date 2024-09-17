@@ -119,15 +119,15 @@ void MOPTInputGenerator::addNewTestCases(StorageModule& storage)
 
     if(nullptr != baseTestCase)
     {
-	// Generate N testcases per call to AddNewTestCases()
+        // Generate N testcases per call to AddNewTestCases()
         for(size_t i=0; i< 32; i++)
         {
-	        int pickedMutator = mopt -> pickMutator();
-	        StorageEntry* newEntry = storage.createNewEntry();
+            int pickedMutator = mopt -> pickMutator();
+            StorageEntry* newEntry = storage.createNewEntry();
             mutators[pickedMutator]->mutateTestCase(storage, baseTestCase, newEntry, testCaseKey);
             newEntry->setValue(mutatorIdKey, pickedMutator + 1); //The id is simply the index into the mutators vector plus 1
-	        mopt->updateExecCount(pickedMutator);
-	        testCasesRan++;
+            mopt->updateExecCount(pickedMutator);
+            testCasesRan++;
         }
     }
 }
@@ -143,8 +143,8 @@ bool MOPTInputGenerator::examineTestCaseResults(StorageModule& storage)
         int id = entry->getIntValue(mutatorIdKey);
         if(id > 0 && id <= (int)mutatorStats.size())
         {
-	        int mutator = id - 1;
-	        mopt->updateFindingsCount(mutator);
+            int mutator = id - 1;
+            mopt->updateFindingsCount(mutator);
         }
     }
 

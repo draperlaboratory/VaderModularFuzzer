@@ -73,7 +73,7 @@ Module* AFLFlip4ByteMutator::build(std::string name)
  */
 void AFLFlip4ByteMutator::init(ConfigInterface& config)
 {
-
+    rand = VmfRand::getInstance();
 }
 
 /**
@@ -84,7 +84,7 @@ void AFLFlip4ByteMutator::init(ConfigInterface& config)
 AFLFlip4ByteMutator::AFLFlip4ByteMutator(std::string name) :
     MutatorModule(name)
 {
-    rand.randInit();
+    rand = nullptr;
 }
 
 /**
@@ -110,6 +110,11 @@ void AFLFlip4ByteMutator::registerStorageNeeds(StorageRegistry& registry)
 void AFLFlip4ByteMutator::mutateTestCase(StorageModule& storage, StorageEntry* baseEntry, StorageEntry* newEntry, int testCaseKey)
 {
 
+    if (rand == nullptr)
+    {
+	throw RuntimeException("VmfRand was null, mutator was not initialized before use.");
+    }
+
     int size = baseEntry->getBufferSize(testCaseKey);
     char* buffer = baseEntry->getBufferPointer(testCaseKey);
 
@@ -126,7 +131,7 @@ void AFLFlip4ByteMutator::mutateTestCase(StorageModule& storage, StorageEntry* b
         return;    //This is the libAFL implementation
     }
 
-    int byte = rand.randBelow(size - 3);
+    int byte = rand->randBelow(size - 3);
 
     if (byte == -1) {
         return;    //This is the libAFL implementation

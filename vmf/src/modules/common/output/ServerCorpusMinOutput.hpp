@@ -39,8 +39,8 @@ namespace vmf
 /**
  * @brief Output module that transmits a minimized corpus to the server
  * 
- * This module only makes sense in the context of a RunOnceController that is being
- * used just to perform corpus minimization on the common corpus.
+ * This module only makes sense in the context of a controller that is being
+ * used just to perform corpus minimization on the common corpus (e.g. AnalysisController).
  * 
  * This module relies on a submodule that perform the actual corpus minimization.
  * In the run method, this module will call upon the submodule's run method with the
@@ -63,6 +63,7 @@ public:
 private:
     int fileURLKey;
     OutputModule* corpusMinModule;
+    bool minimizationRan;
 
 };
 }

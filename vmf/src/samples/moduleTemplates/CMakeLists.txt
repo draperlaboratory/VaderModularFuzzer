@@ -37,31 +37,43 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_COMPILER g++)
 #set(CMAKE_CXX_COMPILER clang++)
 
-project(MyModule VERSION 1.0 LANGUAGES CXX)
+project(ModuleTemplates VERSION 1.0 LANGUAGES CXX)
 
-# include support cmake files
-include(${VMF_INSTALL}/cmake/vmf_imports.cmake)
-include(${VMF_INSTALL}/cmake/vmf.cmake)
+# Check that VMF_INSTALL directory is properly defined, exit with error if not
+if (NOT IS_DIRECTORY ${VMF_INSTALL})
+  message( FATAL_ERROR "CMake variable VMF_INSTALL must be defined as full path to a VMF install tree, please use cmake -DVMF_INSTALL=/full/path/to/VMF" )
+endif()
 
-add_library(MyModule SHARED
-  MyMutator.cpp
+# Bring in VMF support variables and utility functions
+list(APPEND CMAKE_MODULE_PATH "${VMF_INSTALL}/cmake")
+include(vmf_imports)
+include(vmf)
+
+add_library(ModuleTemplates SHARED
+  TemplateExecutor.cpp
+  TemplateFeedback.cpp
+  TemplateInitialization.cpp
+  TemplateInputGenerator.cpp
+  TemplateMutator.cpp
+  TemplateOutput.cpp
 )
 # set VMF standard compile options
-set_vmf_compile_options(MyModule)
+set_vmf_compile_options(ModuleTemplates)
 
 #include the vmf framework headers
-target_include_directories(MyModule
+target_include_directories(ModuleTemplates
   PUBLIC
+  ${VMF_INSTALL}/include
   ${VMF_INSTALL}/include/vmf
+  ${VMF_INSTALL}/include/plog
 )
 
 #link to the vmf framework library
-target_link_libraries(MyModule
+target_link_libraries(ModuleTemplates
   PUBLIC
-  vmf_framework
 )
 
 #install build library into vmf plugins directory
-install(TARGETS MyModule
+install(TARGETS ModuleTemplates
   LIBRARY DESTINATION ${VMF_INSTALL}/plugins
 )

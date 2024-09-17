@@ -30,6 +30,7 @@
 #pragma once
 #include "MOPTSwarm.hpp"
 #include "MutatorModule.hpp"
+#include "VmfRand.hpp"
 #include <vector>
 
 namespace vmf
@@ -80,5 +81,6 @@ private:
     double w_now, w_init, w_end;
     double v_min, v_max;
     int g_now, g_max;
+    VmfRand* rand;
 };
 }

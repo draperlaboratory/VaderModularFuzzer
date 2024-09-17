@@ -52,35 +52,25 @@ Module* RunOnceController::build(std::string name)
  */
 void RunOnceController::init(ConfigInterface& config)
 {
-    ControllerModule::init(config);
+    ControllerModulePattern::init(config);
 
-    executor = nullptr;
-    feedback = nullptr;
-
-    //An exception will be thrown if more than one module is specified for modules
-    //types for which only a single instance is supported
-    executor = ExecutorModule::getExecutorSubmodule(config, getModuleName());
-    feedback = FeedbackModule::getFeedbackSubmodule(config, getModuleName());
-    
-    //For these module types, multiple module instances are supported
+    //Read in the output modules ourself, because we don't want to use the OutputScheduler for this controller
     outputs = OutputModule::getOutputSubmodules(config, getModuleName());
-    initializations = InitializationModule::getInitializationSubmodules(config, getModuleName());
-    inputGenerators = InputGeneratorModule::getInputGeneratorSubmodules(config, getModuleName());
 
-    if((nullptr!=feedback))
+    if((0 != feedbacks.size()))
     {
-        //An executor must be specified to use a feedback module
-        if(nullptr==executor)
+        //A least one executor must be specified to use a feedback module
+        if(0 ==executors.size())
         {
-            throw RuntimeException("FeedbackModule cannot be specified without an ExecutorModule",
+            throw RuntimeException("FeedbackModules cannot be specified without at least one ExecutorModule",
                                    RuntimeException::CONFIGURATION_ERROR);
         }
     }
 
     //If there is an executor module, then a feedback module must be provided
-    if((nullptr!=executor) && (nullptr==feedback))
+    if((0 != executors.size()) && (0 == feedbacks.size()))
     {
-            throw RuntimeException("ExecutorModule cannot be specified without an FeedbackModule",
+            throw RuntimeException("ExecutorModules cannot be specified without at least one FeedbackModule",
                                    RuntimeException::CONFIGURATION_ERROR);
     }
 
@@ -93,8 +83,7 @@ void RunOnceController::init(ConfigInterface& config)
  */
 RunOnceController::RunOnceController(
     std::string name) :
-    ControllerModule(name),
-    initializations()
+    ControllerModulePattern(name)
 {
 
 }
@@ -102,16 +91,6 @@ RunOnceController::RunOnceController(
 RunOnceController::~RunOnceController()
 {
 
-}
-
-void RunOnceController::registerStorageNeeds(StorageRegistry& registry)
-{
-    ControllerModule::registerStorageNeeds(registry);
-}
-
-void RunOnceController::registerMetadataNeeds(StorageRegistry& registry)
-{
-    totalNumTestCasesMetadataKey = registry.registerKey("TOTAL_TEST_CASES", StorageRegistry::INT, StorageRegistry::WRITE_ONLY);
 }
 
 
@@ -129,8 +108,8 @@ bool RunOnceController::run(StorageModule& storage, bool firstPass)
         m->addNewTestCases(storage);
     }
 
-    //If there is an executor, callibrate and run it
-    if(nullptr!=executor)
+    //If there is any executors, callibrate them and run them
+    if(0 != executors.size())
     {
         calibrate(storage);
         executeTestCases(firstPass, storage);
@@ -156,56 +135,5 @@ bool RunOnceController::run(StorageModule& storage, bool firstPass)
     return true; //execution always finishes after one fuzzing loop run
 }
 
-
-/**
- * @brief Calls upon the executor module to calibrate
- * Each of the initial test cases in storage will be passed to the executor
- * for callibration.  
- * Subclasses may override this method to provide different behavior.
- * 
- * @param storage 
- */
-void RunOnceController::calibrate(StorageModule& storage)
-{
-    //Provide each test case in the initial corpus to the executor for calibration
-    
-    //Now run each test case
-    std::unique_ptr<Iterator> storageIterator = storage.getNewEntries();
-    if(storageIterator->getSize()>0)
-    {
-        executor->runCalibrationCases(storage, storageIterator);
-    }
-    else
-    {
-        LOG_WARNING << "There are no seed test cases in storage to callibrate the executor with.";
-    }
-}
-
-
-/**
- * @brief Helper method to execute all the new test cases
- * The executor will be called to run each one, and the feedback module will
- * be called to evaluate the results.
- * 
- * Subclasses may override this method to provide different behavior.
- * 
- * @param firstPass true if this is the first pass through the fuzzing loop
- * @param storage the storage module
- */
-void RunOnceController::executeTestCases(bool firstPass, StorageModule& storage)
-{
-    std::unique_ptr<Iterator> storageIterator = storage.getNewEntries();
-
-    //Update TOTAL_TEST_CASES metadata
-    newCasesCount = storageIterator->getSize();
-    StorageEntry& metadata = storage.getMetadata();
-    int totalCasesCount =  metadata.getIntValue(totalNumTestCasesMetadataKey) + newCasesCount;
-    metadata.setValue(totalNumTestCasesMetadataKey, totalCasesCount);
-
-    executor->runTestCases(storage, storageIterator);
-    storageIterator->resetIndex();
-    feedback->evaluateTestCaseResults(storage, storageIterator);
-    
-}
 
 

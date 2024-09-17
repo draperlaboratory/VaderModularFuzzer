@@ -39,6 +39,7 @@
 #include "AFLRandomByteMutator.hpp"
 #include "AFLSpliceMutator.hpp"
 #include "SimpleStorage.hpp"
+#include "ModuleTestHelper.hpp"
 
 using namespace vmf;
 
@@ -53,6 +54,8 @@ class AFLMutatorTest : public ::testing::Test {
     storage = new SimpleStorage("storage");
     registry = new StorageRegistry("TEST_INT", StorageRegistry::INT, StorageRegistry::ASCENDING);
     metadata = new StorageRegistry();
+    testHelper = new ModuleTestHelper();
+    config = testHelper -> getConfig();
   }
 
   ~AFLMutatorTest() override {
@@ -89,6 +92,8 @@ class AFLMutatorTest : public ::testing::Test {
   StorageModule* storage;
   StorageRegistry* registry;
   StorageRegistry* metadata;
+  ModuleTestHelper* testHelper;
+  TestConfigInterface* config;
 
   int testCaseKey;
   int int_key;
@@ -133,6 +138,7 @@ class AFLMutatorTest : public ::testing::Test {
   void testSplice(int baseSize, int secondSize)
   { 
     AFLSpliceMutator theMutator("AFLSpliceMutator");
+    theMutator.init(*config);
     theMutator.registerStorageNeeds(*registry);
     theMutator.registerMetadataNeeds(*metadata);
 
@@ -234,23 +240,39 @@ TEST_F(AFLMutatorTest, TestAlgorithms)
   buff[11] = '8';
 
   AFLFlipBitMutator flipBit("AFLFlipBitMutator");
+  flipBit.init(*config);
   testAlgBuffEqLength(flipBit, baseEntry);
+
   AFLFlip2BitMutator flip2Bit("AFLFlip2BitMutator");
+  flip2Bit.init(*config);
   testAlgBuffEqLength(flip2Bit, baseEntry);
+
   AFLFlip4BitMutator flip4Bit("AFLFlip4BitMutator");
+  flip4Bit.init(*config);
   testAlgBuffEqLength(flip4Bit, baseEntry);
+
   AFLFlipByteMutator flipByte("AFLFlipByteMutator");
+  flipByte.init(*config);
   testAlgBuffEqLength(flipByte, baseEntry);
+
   AFLFlip2ByteMutator flip2Byte("AFLFlip2ByteMutator");
+  flip2Byte.init(*config);
   testAlgBuffEqLength(flip2Byte, baseEntry);
+
   AFLFlip4ByteMutator flip4Byte("AFLFlip4ByteMutator");
+  flip4Byte.init(*config);
   testAlgBuffEqLength(flip4Byte, baseEntry);
+
   AFLRandomByteAddSubMutator randomAddSub("AFLRandomByteAddSubMutator");
+  randomAddSub.init(*config);
   testAlgBuffEqLength(randomAddSub, baseEntry);
+
   AFLRandomByteMutator random("AFLRandomByteMutator");
+  random.init(*config);
   testAlgBuffEqLength(random, baseEntry);
 
   AFLDeleteMutator deleteMutator("AFLDeleteMutator");
+  deleteMutator.init(*config);
   deleteMutator.registerStorageNeeds(*registry);
   deleteMutator.registerMetadataNeeds(*metadata);
 
@@ -259,6 +281,7 @@ TEST_F(AFLMutatorTest, TestAlgorithms)
   EXPECT_NE(baseEntry->getBufferSize(testCaseKey), modEntry->getBufferSize(testCaseKey)) << "DELETE BYTES did not change buffer size";
 
   AFLCloneMutator cloneMutator("AFLCloneMutator");
+  cloneMutator.init(*config);
   cloneMutator.registerStorageNeeds(*registry);
   cloneMutator.registerMetadataNeeds(*metadata);
 

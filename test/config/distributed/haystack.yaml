@@ -6,8 +6,4 @@
 vmfVariables:
   - &SUT_ARGV ["test/haystackSUT/haystack"]
 
-# Modules and their specific parameters
-AFLForkserverExecutor:
-  sutArgv: *SUT_ARGV
-
 

@@ -27,6 +27,7 @@
  * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
  * ===========================================================================*/
 #include "VmfUtil.hpp"
+#include "VmfRand.hpp"
 #include <set>
 
 using namespace vmf;
@@ -77,40 +78,6 @@ bool VmfUtil::directoryExists(std::string dir)
  */
 int VmfUtil::createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, std::string directory)
 {
-    return createNewTestCasesFromDirImpl(storage, testCaseKey, directory, -1, -1);
-}
-
-/**
- * @brief Helper method to create one new test case per file in the directory (and optionally write extra data)
- *
- * The contents of each file will be used to fill the "TEST_CASE" buffer.  
- * If the filenameKey is not -1, then the filename will be written to each test case.
- * Similarly, if the serverTestCaseTag is not -1, the the "SERVER_TC" tag will be written to each test case
- *
- * @param storage the storage object
- * @param testCaseKey the handle for the "TEST_CASE" field
- * @param directory the directory to read
- * @param filenameKey the handle for the filename field
- * @param serverTestCaseTag the tag for test cases coming from the server
- * @returns the number of new test cases that were created
- */
-int VmfUtil::createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, std::string directory, int filenameKey, int serverTestCaseTag)
-{
-    return createNewTestCasesFromDirImpl(storage, testCaseKey, directory, filenameKey, serverTestCaseTag);
-}
-
-/**
- * @brief Implementation method for both version of createNewTestCasesFromDir
- * 
- * @param storage the storage object
- * @param testCaseKey the handle for the "TEST_CASE" field
- * @param directory the directory to read
- * @param filenameKey the handle for the filename field (or -1 if not used)
- * @param serverTestCaseTag the tag for test cases that came from the server (or -1 if not used)
- * @return the number of new test cases that were created
- */
-int VmfUtil::createNewTestCasesFromDirImpl(StorageModule& storage, int testCaseKey, std::string directory, int filenameKey, int serverTestCaseTag)
-{
     fs::path dirPath(directory);
 
     if (!fs::exists(dirPath) ||
@@ -157,13 +124,13 @@ int VmfUtil::createNewTestCasesFromDirImpl(StorageModule& storage, int testCaseK
             throw RuntimeException("Unable to open input file", RuntimeException::UNEXPECTED_ERROR);
 
         }
-	    files.insert(std::make_pair(file.path(), file));
+        files.insert(std::make_pair(file.path(), file));
     }
 
     // Iterate over sorted files
     for (auto it : files)
     {
-	    fs::directory_entry file = it.second;
+        fs::directory_entry file = it.second;
 
         uintmax_t filesize = static_cast<uintmax_t>(0);
 
@@ -177,18 +144,6 @@ int VmfUtil::createNewTestCasesFromDirImpl(StorageModule& storage, int testCaseK
         char* buff = newEntry->allocateBuffer(testCaseKey, filesize);
         inFile.read(buff, filesize);
         newTestCaseCount++;
-
-        if(-1 != filenameKey)
-        {
-            std::string name = file.path().filename();
-            char* nameBuff = newEntry->allocateBuffer(filenameKey, name.length());
-            name.copy(nameBuff,name.length());
-        }
-        if(-1 != serverTestCaseTag)
-        {
-            newEntry->addTag(serverTestCaseTag);
-        }
-        
 
         inFile.close();
     }
@@ -261,14 +216,10 @@ std::string VmfUtil::getExecutablePath()
  */
 int VmfUtil::selectWeightedRandomValue(int min, int max)
 {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    std::uniform_int_distribution<> bounds(min, max-1);
-    int maxBound = bounds(gen);
-    std::uniform_int_distribution<> index(min, maxBound);
-    int rand = index(gen);
-
-    return rand;
+    VmfRand* rand = VmfRand::getInstance();
+    int maxBound = rand->randBetween(min, max -1);
+    int index = rand->randBetween(min, maxBound);
+    return index;
 }
 
 /**
@@ -283,6 +234,37 @@ uint64_t VmfUtil::getCurTime()
   auto now_us =
     std::chrono::duration_cast<std::chrono::microseconds>(time).count();
   return now_us;
+}
+
+/**
+ * @brief Helper method to retrieve the curent time in seconds
+ * 
+ * @return uint64_t the time (seconds)
+ */
+uint64_t VmfUtil::getCurTimeSecs(void)
+{
+  auto time =
+    std::chrono::high_resolution_clock::now().time_since_epoch();
+  auto now_us =
+    std::chrono::duration_cast<std::chrono::seconds>(time).count();
+  return now_us;
+}
+
+/**
+ * @brief Utility method to hash a buffer. Uses the FNV-1 algorithm.
+ *
+ * @return size_t hash
+ */
+size_t VmfUtil::hashBuffer(char * buff, int len)
+{
+    size_t hash = 0xcbf29ce484222325;
+    size_t prime = 1099511628211;
+    for (int i = 0; i < len; i++)
+    {
+        hash = hash * prime;
+        hash = hash ^ buff[i];
+    }
+    return hash;
 }
 
 /**

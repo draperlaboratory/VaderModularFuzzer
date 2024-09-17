@@ -27,6 +27,8 @@
  * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
  * ===========================================================================*/
 #include "SimpleStorage.hpp"
+#include "StorageKeyHelper.hpp"
+#include "Logging.hpp"
 
 using namespace vmf;
 
@@ -98,17 +100,25 @@ void SimpleStorage::configure(StorageRegistry* registry, StorageRegistry* metada
         std::list<StorageEntry*>* newTagListEntry = new std::list<StorageEntry*>;
         tagList.push_back(*tagListEntry);
         newTagList.push_back(*newTagListEntry);
-	delete tagListEntry; // These were copied into tagLists, can delete now
-	delete newTagListEntry;
+	    delete tagListEntry; // These were copied into tagLists, can delete now
+	    delete newTagListEntry;
     }
 
     //Construct the metadata object
     metadataEntry = new StorageEntry(true, false, this);
+    metadataTempBuffSet = false;
     initialized = true;
 
     //Save a copy of this information, so it does not have to be created each time
-    tagNames = registry->getTagNames();
+    tagNameMap = registry->getTagNameMap();
     tagHandles = registry->getTagHandles();
+    tmpBufferHandles = registry->getKeyHandles(StorageRegistry::BUFFER_TEMP);
+    metaKeyHandleMap[StorageRegistry::INT] = metadata->getKeyHandles(StorageRegistry::INT);
+    metaKeyHandleMap[StorageRegistry::UINT] = metadata->getKeyHandles(StorageRegistry::UINT);
+    metaKeyHandleMap[StorageRegistry::FLOAT] = metadata->getKeyHandles(StorageRegistry::FLOAT);
+    metaKeyHandleMap[StorageRegistry::BUFFER] = metadata->getKeyHandles(StorageRegistry::BUFFER);
+    metaKeyHandleMap[StorageRegistry::BUFFER_TEMP] = metadata->getKeyHandles(StorageRegistry::BUFFER_TEMP);
+    metaKeyNameMap = metadata->getKeyNameMap();
 }
 
 /**
@@ -117,6 +127,26 @@ void SimpleStorage::configure(StorageRegistry* registry, StorageRegistry* metada
 */
 void SimpleStorage::clearNewAndLocalEntries()
 {
+    //Clear the temp buffers (do this first, as some of these entries may
+    //be about to be deleted, but we don't know which ones)
+    for(StorageEntry* buffEntry: tempBufferModList)
+    {
+        for(int handle: tmpBufferHandles)
+        {
+            buffEntry->clearBuffer(handle);
+        }
+    }
+    tempBufferModList.clear();
+    std::vector<int> tmpMetaBufferHandles = metaKeyHandleMap[StorageRegistry::BUFFER_TEMP];
+    if(metadataTempBuffSet)
+    {
+        for(int handle: tmpMetaBufferHandles)
+        {
+            metadataEntry->clearBuffer(handle);
+        }
+        metadataTempBuffSet = false;
+    }
+
     //Clear the list of "new" elements
     for(StorageEntry* newEntry: newList)
     {
@@ -174,6 +204,19 @@ void SimpleStorage::notifyPrimaryKeyUpdated(StorageEntry* entry)
     }
 }
 
+void SimpleStorage::notifyTempBufferSet(StorageEntry* entry, bool isMetadata)
+{
+    if(!isMetadata)
+    {
+        tempBufferModList.push_back(entry);
+    }
+    else
+    {
+        metadataTempBuffSet = true;
+    }
+
+}
+
 StorageEntry* SimpleStorage::createNewEntry()
 {
     if(initialized)
@@ -206,7 +249,10 @@ void SimpleStorage::removeLocalEntry(StorageEntry*& entry)
 {
     if(entry->isLocalEntry())
     {
-        localList.remove(entry);
+        //We must also remove from the tempBufferModList, as otherwise we will
+        //have an attempt to access freed memory when we go to clear temp buffers
+        tempBufferModList.remove(entry); 
+        localList.remove(entry); //Note: This did not work properly when done with removeEntryIfPresent
         delete entry;
         entry = nullptr;
     }
@@ -308,7 +354,14 @@ bool SimpleStorage::removeEntryIfPresent(std::list<StorageEntry*>& list, Storage
  */
 bool SimpleStorage::checkThatTagIsValid(int tagId, int numTags)
 {
-    if(!((tagId >= 0) && (tagId < numTags)))
+    int typeMask = StorageKeyHelper::getType(tagId);
+    if(typeMask != StorageKeyHelper::TAG_TYPE_MASK)
+    {
+        throw RuntimeException("Attempt to access storage with a key of the wrong type (expected a tag type)", RuntimeException::USAGE_ERROR);
+    }
+
+    int index = StorageKeyHelper::getIndex(tagId);
+    if(!((index >= 0) && (index < numTags)))
     {
         throw RuntimeException( "Invalid tag in call to SimpleStorage",RuntimeException::INDEX_OUT_OF_RANGE);
     }
@@ -449,7 +502,28 @@ std::vector<int> SimpleStorage::getListOfTagHandles()
 std::string SimpleStorage::tagHandleToString(int tagId)
 {
     checkThatTagIsValid(tagId, numTags);
-    return tagNames[tagId];
+    return tagNameMap[tagId];
+}
+
+std::vector<int> SimpleStorage::getListOfMetadataKeyHandles(StorageRegistry::storageTypes type)
+{
+    return metaKeyHandleMap[type];
+}
+
+std::string SimpleStorage::metadataKeyHandleToString(int handle)
+{
+    //First make sure the handle is valid
+    int typeMask = StorageKeyHelper::getType(handle);
+    int index = StorageKeyHelper::getIndex(handle);
+    StorageRegistry::storageTypes typeEnum = StorageKeyHelper::typeToEnum(typeMask);
+    int numKeys = metaKeyHandleMap[typeEnum].size();
+    if(!((index >= 0) && (index < numKeys)))
+    {
+        throw RuntimeException( "Invalid key handle in call to SimpleStorage",RuntimeException::INDEX_OUT_OF_RANGE);
+    }
+
+    //Now return the value
+    return metaKeyNameMap[handle];
 }
 
 std::unique_ptr<Iterator> SimpleStorage::getSavedEntriesByTag(int tagId)

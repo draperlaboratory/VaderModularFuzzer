@@ -73,7 +73,7 @@ Module* AFLFlip4BitMutator::build(std::string name)
  */
 void AFLFlip4BitMutator::init(ConfigInterface& config)
 {
-
+    rand = VmfRand::getInstance();
 }
 
 /**
@@ -84,7 +84,7 @@ void AFLFlip4BitMutator::init(ConfigInterface& config)
 AFLFlip4BitMutator::AFLFlip4BitMutator(std::string name) :
     MutatorModule(name)
 {
-    rand.randInit();
+    rand = nullptr;
 }
 
 /**
@@ -110,6 +110,11 @@ void AFLFlip4BitMutator::registerStorageNeeds(StorageRegistry& registry)
 void AFLFlip4BitMutator::mutateTestCase(StorageModule& storage, StorageEntry* baseEntry, StorageEntry* newEntry, int testCaseKey)
 {
 
+    if (rand == nullptr)
+    {
+	throw RuntimeException("VmfRand was null, mutator was not initialized before use.");
+    }
+
     int size = baseEntry->getBufferSize(testCaseKey);
     char* buffer = baseEntry->getBufferPointer(testCaseKey);
 
@@ -119,7 +124,7 @@ void AFLFlip4BitMutator::mutateTestCase(StorageModule& storage, StorageEntry* ba
     }
 
 
-    int bit = rand.randBelow((size << 3) - 1) + 1;
+    int bit = rand->randBelow((size << 3) - 1) + 1;
     char* newBuff = newEntry->allocateBuffer(testCaseKey, size);
     memcpy((void*)newBuff, (void*)buffer, size);
 

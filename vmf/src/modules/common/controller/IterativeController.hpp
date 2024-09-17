@@ -29,17 +29,7 @@
 #pragma once
 
 // include common modules
-#include "ControllerModule.hpp"
-#include "ExecutorModule.hpp"
-#include "FeedbackModule.hpp"
-#include "InputGeneratorModule.hpp"
-#include "InitializationModule.hpp"
-#include "OutputModule.hpp"
-#include "OutputScheduler.hpp"
-#include "StorageModule.hpp"
-#include "RuntimeException.hpp"
-
-#include <vector>
+#include "ControllerModulePattern.hpp"
 
 
 namespace vmf
@@ -49,49 +39,20 @@ namespace vmf
  * This controller supports one InputGenerator, one Executor and Feedback module, and any 
  * number of Initialization and Output modules.
  */
-class IterativeController : public ControllerModule {
+class IterativeController : public ControllerModulePattern {
 public:
 
     static Module* build(std::string name);
     virtual void init(ConfigInterface& config);
 
-    virtual void registerStorageNeeds(StorageRegistry& registry);
-    virtual void registerMetadataNeeds(StorageRegistry& registry);
+    //This controller has no additional storage needs
+    //virtual void registerStorageNeeds(StorageRegistry& registry);
+    //virtual void registerMetadataNeeds(StorageRegistry& registry);
 
     virtual bool run(StorageModule& storage, bool isFirstPass);
 
     IterativeController(std::string name);
     virtual ~IterativeController();
 
-protected:
-    //These methods are provided for subclasses that wish to alter the controller behavior
-    virtual void setup(StorageModule& storage);
-    virtual void calibrate(StorageModule& storage);
-    virtual bool generateNewTestCases(bool firstPass, StorageModule& storage);
-    virtual void executeTestCases(bool firstPass, StorageModule& storage);
-    virtual void analyzeResults(bool firstPass, StorageModule& storage);
-
-    ///Only one executor module is allowed
-    ExecutorModule* executor;
-    ///Only one feedback module is allowed
-    FeedbackModule* feedback; 
-    ///Only one input generator module is allowed
-    InputGeneratorModule* inputGenerator; 
-    ///Multiple initialization modules are allowed
-    std::vector<InitializationModule*> initializations;
-    ///Multiple output modules are allowed, and are all handled within OutputScheduler
-    OutputScheduler outScheduler;
-
-    ///The handle to the TOTAL_TEST_CASES metadata field
-    int totalNumTestCasesMetadataKey;
-
-    ///This will be true when the controller has been signaled to stop
-    bool stopSignalReceived;
-    ///The is the maximum amount of time the controller should execute for
-    int runTimeMinutes;
-    ///This is the number of new test cases executed on this execution of the fuzzing loop
-    int newCasesCount;
-    ///This is the start time of the controller
-    time_t startTime;
 };
 }

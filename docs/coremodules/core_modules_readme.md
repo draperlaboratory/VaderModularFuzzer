@@ -2,21 +2,23 @@
 This document provides more detailed documentation for the VMF Core Modules.
 
 * [Core Module Overview](#core-module-overview)
-    + [Storage Usage](#storage-usage)
-    + [Metadata Usage](#metadata-usage)
 * [AFLForkserverExecutor](#aflforkserverexecutor)
 * [AFLFeedback and AFLFavoredFeedback](#aflfeedback-and-aflfavoredfeedback)
 * [AFLMutators](#aflmutators)
-* [KleeInitialiation](#kleeinitialization)
+* [ComputeStats](#computestats)
+* [CorpusMinimization](#corpusminimization)
+* [CSVMetadataOutput](#csvmetadataoutput)
 * [Gramatron](#gramatron)
     + [Grammars](#grammars)
     + [Gramatron Modules](#gramatron-modules)
     + [Gramatron Usage](#gramatron-usage)
-* [CorpusMinimization](#corpusminimization)
+* [KleeInitialiation](#kleeinitialization)
+* [LoggerMetadataOutput](#loggermetadataoutput)
 * [MOPT](#mopt)
 * [RedPawn](#redpawn)
 * [StatsOutput](#statsoutput)
 * [Controller Modules](#controller-modules)
+    + [AnalysisController](#analysiscontroller)
     + [IterativeController](#iterativecontroller)
     + [NewCoverageController](#newcoveragecontroller)
     + [RunOnceController](#runoncecontroller)
@@ -24,7 +26,6 @@ This document provides more detailed documentation for the VMF Core Modules.
     + [ServerSeedInitialization and ServerCorpusInitialization](#serverseedinitialization-and-servercorpusinitialization)
     + [ServerCorpusOutput](#servercorpusoutput)
     + [ServerCorpusMinOutput](#servercorpusminoutput)
-    + [RunOnceController](#runoncecontroller)
     + [Parameters for Distributed Fuzzing](#parameters-for-distributed-fuzzing)
 
 
@@ -57,7 +58,7 @@ The following core modules are provided along with VMF.  A brief summary of each
 |Module Name|Type|Summary
 | --------- | --- |------ |
 |GeneticAlgorithmInputGenerator|InputGenerator|Manages mutators by selecting a base test and which mutators to mutate it with|
-|MOPTInputGenerator|InputGenerator|Uses an optimized mutation algorithm to select mutators based on their prior performance**|
+|MOPTInputGenerator|InputGenerator|Uses an optimized mutation algorithm to select mutators based on their prior performance|
 |AFLFlipBitMutator|Mutator|Creates new test cases by flipping a random bit|
 |AFLFlip2BitMutator|Mutator|Creates new test cases by flipping a pair of random bits|
 |AFLFlip4BitMutator|Mutator|Creates new test cases by flipping a set of 4 random bits|
@@ -87,43 +88,11 @@ The following core modules are provided along with VMF.  A brief summary of each
 |Module Name|Type|Summary
 | --------- | --- |------ |
 |CorpusMinimization|Output|Removes test cases that don't provide unique coverage paths|
+|ComputeStats|Output|Computes execution metrics and writes them to metadata|
+|CSVMetadataOutput|Output|Writes all numeric metadata values into a CSV file|
+|LoggerMetadataOutput|Output|Writes all numeric metadata values to the Logger|
 |SaveCorpusOutput|Output|Saves a copy of all of the test cases in long term storage to disk|
 |StatsOutputModule|Output|Prints basic performance metrics to the log file|
-
-### Storage Usage
-These are the core modules that read and write data in storage.  Note that ExecutorModules and StorageModules do not use storage (the StorageModule is storage, so it stores all of the fields and tags, but does not rely on any specific content being there).
-
-|Module Name|TEST_CASE (buffer)|FITNESS (float)|MUTATOR_ID (int)|CRASHED (tag)|HUNG (tag)|RAN_SUCCESSFULLY (tag)| FAVORED (tag) | TEST_CASE_AUT (buffer)|
-|-----|-----|-----|-----|----|----|----|----|----|
-|AFLFeedback||Writes||Writes|Writes|Writes|
-|AFLFavoredFeedback||Writes||Writes|Writes|Writes|Reads/Writes|
-|AFL***Mutator|Writes|
-|CorpusMinimization|Reads|||||Reads
-|DirectoryBasedSeedGen|Writes
-|GeneticAlgorithmInputGenerator||**||||Reads
-|GrammarBasedSeedGen|Writes|||||||Writes|
-|GramatronGenerateMutator|Writes|||||||Writes|
-|GramatronRandomMutator|Writes|||||||Reads/Writes|
-|GramatronRecursiveMutator|Writes|||||||Reads/Writes|
-|GramatronSpliceMutator|Writes|||||Reads||Reads/Writes|
-|IterativeController|Reads|
-|MOPTInputGenerator||**|Reads/Writes|
-|SaveCorpusOutput|Reads|||Reads|Reads||
-|StatsOutputModule||||Reads|Reads||
-|StringsInitialization|Writes|
-|KleeInitialization|Writes|
-
-
-** GeneticAlgorithmInputGenerator and MOPTInputGenerator do not read or write fitness, but they do rely on the fact that Storage returns values sorted by fitness.
-
-### Metadata Usage
-These are the core modules that read and write metadata in storage.
-|Module Name|TOTAL_TEST_CASES (int)|TOTAL_CRASHED_CASES (int)|TOTAL_HUNG_CASES (int)|TOTAL_BYTES_COVERED (int)|MAP_SIZE (int)
-| --------- | --- |------ |------| ----- | ---- | 
-|AFLFeedback||Writes|Writes|Writes|Writes|
-|AFLFavoredFeedback||Writes|Writes|Writes|Writes|
-|IterativeController|Writes|
-|StatsOutputModule|Reads|Reads|Reads|Reads|Reads|
 
 # AFLForkserverExecutor
 
@@ -251,30 +220,56 @@ The AFLDeleteMutator removed a randomly selection portion of the input data.  Th
 
 The AFLSpliceMutator take the input test buffer, and splices in data from a second unrelated test case.  The size of the resulting test case buffer will match the size of the second unrelated test cases, but the buffer will start with bytes from the input test buffer and end with bytes from the second test case.
 
-# KleeInitialization
+# ComputeStats
+The Compute Stats module produces runtime fuzzing statistics based on the contents of storage.  These statistics are written to the storage metadata.
 
-The Klee initialization module generates an initial corpus/seeds using symbolic execution. It relies on the third party tool, [KLEE](https://klee.github.io/), which must be `klee` must be installed and in your `$PATH` prior to using this module.  For installation directions, see [docs/external_projects.md/#klee](docs/external_projects.md/#klee).
+It has a configuration option 'statsRateInSeconds' which controls how often the statistics are computed.  The TOTAL_XXX_CASES are counted on every pass through the fuzzing loop, because this requires direct observation of the new test cases on each pass.  All other values are computed based on the 'statsRateInSeconds' value.
 
-To enable the module, `KleeInitialization` must be listed in the `vmfModules` section of the config file.  This example used the configuration file [basicModules_klee.yaml](/test/config/basicModules_klee.yaml) which adds the `KleeInitialization` to the basic VMF configuration discussed early.
+The computed statistics include:
+|Metadata Field Name|Type|Description|
+|---|---|---|
+|TOTAL_TEST_CASES|UINT|The total number of new test cases executed in the main fuzzing loop|
+|TOTAL_CRASHED_CASES|UINT|Of those test cases, the number that crashed|
+|TOTAL_HUNG_CASES|UINT|Of those test cases, the number that hung|
+|UNIQUE_TEST_CASES|UINT|The total number of unique, interesting test cases in storage (these are the test cases that the Fitness module has decided to save into long term storage)|
+|UNIQUE_CRASHED_CASES|UINT|Of those unique test cases, the total number that crashed|
+|UNIQUE_HUNG_CASES|UINT|Of those unique test cases, the total number that hung|
+|LATEST_EXEC_PER_SEC|FLOAT|The current number of executions per second|
+|AVERAGE_EXEC_PER_SEC|FLOAT|The average executions per second for the whole fuzzing run|
+|SECONDS_SINCE_LAST_UNIQUE_FINDING|FLOAT|The number of seconds since VMF last found a unique, interesting test case|
 
-Additionally, klee needs access to a bitcode input file that has been produces for your SUT (using clang -c -emit-llvm). The configuration file must specify the path to this bitcode `*.bc` file.  [haystack_klee.yaml](/test/haystackSUT/haystack_klee.yaml) provides an example configuration file that specifies that haystack.bc is located at test/haystackSUT/haystack.bc.
+# CorpusMinimization
+The Corpus Minimization module periodically scans the testcase corpus and removes testcases that are not contributing to coverage. For each hit-count bit in the coverage bitmap, the testcase with the highest fitness is selected and the rest are culled.
+
+This module performs the same functionality as the [AFL-cmin tool](https://manpages.ubuntu.com/manpages/bionic/man1/afl-cmin.1.html) but it runs automatically within the fuzzer and not as an external tool.
+
+It has a configuration option `frequencyInMinutes` which determines how often the module is scheduled. The default value is 30 minutes. It reruns all the testcases during each culling, so the frequency should not be set too low. 
+
+If no new testcases are discovered since the last culling, then the minimization is skipped.
 
 ```yaml
-vmfVariables:
-  - &SUT_ARGV ["test/haystackSUT/haystack"]
-  - &INPUT_DIR test/haystackSUT/test-input/
-  - &LLVM_FILE test/haystackSUT/haystack.bc     #This is the path to haystack.bc#
+CorpusMinimization:
+  frequencyInMinutes: 30 
+```
+A second configuration option `minimizeOnShutdown` controls whether or not minimization should occur when the fuzzer is shutdown.  The default value for this parameter is true.
+
+**Note: Don't set both `minimizeOnShutdown` to false and `frequencyInMinutes` to 0 or this module will not run (unless it is a submodule of another module that calls it directly)**
+
+CorpusMinimization requires a specific set of parameters when used as a submodule to enable server based corpus minimization (see [ServerCorpusMinOutput](#servercorpusminoutput)).
+
+# CSVMetadataOutput
+The CSV Metadata Output module will periodically log all numeric values in metadata to a CSV file (i.e. integer, unsigned integer, and floating point values).  A timestamp value will be included as the first column in the CSV (this timestamp is the number of seconds since the unix epoch on January 1st, 1970).  The first row of the file will contain the name of each of the fields.
+
+The output file name defaults to metadata.csv, but may be changed using the `outputFileName` parameter.  The output file will be located in the VMF output directory.  The default output rate of 5 seconds may be changed using the `outputRateInSeconds` parameter.
+
+```yaml
+CSVMetadataOutput:
+  outputFileName: "Test_3.CSV"
+  outputRateInSeconds: 1
 ```
 
-To run this example configuration with the haystack SUT:
-```bash
-cd vmf_install/test/haystackSUT
-clang -c -emit-llvm haystack.c -o haystack.bc
-cd ../..
-./bin/vader -c test/config/basicModules_klee.yaml -c test/haystackSUT/haystack_klee.yaml
-```
+Users of this module will likely want to also use the ComputeStats module in order to produce more metadata values in storage, though this is not required, as any numeric values in metadata will be logged.  See [test/config/basicModules_extraLogging.yaml](../../test/config/basicModules_extraLogging.yaml) for an example of using this module with the ComputeStats module.
 
-Additional initial test cases will be produced by the Klee Initialization module.
 
 # Gramatron
 
@@ -345,24 +340,39 @@ The following fragment shows a common use case:
       - className: GramatronGenerateMutator
 ```
 
-# CorpusMinimization
-The Corpus Minimization module periodically scans the testcase corpus and removes testcases that are not contributing to coverage. For each hit-count bit in the coverage bitmap, the testcase with the highest fitness is selected and the rest are culled.
+# KleeInitialization
 
-This module performs the same functionality as the [AFL-cmin tool](https://manpages.ubuntu.com/manpages/bionic/man1/afl-cmin.1.html) but it runs automatically within the fuzzer and not as an external tool.
+The Klee initialization module generates an initial corpus/seeds using symbolic execution. It relies on the third party tool, [KLEE](https://klee.github.io/), which must be `klee` must be installed and in your `$PATH` prior to using this module.  For installation directions, see [docs/external_projects.md/#klee](docs/external_projects.md/#klee).
 
-It has a configuration option `frequencyInMinutes` which determines how often the module is scheduled. The default value is 30 minutes. It reruns all the testcases during each culling, so the frequency should not be set too low. 
+To enable the module, `KleeInitialization` must be listed in the `vmfModules` section of the config file.  This example used the configuration file [basicModules_klee.yaml](/test/config/basicModules_klee.yaml) which adds the `KleeInitialization` to the basic VMF configuration discussed early.
 
-If no new testcases are discovered since the last culling, then the minimization is skipped.
+Additionally, klee needs access to a bitcode input file that has been produces for your SUT (using clang -c -emit-llvm). The configuration file must specify the path to this bitcode `*.bc` file.  Both haystack_stdin.yaml an haystack.yaml specify that haystack.bc is located at test/haystackSUT/haystack.bc.
 
 ```yaml
-CorpusMinimization:
-  frequencyInMinutes: 30 
+vmfVariables:
+  - &SUT_ARGV ["test/haystackSUT/haystack"]
+  - &INPUT_DIR test/haystackSUT/test-input/
+  - &LLVM_FILE test/haystackSUT/haystack.bc     #This is the path to haystack.bc#
 ```
-A second configuration option `minimizeOnShutdown` controls whether or not minimization should occur when the fuzzer is shutdown.  The default value for this parameter is true.
 
-**Note: Don't set both `minimizeOnShutdown` to false and `frequencyInMinutes` to 0 or this module will not run (unless it is a submodule of another module that calls it directly)**
+To run this example configuration with the haystack SUT:
+```bash
+cd vmf_install/test/haystackSUT
+clang -c -emit-llvm haystack.c -o haystack.bc
+cd ../..
+./bin/vader -c test/config/basicModules_klee.yaml -c test/haystackSUT/haystack_stdin.yaml
+----or----
+./bin/vader -c test/config/basicModules_klee.yaml -c test/haystackSUT/haystack_file.yaml
+```
 
-CorpusMinimization requires a specific set of parameters when used as a submodule to enable server based corpus minimization (see [ServerCorpusMinOutput](#servercorpusminoutput)).
+The initial test cases will be produced by the Klee Initialization module (instead of reading them in from a directory).
+
+# LoggerMetadataOutput
+The LoggerMetadataOutput module periodically logs all numeric values in metadata to the VMF Logger (i.e. integer, unsigned integer, and floating point values).  All item are logged at log level INFO.
+
+The configuration parameter `outputRateInSeconds` is used to adjust the rate at which this logging occurs.  The default value is 5 seconds.
+
+Users of this module will likely want to also use the ComputeStats module in order to produce more metadata values in storage, though this is not required, as any numeric values in metadata will be logged.  See [test/config/basicModules_extraLogging.yaml](../../test/config/basicModules_extraLogging.yaml) for an example of using this module with the ComputeStats module.
 
 # MOPT
 The MOPTInputGenerator uses the [MOPT optimization algorithm](https://www.usenix.org/system/files/sec19-lyu.pdf) to determine which mutator to select to mutate each testcase. This module contains a reimplementation of the algorithm based on the paper and provided reference implementation.  At a high level, the algorithm tracks how many times each mutator has been used and how often it has found interesting new testcases. It then uses these statistics to select mutators that are performing well using a Particle Swarm Optimization (PSO) algorithm.
@@ -388,11 +398,11 @@ RedPawn uses [AFL++'s CmpLog instrumentation](https://github.com/AFLplusplus/AFL
 
 See the MagicBytesSUT for a complete working example with configuration.
 
-With RedPawn, a crash is quickly found: `./bin/vader -c ./test/config/defaultModules_RedPawn.yaml -c ./test/magicBytesSUT/magicbytes_redpawn.yaml`
+With RedPawn, a crash is quickly found: `./bin/vader -c ./test/config/defaultModules_RedPawn.yaml -c ./test/magicBytesSUT/magicbytes.yaml`
 
 Without RedPawn, no crash is found: `./bin/vader -c ./test/config/defaultModules.yaml -c ./test/magicBytesSUT/magicbytes.yaml`
 
-As with all of our example configurations, the [test/config/defaultModules.yaml](../../test/config/defaultModules_RedPawn.yaml) configuration file can be used with your own SUT.
+As with all of our example configurations, the [test/config/defaultModules_RedPawn.yaml](../../test/config/defaultModules_RedPawn.yaml) configuration file can be used with your own SUT.
 
 Note that RedPawn requires two additional executors:
 
@@ -461,6 +471,9 @@ In the RedPawn logs:
 # StatsOutput
 The StatsOutput module writes periodic performance metrics for the VMF fuzzer.  By default, this module writes the performance metrics to the console and log file every 5 seconds.  You will likely want to turn down this data rate for an actual fuzzing campaign.
 
+Note: This modules uses the performance metrics that are produced by the ComputeStats module, so you will
+not be able to use this module without also including the ComputeStats module.
+
 ```yaml
 StatsOutput:
   outputRateInSeconds: 600 #this would set the output rate to once every 10 minutes
@@ -474,7 +487,15 @@ StatsOutput:
   outputRateInSeconds: 60 #this would set the output rate to once a minute
 ```
 # Controller Modules
-Note that all controllers also support a number of distributed fuzzing related configuration options -- see [Controller Settings for Distributed Fuzzing](#controller-settings)
+
+All of these controllers support the `keepAllSeeds` parameter. If set to true, all initial testcases will be saved and added to the fuzzing queue. If set to false, only seeds with new coverage will be kept.
+
+All of these controllers also support a number of distributed fuzzing related configuration options -- see [Controller Settings for Distributed Fuzzing](#controller-settings)
+
+## AnalysisController
+This controller is designed for analysis-oriented tasks, where a number of test cases need to be executed once followed by the execution of one or more output modules to analyse the results.  This controller is used to support server based corpus minimization for distributed fuzzing.  At least one executor and feedback module are required.  Typically users of this module will want to use at least one output module as well, but it is not required to do so.
+
+The execution pattern is to run the initialization modules and the input generation modules once, then the executor and feedback modules, and finally the output modules. When running in standalone mode, this will occur in a single pass through the fuzzing loop. When using this controller for distributed fuzzing, it may take more than one pass through the fuzzing loop to run everything once (because server test cases are loaded in batches).  In this case, the output modules will only be run once in the final pass through the fuzzing loop (after all of the test cases have executed).
 
 ## IterativeController
 The IterativeController simply iterates through each module, calling them in sequence.  This controller supports one InputGenerator, one Executor and Feedback module, and any number of Initialization and Output modules.  The Executor, Feedback, and InputGeneration modules are required.
@@ -501,9 +522,9 @@ Note: In order to temporarily toggle to an alternatte InputGenerator, the newCov
 The NewCoverageController supports the `runTimeInMinutes` parameter with the same behavior as the IterativeController.
 
 ## RunOnceController 
-The RunOnceController runs each of its submodules exactly once and then completes.  This module is currently used to support server based corpus minimization, but it could be used to implement other kinds of behaviors that should occur only once.  This Controller supports any number of initializationModules, inputGeneratorModules, and outputModules.  Up to one executor and feedback modules are supported.  All module types are optional, however a feedback module cannot be specified without an executor to go with it, and if an executor module is used a feedback modules must be provided as well.
+The RunOnceController runs each of its submodules exactly once and then completes.  This module could be used to implement any kind of behaviors that should occur only once.  This Controller supports any number of initializationModules, inputGeneratorModules, and outputModules.  Up to one executor and feedback modules are supported.  All module types are optional, however a feedback module cannot be specified without an executor to go with it, and if an executor module is used a feedback modules must be provided as well.
 
-This module will not do anything unless at lease one submodule is specified in the configuration file.  It does not provide any additional configuration options (beyond the distributed fuzzing related options that are supported by the base ControllerModule class).
+This module will not do anything unless at lease one submodule is specified in the configuration file.  It does not provide any additional configuration options (beyond the default options supported by all core module controllers).
 
 # Distributed Fuzzing Modules and Configuration Options
 These modules and settings are only used when running VMF in distributed fuzzing mode.
@@ -570,10 +591,11 @@ The StatsOutput module must have its `sendToServer` parameter set to true for di
 See [StatsOutput](#statsoutput) for more information on this setting.
 
 ### Controller Settings
-There are three configuration options built into the base ControllerModule class that support distributed fuzzing. 
- All three configure how and when the controller retrieves corpus updates from the server (this means pulling in test cases that were generated by other VMF fuzzers in the cluster).
+There are three configuration options built into the base ControllerModulePattern class that support distributed fuzzing. All configure how and when the controller retrieves corpus updates from the server (this means pulling in test cases that were generated by other VMF fuzzers in the cluster).
  
  `corpusInitialUpdateMins` sets the minimum number of minutes that must pass before the controller will perform the first corpus update. `corpusUpdateRateMins` sets a minimum rate for the controller to retrieve subsequent corpus updates from the server.  The default value for both is 5min, which provides for effectively constant corpus exchange (the minimum values are 1min, we recommend not going below 5min unless you are using a very small number of VMFs).
+
+ The `batchSize` parameter controls how many test cases are pulled in from the server on each fuzzing loop.  All the test cases will eventually be pulled in, but this parameter limits how many get pulled in at once (in order to limit the RAM usage by VMF).
 
 The `corpusUpdateTags` parameter controls which test case tags are retrieved by the controller.  The default value is ["RAN_SUCCESSFULLY"], which will retrieve only the test cases ran succesfully (i.e. didn't hang or crash).  This is the correct value if you are using VMF Core Modules for configuring your fuzzer.
 

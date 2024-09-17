@@ -28,39 +28,29 @@
  * ===========================================================================*/
 #pragma once
 
-// include common modules
-#include "ControllerModule.hpp"
-#include "ExecutorModule.hpp"
-#include "FeedbackModule.hpp"
-#include "InputGeneratorModule.hpp"
-#include "InitializationModule.hpp"
-#include "OutputModule.hpp"
-#include "OutputScheduler.hpp"
-#include "StorageModule.hpp"
-#include "RuntimeException.hpp"
-
-#include <vector>
+#include "ControllerModulePattern.hpp"
 
 namespace vmf
 {
 /**
- * @brief Controller that supports multiple InputGenerator modules
+ * @brief Controller that toggles between two InputGenerator modules
  * The NewCoverageController is similar to the IterativeController, except
  * that it supports two InputGenerator modules.  This controller will temporarily
  * toggle to an alternative input generator every time there is are new, interesting
- *  test cases saved in storage (typically this occurs due to new coverage, though 
+ * test cases saved in storage (typically this occurs due to new coverage, though 
  * the exact decision is made in the feedback module).  The examineTestCaseResults()
  * method is called on both input generators during each pass through the fuzzing loop, 
  * but the addNewTestCases() method is called on only the active input generator.
  * 
  */
-class NewCoverageController : public ControllerModule {
+class NewCoverageController : public ControllerModulePattern {
 public:
 
     static Module* build(std::string name);
     virtual void init(ConfigInterface& config);
-    virtual void registerStorageNeeds(StorageRegistry& registry);
-    virtual void registerMetadataNeeds(StorageRegistry& registry);
+    //This controller has no additional storage needs
+    //virtual void registerStorageNeeds(StorageRegistry& registry);
+    //virtual void registerMetadataNeeds(StorageRegistry& registry);
     virtual bool run(StorageModule& storage, bool isFirstPass);
 
     NewCoverageController(std::string name);
@@ -68,50 +58,19 @@ public:
 
 protected:
 
-    virtual void setup(StorageModule& storage);
-    virtual void calibrate(StorageModule& storage);
-    virtual void executeTestCases(StorageModule& storage);
-    virtual void analyzeResults(StorageModule& storage);
+    virtual void executeTestCases(bool firstPass, StorageModule& storage);
     void selectNextInputGenerator();
-
-    /// Only one executor module is allowed
-    ExecutorModule* executor;
- 
-    /// Only one feeback module is allowed
-    FeedbackModule* feedback;
 
     /// The main input generator (which will run until new coverage is encountered)
     InputGeneratorModule* primaryInputGen;
     /// The secondary input generator (which will run when the first input generator finds new coverage)
     InputGeneratorModule* newCoverageInputGen;
-
     /// Currently active InputGenerator:
     InputGeneratorModule* currentInputGen;
-
-    /// Multiple initialization modules are allowed
-    std::vector<InitializationModule*> initializations;
-
-    /// Multiple output modules are allowed, and are all handled within OutputScheduler
-    OutputScheduler outScheduler;
-
-    /// The handle to the TOTAL_TEST_CASES metadata field
-    int totalNumTestCasesMetadataKey;
-
-    /// This will be true when the controller has been signaled to stop
-    bool stopSignalReceived;
-
     /// State tracking for NewCoverageController, was there new coverage
     bool foundNewCoverageThisCycle = false;
     /// State tracking for NewCoverageController, does the input generator want to run again
     bool inputGenRunAgain = false;
 
-    /// The is the maximum amount of time the controller should execute for
-    int runTimeMinutes;
-    
-    /// This is the number of new test cases executed on this execution of the fuzzing loop
-    int newCasesCount;
-    
-    /// This is the start time of the controller
-    time_t startTime;
 };
 }

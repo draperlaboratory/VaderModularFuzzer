@@ -29,7 +29,7 @@
 #pragma once
 
 #include "StorageUserModule.hpp"
-#include <chrono>
+#include "Logging.hpp"
 
 namespace vmf
 {
@@ -51,8 +51,8 @@ namespace vmf
  */
 class ControllerModule : public StorageUserModule {
 public:
-    virtual void init(ConfigInterface& config);
-    virtual void registerStorageNeeds(StorageRegistry& registry);
+    virtual void init(ConfigInterface& config) = 0;
+    virtual void registerStorageNeeds(StorageRegistry& registry) = 0;
     virtual void registerMetadataNeeds(StorageRegistry& registry) {};
 
     /**
@@ -78,7 +78,8 @@ public:
      */
     enum ControllerCmdType
     {
-        NEW_CORPUS
+        NEW_CORPUS,
+        NONE
     };
 
     /**
@@ -91,7 +92,7 @@ public:
      * @param isDistributed true if the controller is being run in distributed mode
      * @param cmd the command to handle
      */
-    virtual void handleCommand(StorageModule& storage, bool isDistributed, ControllerCmdType cmd);
+    virtual void handleCommand(StorageModule& storage, bool isDistributed, ControllerModule::ControllerCmdType cmd) = 0;
 
     virtual ~ControllerModule() {};
 
@@ -106,7 +107,29 @@ public:
      * @param parentName the name of the parent module
      * @return ControllerModule* the submodule, or nullptr if none is specified
      */
-    static ControllerModule* getControllerSubmodule(ConfigInterface& config, std::string parentName);
+    static ControllerModule* getControllerSubmodule(ConfigInterface& config, std::string parentName)
+    {
+        ControllerModule* theModule = nullptr;
+        std::vector<Module*> modules = config.getSubModules(parentName);
+        for(Module* m: modules)
+        {
+            if(isAnInstance(m))
+            {
+                if(nullptr == theModule)
+                {
+                    theModule = castTo(m);
+                }
+                else
+                {
+                    throw RuntimeException(
+                        "Configuration file contained more than one Controller module, but only one is supported",
+                        RuntimeException::CONFIGURATION_ERROR);
+                }
+                
+            }
+        }
+        return theModule;
+    }
 
     /**
      * @brief Helper method to return a single Controller submodule from config by name
@@ -118,7 +141,32 @@ public:
      * @param childName the name of the child module to finde
      * @return ControllerModule* the submodule, or nullptr if none is found
      */
-    static ControllerModule* getControllerSubmoduleByName(ConfigInterface& config, std::string parentName, std::string childName);
+    static ControllerModule* getControllerSubmoduleByName(ConfigInterface& config, std::string parentName, std::string childName)
+    {
+        ControllerModule* theModule = nullptr;
+        std::vector<Module*> modules = config.getSubModules(parentName);
+        for(Module* m: modules)
+        {
+            if(childName == m->getModuleName())
+            {
+                if(isAnInstance(m))
+                {
+                    theModule = castTo(m);
+                    break;
+                }
+                else
+                {
+                    LOG_ERROR << parentName << " requested an Controller submodule named " << childName 
+                                << ", but that submodules is not of type Controller.";
+                    throw RuntimeException(
+                        "Configuration file contained a module with this name, but it was not an executor module",
+                        RuntimeException::CONFIGURATION_ERROR);
+                }
+            }
+        }
+        
+        return theModule;
+    }
     
     /**
      * @brief Helper method to get the Controller Submodules from config
@@ -129,7 +177,19 @@ public:
      * @param parentName the name of the parent module
      * @return std::vector<ControllerModule*> the list of submodules
      */
-    static std::vector<ControllerModule*> getControllerSubmodules(ConfigInterface& config, std::string parentName);
+    static std::vector<ControllerModule*> getControllerSubmodules(ConfigInterface& config, std::string parentName)
+    {
+        std::vector<ControllerModule*> list;
+        std::vector<Module*> modules = config.getSubModules(parentName);
+        for(Module* m: modules)
+        {
+            if(isAnInstance(m))
+            {
+                list.push_back(castTo(m));
+            }
+        }
+        return list;
+    }
 
     /**
      * @brief Convenience method to determine if a module is actually a controller
@@ -138,7 +198,11 @@ public:
      * @return true if this module has a module type=CONTROLLER
      * @return false 
      */
-    static bool isAnInstance(Module* module);
+    static bool isAnInstance(Module* module)
+    {
+        ModuleTypeEnum type = module->getModuleType();
+        return (ModuleTypeEnum::CONTROLLER == type);
+    }
 
     /**
      * @brief Convenience method to cast Module* to ControllerModule*
@@ -149,7 +213,27 @@ public:
      * @return ControllerModule* 
      * @throws RuntimeException if the underlying Module* is not a decendant of ControllerModule
      */
-    static ControllerModule* castTo(Module* module);
+    static ControllerModule* castTo(Module* module)
+    {
+        ControllerModule* c;
+        if(nullptr != module)
+        {
+            c = dynamic_cast<ControllerModule*>(module);
+        
+            if(nullptr == c)
+            {
+                throw RuntimeException("Failed attempt to cast module to Controller",
+                                    RuntimeException::USAGE_ERROR);
+            }
+        }
+        else
+        {
+            throw RuntimeException("Attempt to cast nullptr to Controller",
+                                    RuntimeException::UNEXPECTED_ERROR);
+        }
+        
+        return c;
+    }
     
 protected:
     /**
@@ -157,28 +241,7 @@ protected:
      * 
      * @param name the module name
      */
-    ControllerModule(std::string name);
-
-    /// The list of tags that the controller is interested in (for distributed fuzzing)
-    std::string tags;
-
-    /// The server test case tag handle, used to tag test cases that are incoming from the server (for distributed fuzzing)
-    int serverTestCaseTag;
-
-    /// The test case handle, use to write test cases (for distributed fuzzing)
-    int testCaseKey;
-
-    /// The number of minutes that must pass before the initial corpus synchronization between fuzzer instances
-    int corpusInitialUpdateMins;
-
-    /// The minimum number of minutes that must pass before accepting another corpus update command on a continuous basis
-    int corpusUpdateRateMins;
-
-    /// The timestamp of the last corpus update
-    std::chrono::system_clock::time_point lastCorpusUpdate;
-
-    /// Flag determining if the initial corpus update has been completed
-    bool initialCorpusSyncComplete;
+    ControllerModule(std::string name) : StorageUserModule(name, ModuleTypeEnum::CONTROLLER) {};
 
 };
 }

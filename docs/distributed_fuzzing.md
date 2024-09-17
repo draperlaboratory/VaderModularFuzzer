@@ -290,7 +290,7 @@ Corpus Minimization is a process that removes redundant test cases from the corp
 
 VMF includes a sample configuration file `clusterCorpusMin.yaml` that can be used to minimize the common corpus.  This configuration file uses three new distributed fuzzing modules:
 
-   - **RunOnceController:** This module runs each of its submodules exactly once before shutting down.
+   - **AnalysisController:** This controller executes all of the test cases in a corpus, then runs its output modules.
    - **ServerCorpusInitialization:** This module retrieves the entire corpus from the server.  It is used instead of ServerSeedInitialization for our corpus minimization configuration.
    - **ServerCorpusMinOutput:** This module performs corpus minimization and then notifies the server of what the minimized corpus is.
 

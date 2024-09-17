@@ -224,11 +224,11 @@ protected:
     int forkserver_pid = 0;
     /* Timeout values to catch a hanging SUT */
     ///The current timeout value
-    int timeout_dur = 0;
+    unsigned int timeout_dur = 0;
     ///The timeout to use on a first attempt to run the SUT
-    int timeout_short = 0;
+    unsigned int timeout_short = 0;
     ///The timouet to use on a second attempt to run the SUT
-    int timeout_long = 0;
+    unsigned int timeout_long = 0;
 
     ///Number of calibration tests
     int num_calib = 0;
@@ -283,7 +283,7 @@ protected:
     ///timeoutInMs manual timeout value
     int manual_timeout_ms;
     ///Map size in bytes
-    int map_size;
+    unsigned int map_size;
     ///sutArgv config options
     std::vector<std::string> sut_argv;
     ///memoryLimitInMB config option

@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The VMF configuration file is contained in one or more YAML file. These YAML files provides a structure to the configuration of the fuzzer and its modules.  Each top level YAML section (i.e. `vmfFramework`) must be contained within a single file, but otherwise the configuration parameters may be split into multiple files, as desired.  Note that all of the examples provided with VMF put the System Under Test (SUT) specific parameters into one file, and the other configuration sections in a second file.  See [getting_started.md](/docs/getting_started.md) for more information on our example configuration files and their organization.
+The VMF configuration file is contained in one or more YAML file. These YAML files provides a structure to the configuration of the fuzzer and its modules.  Each top level YAML section (i.e. `vmfFramework`) must be contained within a single file, but otherwise the configuration parameters may be split into multiple files, as desired.  Note that all of the examples provided with VMF put the System Under Test (SUT) specific parameters into one file, and the other configuration sections in a second file.  See [getting_started.md](getting_started.md) for more information on our example configuration files and their organization.
 
 ## Top level sections
 
@@ -28,6 +28,8 @@ StatsOutput:
 IterativeController: 
   corpusUpdateRateMins: 30
   corpusInitialUpdateMins: 10
+  batchSize: 1000
+  
 
 #Config options for the storage module 
 SimpleStorage:

@@ -7,17 +7,15 @@
 vmfVariables:
   - &SUT_ARGV ["test/haystackSUT/haystack", "@@"]
   - &INPUT_DIR test/haystackSUT/test-input/
+  #This parameter is only used when running with klee
+  #To run with klee, you must first produce this haystack.bc file using -emit-llvm,
+  # e.g. clang -c -emit-llvm haystack.c -o haystack.bc
+  - &LLVM_FILE test/haystackSUT/haystack.bc
 
-# VMF Framework parameters
+
+# VMF Framework parameters (this section is optional)
 # Such as logging path, logging level, plugin path
-
 vmfFramework:
   outputBaseDir: output
   logLevel : 1 #0=DEBUG, 1=INFO, 2=WARNING, 3=ERROR
 
-# Modules and their specific parameters
-AFLForkserverExecutor:
-  sutArgv: *SUT_ARGV
-
-DirectoryBasedSeedGen:
-  inputDir: *INPUT_DIR

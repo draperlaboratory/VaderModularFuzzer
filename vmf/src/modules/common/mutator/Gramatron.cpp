@@ -23,6 +23,7 @@
  * ===========================================================================*/
 #include "Gramatron.hpp"
 #include "Logging.hpp"
+#include "VmfRand.hpp"
 
 using namespace vmf;
 /* --
@@ -82,7 +83,8 @@ void vmf::concatPrefixFeature(Array* prefix, Array* feature) {
     // the recursive feature. Might want to fix it to choose a random number upper
     // bounded by a static value instead.
     terminal* featureptr;
-    int len = rand() % RECUR_THRESHOLD;
+    VmfRand* rand = VmfRand::getInstance();
+    int len = rand -> randBelow(RECUR_THRESHOLD);
     for (int x = 0; x < len; x++) {
         for (size_t y = 0; y < feature->used; y++) {
             featureptr = & feature->start[y];

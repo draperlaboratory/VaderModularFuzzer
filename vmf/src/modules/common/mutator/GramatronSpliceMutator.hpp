@@ -22,6 +22,7 @@
 #include "MutatorModule.hpp"
 #include "StorageEntry.hpp"
 #include "RuntimeException.hpp"
+#include "VmfRand.hpp"
 
 namespace vmf
 {
@@ -49,6 +50,7 @@ private:
     int autRepKey;
     int normalTag;
     PDA* pda;
+    VmfRand * rand;
 
     void splice(StorageEntry* newEntry, StorageEntry* baseEntry, StorageModule& storage, int testCaseKey);
 

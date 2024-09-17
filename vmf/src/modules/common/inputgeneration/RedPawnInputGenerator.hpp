@@ -34,6 +34,7 @@
 #include "InputGeneratorModule.hpp"
 #include "MutatorModule.hpp"
 #include "RedPawnTransforms.hpp"
+#include "VmfRand.hpp"
 
 namespace vmf
 {
@@ -63,8 +64,8 @@ private:
 
     void collectLogEntries(StorageModule& storage, StorageEntry * baseEntry, char * colorized_testcase);
     bool generateRedPawnCandidates(StorageModule& storage);
-    std::vector<uint>* findMatchesOfPattern(char * testcase, char * colorized_testcase, int length, uint64_t base_pattern, uint64_t colorized_pattern, int compare_size);
-    bool performPatternReplacements(char * testcase, int len, std::vector<uint>* indices, uint64_t replacement, int compare_size);
+    std::vector<unsigned int>* findMatchesOfPattern(char * testcase, char * colorized_testcase, int length, uint64_t base_pattern, uint64_t colorized_pattern, int compare_size);
+    bool performPatternReplacements(char * testcase, int len, std::vector<unsigned int>* indices, uint64_t replacement, int compare_size);
     bool performPatternReplacement(char * testcase, int size, int index, uint64_t replacement, int compare_size);
 
     bool addCandidateTestcase(char * buff, int size);
@@ -104,7 +105,8 @@ private:
     ExecutorModule* regular_executor;
 
     std::mt19937_64 rng;
-    std::uniform_int_distribution<u_int32_t> uni_uint;
+    std::uniform_int_distribution<uint32_t> uni_uint;
+    VmfRand* rand;
 
     char * base_testcase, * colorized_testcase;
     int size;

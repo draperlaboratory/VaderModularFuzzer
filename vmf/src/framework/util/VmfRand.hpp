@@ -45,12 +45,15 @@ namespace vmf {
    */
   class VmfRand {
   private:
+    VmfRand();
     std::random_device rd; 
     std::mt19937 gen;    
 
   public:
-    void randInitSeed(unsigned seed);
+    static VmfRand*      getInstance();
+    void initSeed(unsigned seed);
     void randInit(void);
+    void reproducibleInit(unsigned seed);
     uint64_t randBetween(uint64_t min, uint64_t max);
     uint64_t randBelow(uint64_t limit);
   };

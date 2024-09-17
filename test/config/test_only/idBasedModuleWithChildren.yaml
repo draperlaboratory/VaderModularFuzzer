@@ -17,6 +17,7 @@ vmfModules:
       - className: AFLForkserverExecutor
       - className: AFLFavoredFeedback
       - className: SaveCorpusOutput
+      - className: ComputeStats
       - id: Stats1
         className: StatsOutput
       - id: Stats2

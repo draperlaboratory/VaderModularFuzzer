@@ -49,6 +49,7 @@ Module* GramatronSpliceMutator::build(std::string name)
 void GramatronSpliceMutator::init(ConfigInterface& config)
 {
     pda = PDA::GetInstance();
+    rand = VmfRand::getInstance();
 }
 
 /**
@@ -132,7 +133,7 @@ void GramatronSpliceMutator::splice(StorageEntry* newEntry, StorageEntry* baseEn
     while((secondID == baseID)&&(count<3))
     {
         //switched from afl_rand_below
-        randIndex = rand() % maxIndex;
+        randIndex = rand -> randBelow(maxIndex);
         secondEntry = entries->setIndexTo(randIndex);
         secondID = secondEntry->getID();
         count++; //We need to prevent an infinite loop in case there are only a few test cases in the queue
@@ -216,7 +217,7 @@ Array* GramatronSpliceMutator::performSpliceOne(Array* originput, IdxMap_new* st
         int length = utarray_len(stateptr);
 
         if (length) {
-            int* splice_idx = (int *)utarray_eltptr(stateptr, (unsigned int)(rand() % length));
+            int* splice_idx = (int *)utarray_eltptr(stateptr, (unsigned int)(rand->randBelow(length)));
 
             ip.orig_idx = *splice_idx;
             ip.splice_idx = x;
@@ -226,7 +227,7 @@ Array* GramatronSpliceMutator::performSpliceOne(Array* originput, IdxMap_new* st
 
     // Pick a random pair
     int length = utarray_len(pairs);
-    cand = (intpair_t *)utarray_eltptr(pairs, (unsigned int)(rand() % length));
+    cand = (intpair_t *)utarray_eltptr(pairs, (unsigned int)(rand -> randBelow(length)));
 
     // Perform the splicing
     prefix = slice(originput, cand->orig_idx);

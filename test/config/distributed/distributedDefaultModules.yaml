@@ -1,3 +1,4 @@
+#CorpusMinimization is not included in the distributed version of default modules
 vmfModules:
   storage:
     className: SimpleStorage
@@ -8,6 +9,7 @@ vmfModules:
       - className: MOPTInputGenerator
       - className: AFLForkserverExecutor
       - className: AFLFavoredFeedback
+      - className: ComputeStats
       - className: StatsOutput
       - className: ServerCorpusOutput
   MOPTInputGenerator:
@@ -23,6 +25,11 @@ vmfModules:
       - className: AFLDeleteMutator
       - className: AFLCloneMutator
       - className: AFLSpliceMutator
+
+# Modules-specific parameters
+#(The SUT-specific portions of these all defined using YAML anchors)
+AFLForkserverExecutor:
+  sutArgv: *SUT_ARGV
 
 StatsOutput:
   sendToServer: true

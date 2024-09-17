@@ -29,6 +29,8 @@ no incompatibly licensed tools are being included.
 
 A classic example of this is the `ln` Linux tool for making links to files, or the `stdio.h` C header for enabling printing to `STDOUT` and reading from `STDIN`.
 
+***Note: VMF is compatible with compiler instrumentation from AFL++ 4.10c or earlier, due to an update in the forkserver interface that was introduced in 4.20c.  VMF will be updated in a future release to fix this compatibility issue.***
+
 Enumeration of these installations is for record keeping only:
 
 | Package            | Installation type |

@@ -1,0 +1,18 @@
+vmfFramework:
+  logLevel : 1 #0=DEBUG, 1=INFO, 2=WARNING, 3=ERROR
+
+vmfModules:
+  storage: #a storage module must be specified
+      className: SimpleStorage
+  controller: #a controller module must be specified
+      className: IterativeController
+      children:
+        - className: TemplateInitialization
+        - className: TemplateInputGenerator
+        - className: TemplateExecutor
+        - className: TemplateFeedback
+        - className: TemplateOutput
+        - className: LoggerMetadataOutput
+  TemplateInputGenerator:
+      children:
+        - className: TemplateMutator

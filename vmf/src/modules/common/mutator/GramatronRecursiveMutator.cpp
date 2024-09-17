@@ -49,6 +49,7 @@ Module* GramatronRecursiveMutator::build(std::string name)
 void GramatronRecursiveMutator::init(ConfigInterface& config)
 {
     pda = PDA::GetInstance();
+    rand = VmfRand::getInstance();
 }
 
 /**
@@ -122,7 +123,7 @@ void GramatronRecursiveMutator::random(StorageEntry* newEntry, char* buffer, int
     Array* sliced;
 
     // Get offset at which to generate new input and slice it
-    int idx = rand() % input->used;
+    int idx = rand -> randBelow(input->used);
     sliced = slice(input, idx);
 
     // Reset current state to that of the slice's last member
@@ -215,7 +216,7 @@ void GramatronRecursiveMutator::recursive(StorageEntry* newEntry, char* buffer, 
  */
 Array* GramatronRecursiveMutator::doMult(Array* input, UT_array** recur, int recurlen) {
     //select one of the recursive features
-    int idx = rand() % (recurlen);
+    int idx = rand -> randBelow(recurlen);
     UT_array* recurMap = recur[idx];
 
     Array* prefix;
@@ -264,7 +265,7 @@ void GramatronRecursiveMutator::getTwoIndices(UT_array* recur, int recurlen, int
     // This shuffles the recursive sub walk to get two random indices so our selection of a recursive feature is done at random
     for (int i = offset-1; i > 0; i--) {
         // Pick a random index from 0 to i
-        int j = rand() % (i+1);
+        int j = rand -> randBelow(i + 1);
 
         // Swap arr[i] with the element at random index
         swap(&ArrayRecurIndices[i], &ArrayRecurIndices[j]);

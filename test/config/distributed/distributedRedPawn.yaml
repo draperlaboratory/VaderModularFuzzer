@@ -1,0 +1,60 @@
+vmfModules:
+  storage:
+    className: SimpleStorage
+  controller:
+    className: NewCoverageController
+    children:
+      - className: MOPTInputGenerator
+      - className: RedPawnInputGenerator
+      - className: ServerSeedInitialization
+      - className: AFLForkserverExecutor
+      - className: AFLFavoredFeedback
+      - className: ServerCorpusOutput
+      - className: ComputeStats
+      - className: StatsOutput
+  MOPTInputGenerator:
+    children:
+      - className: AFLFlipBitMutator
+      - className: AFLFlip2BitMutator
+      - className: AFLFlip4BitMutator
+      - className: AFLFlipByteMutator
+      - className: AFLFlip2ByteMutator
+      - className: AFLFlip4ByteMutator
+      - className: AFLRandomByteAddSubMutator
+      - className: AFLRandomByteMutator
+      - className: AFLDeleteMutator
+      - className: AFLCloneMutator
+      - className: AFLSpliceMutator
+  RedPawnInputGenerator:
+    children:
+      - id: colorizationExecutor
+        className: AFLForkserverExecutor
+      - id: cmplogExecutor
+        className: AFLForkserverExecutor
+
+# Modules-specific parameters
+#(The SUT-specific portions of these all defined using YAML anchors)
+
+NewCoverageController: #This specifies which input generator is primary
+  primaryInputGenerator: MOPTInputGenerator
+  newCoverageInputGenerator: RedPawnInputGenerator
+
+AFLForkserverExecutor: #Main fuzzing loop executor
+  sutArgv: *SUT_ARGV
+
+DirectoryBasedSeedGen: 
+  inputDir: *INPUT_DIR
+
+colorizationExecutor: #Red Pawn colorization executor
+  sutArgv: *SUT_ARGV
+  alwaysWriteTraceBits: true
+  writeStats: false
+
+cmplogExecutor: #Red Pawn cmplog executor
+  sutArgv: *CMPLOG_SUT_ARGV
+  memoryLimitInMB: *CMPLOG_MEM_LIMIT_MB  #cmplog needs extra memory
+  cmpLogEnabled: true
+  writeStats: false
+
+StatsOutput:
+  sendToServer: true

@@ -105,12 +105,12 @@ void CorpusMinimization::registerStorageNeeds(StorageRegistry& registry)
 {
     testCaseKey = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_ONLY);
     normalTag = registry.registerTag("RAN_SUCCESSFULLY", StorageRegistry::READ_ONLY);
-    traceBitsKey = registry.registerKey("AFL_TRACE_BITS", StorageRegistry::BUFFER, StorageRegistry::READ_ONLY);
+    traceBitsKey = registry.registerKey("AFL_TRACE_BITS", StorageRegistry::BUFFER_TEMP, StorageRegistry::READ_ONLY);
 }
 
 void CorpusMinimization::registerMetadataNeeds(StorageRegistry& registry)
 {
-    mapSizeMetadata = registry.registerKey("MAP_SIZE", StorageRegistry::INT, StorageRegistry::READ_ONLY); 
+    mapSizeMetadata = registry.registerKey("MAP_SIZE", StorageRegistry::UINT, StorageRegistry::READ_ONLY); 
 }
 
 OutputModule::ScheduleTypeEnum CorpusMinimization::getDesiredScheduleType()
@@ -178,7 +178,7 @@ int CorpusMinimization::minimizeCorpus(StorageModule& storage)
     //If the coverage map has not yet been created, create it
     if(0 == mapSize)
     {
-        mapSize = storage.getMetadata().getIntValue(mapSizeMetadata);
+        mapSize = storage.getMetadata().getUIntValue(mapSizeMetadata);
         corpusCoverage = new char[mapSize];
     }
 
@@ -193,6 +193,7 @@ int CorpusMinimization::minimizeCorpus(StorageModule& storage)
         // For each test case, check to see if classified trace bit data is already in storage
         // And if is not, re-run the test case to get the data needed
         StorageEntry* e = allEntries->getNext();
+   
         int traceBitsSize = e->getBufferSize(traceBitsKey);
         if(traceBitsSize < 0) //this indicates that trace bits have not been written
         {
@@ -206,11 +207,12 @@ int CorpusMinimization::minimizeCorpus(StorageModule& storage)
                                 RuntimeException::USAGE_ERROR);
             }
         }
+        
 
         // Compare coverage to corpusCoverage
         char * coverage = e->getBufferPointer(traceBitsKey);
         int uniqueBytes = 0;
-        for (int i = 0; i < mapSize; i++)
+        for (unsigned int i = 0; i < mapSize; i++)
         {
         
             // A new hitcount class on an already covered byte still counts as contributing coverage
@@ -220,6 +222,10 @@ int CorpusMinimization::minimizeCorpus(StorageModule& storage)
                 corpusCoverage[i] = corpusCoverage[i] | coverage[i];
             }
         }
+        
+        //Go ahead and clear the trace bits buffer
+        //(this gives us more efficient memory utilization if there are a lot of test cases)
+        e->clearBuffer(traceBitsKey);
 
         // If this testcase did not contribute to corpusCoverage, then mark for deletion
         if (uniqueBytes == 0)

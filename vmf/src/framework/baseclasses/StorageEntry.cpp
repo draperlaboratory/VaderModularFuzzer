@@ -27,20 +27,28 @@
  * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
  * ===========================================================================*/
 #include "StorageEntry.hpp"
+#include "StorageKeyHelper.hpp"
+#include "Logging.hpp"
 using namespace vmf;
 unsigned long StorageEntry::uidCounter = 0;
 int StorageEntry::pKey;
 StorageRegistry::storageTypes StorageEntry::pKeyType = StorageRegistry::BUFFER;
 int StorageEntry::maxInts = 0;
+int StorageEntry::maxUInts = 0;
 int StorageEntry::maxFloats = 0;
 int StorageEntry::maxBuffers = 0;
+int StorageEntry::maxTempBuffers = 0;
 int StorageEntry::maxTags = 0;
 int StorageEntry::maxIntsMetadata = 0;
+int StorageEntry::maxUIntsMetadata = 0;
 int StorageEntry::maxFloatsMetadata = 0;
 int StorageEntry::maxBuffersMetadata = 0;
+int StorageEntry::maxTempBuffersMetadata = 0;
 std::vector<int> StorageEntry::intDefaults = {};
+std::vector<unsigned int> StorageEntry::uintDefaults = {};
 std::vector<float> StorageEntry::floatDefaults = {};
 std::vector<int> StorageEntry::intMetadataDefaults = {};
+std::vector<unsigned int> StorageEntry::uintMetadataDefaults = {};
 std::vector<float> StorageEntry::floatMetadataDefaults = {};
 
 /**
@@ -52,11 +60,14 @@ std::vector<float> StorageEntry::floatMetadataDefaults = {};
 void StorageEntry::init(StorageRegistry& registry)
 {
     maxInts = registry.getNumKeys(StorageRegistry::INT);
+    maxUInts = registry.getNumKeys(StorageRegistry::UINT);
     maxFloats = registry.getNumKeys(StorageRegistry::FLOAT);
     maxBuffers = registry.getNumKeys(StorageRegistry::BUFFER);
+    maxTempBuffers = registry.getNumKeys(StorageRegistry::BUFFER_TEMP);
     maxTags = registry.getNumTags();
 
     intDefaults = registry.getIntKeyDefaults();
+    uintDefaults = registry.getUIntKeyDefaults();
     floatDefaults = registry.getFloatKeyDefaults();
 
     pKey = registry.getSortByKey();
@@ -71,10 +82,13 @@ void StorageEntry::init(StorageRegistry& registry)
 void StorageEntry::initMetadata(StorageRegistry& metadata)
 {
     maxIntsMetadata = metadata.getNumKeys(StorageRegistry::INT);
+    maxUIntsMetadata = metadata.getNumKeys(StorageRegistry::UINT);
     maxFloatsMetadata = metadata.getNumKeys(StorageRegistry::FLOAT);
     maxBuffersMetadata = metadata.getNumKeys(StorageRegistry::BUFFER);
+    maxTempBuffersMetadata = metadata.getNumKeys(StorageRegistry::BUFFER_TEMP);
 
     intMetadataDefaults = metadata.getIntKeyDefaults();
+    uintMetadataDefaults = metadata.getUIntKeyDefaults();
     floatMetadataDefaults = metadata.getFloatKeyDefaults();
 }
 
@@ -94,14 +108,18 @@ StorageEntry::StorageEntry(bool isMetadata, bool isLocal, StorageEntryListener* 
     this->isMetadataEntry = isMetadata;
     this->isLocal = isLocal;
     int numInts = maxInts;
+    int numUInts = maxUInts;
     int numFloats = maxFloats;
     int numBuffs = maxBuffers;
+    int numTempBuffs = maxTempBuffers;
     int numTags = maxTags;
     if(isMetadata)
     {
         numInts = maxIntsMetadata;
+        numUInts = maxUIntsMetadata;
         numFloats = maxFloatsMetadata;
         numBuffs = maxBuffersMetadata;
+        numTempBuffs = maxTempBuffersMetadata;
         numTags = 0; //metadata does not have tags
     }
 
@@ -116,6 +134,21 @@ StorageEntry::StorageEntry(bool isMetadata, bool isLocal, StorageEntryListener* 
         else
         {
             intValues.push_back(intMetadataDefaults[i]);
+        }
+
+    }
+
+    //Initialize uint values to the specified default
+    uintValues.reserve(numUInts);
+    for(int i=0; i<numUInts; i++)
+    {
+        if(!isMetadata)
+        {
+            uintValues.push_back(uintDefaults[i]);
+        }
+        else
+        {
+            uintValues.push_back(uintMetadataDefaults[i]);
         }
 
     }
@@ -144,6 +177,17 @@ StorageEntry::StorageEntry(bool isMetadata, bool isLocal, StorageEntryListener* 
         bufferValues.push_back(0);
     }
 
+    tmpBufferValues.reserve(numTempBuffs);
+    tmpBufferSizes.reserve(numTempBuffs);
+
+    //Initialize the temp buffer sizes to indicate that data is unallocated
+    for(int i=0; i<numTempBuffs; i++)
+    {
+        tmpBufferSizes.push_back(UNALLOCATED_BUFFER);
+        tmpBufferValues.push_back(0);
+    }
+
+
     //Initialize the tag values to false
     tagValues.reserve(numTags);
     for(int i=0; i<numTags; i++)
@@ -166,11 +210,24 @@ StorageEntry::~StorageEntry()
     {
         numBuff = maxBuffersMetadata;
     }
+    int numTempBuff = maxTempBuffers;
+    if(isMetadataEntry)
+    {
+        numTempBuff = maxTempBuffersMetadata;
+    }
+
     for(int i=0; i<numBuff; i++)
     {
         if(UNALLOCATED_BUFFER != bufferSizes[i])
         {
             free (bufferValues[i]);
+        }
+    }
+    for(int i=0; i<numTempBuff; i++)
+    {
+        if(UNALLOCATED_BUFFER != tmpBufferSizes[i])
+        {
+            free (tmpBufferValues[i]);
         }
     }
 }
@@ -230,13 +287,17 @@ bool StorageEntry::sortByValueIsLessThan( const StorageEntry& e )
         {
             return (getIntValue(pKey) < e.getIntValue(pKey));
         }
+        else if(StorageRegistry::UINT == pKeyType)
+        {
+            return (getUIntValue(pKey) < e.getUIntValue(pKey));
+        }
         else if(StorageRegistry::FLOAT == pKeyType)
         {
             return (getFloatValue(pKey) < e.getFloatValue(pKey));
         }
         else //BUFFER
         {
-            throw RuntimeException("Storage was configured with an invalid sort type (must be int or float)",
+            throw RuntimeException("Storage was configured with an invalid sort type (must be int, unsigned int, or float)",
                                 RuntimeException::CONFIGURATION_ERROR);
         }
     } 
@@ -248,45 +309,132 @@ bool StorageEntry::sortByValueIsLessThan( const StorageEntry& e )
 }
 
 /**
- * @brief Checks that the provided key is valid (>= 0 and < max)
- *
- * @param key the key
- * @param max the value the key must be less than to be valid
- * @return true if the key is valid
- * @throws RuntimeException if the key is invalid
+ * @brief Helper method to check range and type validity for a handle, and return the valid index
+ * 
+ * @param handle the handle
+ * @param expectedType the expected type (StorageKeyHelper type mask value)
+ * @param isMetadata whether or not this is a metadata entry
+ * @param entryMax the max value for regular entries
+ * @param metaMax the max value for metadata entries
+ * @returns the actual valid index to the underlying data structures
+ * @throws RuntimeException if the handle is not valid
  */
-bool StorageEntry::checkThatRangeIsValid(int key, int max)
+int StorageEntry::getHandleIndex(int handle, int expectedType, bool isMetadata, int entryMax, int metaMax)
 {
-    if((key >= 0) && (key < max))
+    int typeMask = StorageKeyHelper::getType(handle);
+    if(expectedType != typeMask)
     {
-        return true;
+        LOG_ERROR << "Expected key of type " << StorageKeyHelper::typeToString(expectedType) << 
+                     ", found key of type " << StorageKeyHelper::typeToString(typeMask);
+        throw RuntimeException("Attempt to access storage with a key of the wrong type", RuntimeException::USAGE_ERROR);
     }
-    else
+
+    int index = StorageKeyHelper::getIndex(handle);
+    int max = entryMax;
+    if(isMetadata)
     {
+        max = metaMax;
+    }
+
+    if(!((index >= 0) && (index < max)))
+    {
+        LOG_ERROR << "Out of range key of type " << StorageKeyHelper::typeToString(typeMask);
         throw RuntimeException("Attempt to access storage with an invalid key",
                                RuntimeException::INDEX_OUT_OF_RANGE);
     }
+    return index;
 }
 
 /**
- * @brief Sets an integer value.  Throws an exception if the key is invalid.
+ * @brief Helper method to check range and type validity for a buffer handle, and return the valid index
+ * 
+ * This method also sets the output variable typeIsTmpBuffer if the buffer is a temporary buffer.
+ * 
+ * @param handle the handle
+ * @param isMetadata whether or not this is a metadata entry
+ * @param[out] typeIsTmpBuffer set to true if this is a temorary buffer, false otherwise
+ * @returns the actual valid index to the underlying data structures
+ * @throws RuntimeException if the handle is not valid
+ */
+int StorageEntry::getBufferHandleIndex(int handle, int isMetadata, bool& typeIsTmpBuffer)
+{
+    //Check that the type of BUFFER or BUFFER_TEMP
+    int typeMask = StorageKeyHelper::getType(handle);
+    int entryMax = 0;
+    int metaMax = 0;
+    if(StorageKeyHelper::BUFFER_TYPE_MASK == typeMask)
+    {
+        typeIsTmpBuffer = false;
+        entryMax = maxBuffers;
+        metaMax = maxBuffersMetadata;
+    }
+    else if(StorageKeyHelper::BUFFER_TEMP_TYPE_MASK == typeMask)
+    {
+        typeIsTmpBuffer = true;
+        entryMax = maxTempBuffers;
+        metaMax = maxTempBuffersMetadata;
+    }
+    else
+    {
+        LOG_ERROR << "Expected BUFFER or BUFFER_TEMP key type, but found key of type " << StorageKeyHelper::typeToString(typeMask);
+        throw RuntimeException("Attempt to access storage with a key of the wrong type", RuntimeException::USAGE_ERROR);
+    }
+
+    //Check that the index is in a valid range
+    int index = StorageKeyHelper::getIndex(handle);
+    int max = entryMax;
+    if(isMetadata)
+    {
+        max = metaMax;
+    }
+
+    if(!((index >= 0) && (index < max)))
+    {
+        LOG_ERROR << "Out of range key of type " << StorageKeyHelper::typeToString(typeMask);
+        throw RuntimeException("Attempt to access storage with an invalid key",
+                               RuntimeException::INDEX_OUT_OF_RANGE);
+    }
+    return index;
+}
+
+/**
+ * @brief Sets an integer value.  Throws an exception if the handle is invalid.
  *
- * @param key the key
+ * @param handle the handle to the key
  * @param value the value to set
  */
-void StorageEntry::setValue(int key, int value)
+void StorageEntry::setValue(int handle, int value)
 {
-    if(isMetadataEntry)
-        checkThatRangeIsValid(key,maxIntsMetadata);
-    else
-        checkThatRangeIsValid(key,maxInts);
+    int key = getHandleIndex(handle, StorageKeyHelper::INT_TYPE_MASK, isMetadataEntry, maxInts, maxIntsMetadata);
     intValues[key] = value;
 
     //Notify storage if the primary key has been modified
     //(for entries that are neither local, nor metadata only)
     if(!isMetadataEntry && !isLocal)
     {
-        if((StorageRegistry::INT == pKeyType) && (key == pKey))
+        if((StorageRegistry::INT == pKeyType) && (handle == pKey))
+        {
+            listener->notifyPrimaryKeyUpdated(this);
+        }
+    }
+}
+
+/**
+ * @brief Sets an unsigned integer value.  Throws an exception if the handle is invalid.
+ *
+ * @param handle the handle to the key
+ * @param value the value to set
+ */
+void StorageEntry::setValue(int handle, unsigned int value)
+{
+    int key = getHandleIndex(handle, StorageKeyHelper::UINT_TYPE_MASK, isMetadataEntry, maxUInts, maxUIntsMetadata);
+    uintValues[key] = value;
+
+    //Notify storage if the primary key has been modified
+    //(for entries that are neither local, nor metadata only)
+    if(!isMetadataEntry && !isLocal)
+    {
+        if((StorageRegistry::UINT == pKeyType) && (handle == pKey))
         {
             listener->notifyPrimaryKeyUpdated(this);
         }
@@ -299,15 +447,12 @@ void StorageEntry::setValue(int key, int value)
  * This is a convenience method for metadata that is used as a counter, as the value
  * can be incremented by 1 in a single call.
  * 
- * @param key the key
+ * @param handle the handle to the key
  * @returns the update value (after incrementing by 1)
  */
-int StorageEntry::incrementIntValue(int key)
+int StorageEntry::incrementIntValue(int handle)
 {
-    if(isMetadataEntry)
-        checkThatRangeIsValid(key,maxIntsMetadata);
-    else
-        checkThatRangeIsValid(key,maxInts);
+    int key = getHandleIndex(handle, StorageKeyHelper::INT_TYPE_MASK, isMetadataEntry, maxInts, maxIntsMetadata);
     intValues[key]++;
 
     //It seems unlikely that this method would ever be called on the primary
@@ -316,7 +461,7 @@ int StorageEntry::incrementIntValue(int key)
     //(for entries that are neither local, nor metadata only)
     if(!isMetadataEntry && !isLocal)
     {
-        if((StorageRegistry::INT == pKeyType) && (key == pKey))
+        if((StorageRegistry::INT == pKeyType) && (handle == pKey))
         {
             listener->notifyPrimaryKeyUpdated(this);
         }
@@ -326,25 +471,50 @@ int StorageEntry::incrementIntValue(int key)
 }
 
 /**
- * @brief Sets a float value.  Throws an exception if the key is invalid.
+ * @brief Increments an unsigned integer value.  Throws an exception if the handle is invalid.
+ * 
+ * This is a convenience method for metadata that is used as a counter, as the value
+ * can be incremented by 1 in a single call.
+ * 
+ * @param handle the handle to the key
+ * @returns the update value (after incrementing by 1)
+ */
+unsigned int StorageEntry::incrementUIntValue(int handle)
+{
+    int key = getHandleIndex(handle, StorageKeyHelper::UINT_TYPE_MASK, isMetadataEntry, maxUInts, maxUIntsMetadata);
+    uintValues[key]++;
+
+    //It seems unlikely that this method would ever be called on the primary
+    //key, but this is included for completeness, just in case
+    //Notify storage if the primary key has been modified
+    //(for entries that are neither local, nor metadata only)
+    if(!isMetadataEntry && !isLocal)
+    {
+        if((StorageRegistry::UINT == pKeyType) && (handle == pKey))
+        {
+            listener->notifyPrimaryKeyUpdated(this);
+        }
+    }
+
+    return uintValues[key];
+}
+
+/**
+ * @brief Sets a float value.  Throws an exception if the handle is invalid.
  *
- * @param key the key
+ * @param handle the handle to the key
  * @param value the value to set
  */
-void StorageEntry::setValue(int key, float value)
+void StorageEntry::setValue(int handle, float value)
 {
-    if(isMetadataEntry)
-        checkThatRangeIsValid(key,maxFloatsMetadata);
-    else
-        checkThatRangeIsValid(key,maxFloats);
-    
+    int key = getHandleIndex(handle, StorageKeyHelper::FLOAT_TYPE_MASK, isMetadataEntry, maxFloats, maxFloatsMetadata);
     floatValues[key] = value;
 
     //Notify storage if the primary key has been modified
     //(for entries that are neither local, nor metadata only)
     if(!isMetadataEntry && !isLocal)
     {
-        if((StorageRegistry::FLOAT == pKeyType) && (key == pKey))
+        if((StorageRegistry::FLOAT == pKeyType) && (handle == pKey))
         {
             listener->notifyPrimaryKeyUpdated(this);
         }
@@ -355,51 +525,55 @@ void StorageEntry::setValue(int key, float value)
 /**
  * @brief Gets an int value.  Throws an exception if the key is invalid.
  *
- * @param key the key
+ * @param handle the handle to the key
  * @return the int value associated with the key
  */
-int StorageEntry::getIntValue(int key) const
+int StorageEntry::getIntValue(int handle) const
 {
-    if(isMetadataEntry)
-        checkThatRangeIsValid(key,maxIntsMetadata);
-    else
-        checkThatRangeIsValid(key,maxInts);
+    int key = getHandleIndex(handle, StorageKeyHelper::INT_TYPE_MASK, isMetadataEntry, maxInts, maxIntsMetadata);
     return intValues[key];
 }
 
 /**
- * @brief Gets a float value.  Throws an exception if the key is invalid.
+ * @brief Gets an unsigned int value.  Throws an exception if the key is invalid.
  *
- * @param key the key
+ * @param handle the handle to the key
+ * @return the unsigned int value associated with the key
+ */
+unsigned int StorageEntry::getUIntValue(int handle) const
+{
+    int key = getHandleIndex(handle, StorageKeyHelper::UINT_TYPE_MASK, isMetadataEntry, maxUInts, maxUIntsMetadata);
+    return uintValues[key];
+}
+
+/**
+ * @brief Gets a float value.  Throws an exception if the handle is invalid.
+ *
+ * @param handle the handle to the key
  * @return the float value associated with the key
  */
-float StorageEntry::getFloatValue(int key) const
+float StorageEntry::getFloatValue(int handle) const
 {
-    if(isMetadataEntry)
-        checkThatRangeIsValid(key,maxFloatsMetadata);
-    else
-        checkThatRangeIsValid(key,maxFloats);
+    int key = getHandleIndex(handle, StorageKeyHelper::FLOAT_TYPE_MASK, isMetadataEntry, maxFloats, maxFloatsMetadata);
     return floatValues[key];
 
 }
 
 /**
- * @brief Allocate a data buffer in this storage entry.  Throws an exception if the key or size are invalid.
+ * @brief Allocate a data buffer in this storage entry.  Throws an exception if the handle or size are invalid.
  *
  * Only one call to allocateBuffer is allowed per key.  Attempts to reallocate will results in an exception.
  *
- * @param key the key
+ * @param handle the handle to the key
  * @param size the size that should be allocated in the buffer
  * @return char* a pointer to the newly allocated buffer
  * @throws RuntimeException if the key or size are invalid, or if there is an attempt to re-allocate the buffer
  */
-char* StorageEntry::allocateBuffer(int key, int size)
+char* StorageEntry::allocateBuffer(int handle, int size)
 {
-    if(isMetadataEntry)
-        checkThatRangeIsValid(key,maxBuffersMetadata);
-    else
-        checkThatRangeIsValid(key,maxBuffers);
-
+    char* buff = nullptr;
+    bool typeIsTmpBuffer = false;
+    int key = getBufferHandleIndex(handle, isMetadataEntry, typeIsTmpBuffer);
     //Check that size is valid
     if(size <= 0)
     {
@@ -407,20 +581,48 @@ char* StorageEntry::allocateBuffer(int key, int size)
                                RuntimeException::USAGE_ERROR);
     }
 
-    //Allocate the buffer it is has not been allocated previously
-    if(UNALLOCATED_BUFFER == bufferSizes[key])
+    if(typeIsTmpBuffer)
     {
-        bufferSizes[key]  = size;       
-        bufferValues[key] = (char*) malloc(size);
+        //Allocate the buffer it is has not been allocated previously
+        if(UNALLOCATED_BUFFER == tmpBufferSizes[key])
+        {
+            tmpBufferSizes[key]  = size;       
+            tmpBufferValues[key] = (char*) malloc(size);
 
-        return bufferValues[key];
+            buff = tmpBufferValues[key];
+        }
+        else
+        {
+            //Buffer is being allocated with a new size
+            throw RuntimeException("Attempt to allocate StorageEntry temp buffer when it already contains data",
+                                RuntimeException::USAGE_ERROR);
+        }
     }
     else
     {
-        //Buffer is being allocated with a new size
-        throw RuntimeException("Attempt to allocate StorageEntry buffer more than once",
-                               RuntimeException::USAGE_ERROR);
+        //Allocate the buffer it is has not been allocated previously
+        if(UNALLOCATED_BUFFER == bufferSizes[key])
+        {
+            bufferSizes[key]  = size;       
+            bufferValues[key] = (char*) malloc(size);
+
+            buff = bufferValues[key];
+        }
+        else
+        {
+            //Buffer is being allocated with a new size
+            throw RuntimeException("Attempt to allocate StorageEntry buffer when it already contains data",
+                                RuntimeException::USAGE_ERROR);
+        }
     }
+
+    //If the buffer has been allocated on this pass through the fuzzing loop, then we know
+    //someone has likely written to the data on this pass through the fuzzing loop.
+    //No one can write to temp data buffers without allocate being called, as there is by
+    //definition no persistent data in these buffers.
+    listener->notifyTempBufferSet(this,isMetadataEntry);
+
+    return buff;
 }
 
 /**
@@ -429,15 +631,15 @@ char* StorageEntry::allocateBuffer(int key, int size)
  * Only one call to allocateBuffer is allowed per key.  Attempts to reallocate will results in an exception.
  * The buffer will be initialized by copying size bytes from the provided srcBuffer.
  *
- * @param key the key
+ * @param handle the handle to the key key
  * @param size the size that should be allocated in the buffer (and copied from the src buffer)
  * @param srcBuffer the src buffer that should be used to initialize the buffer
  * @return char* a pointer to the newly allocated buffer
  * @throws RuntimeException if the key or size are invalid, or if there is an attempt to re-allocate the buffer
  */
-char* StorageEntry::allocateAndCopyBuffer(int key, int size, char* srcBuffer)
+char* StorageEntry::allocateAndCopyBuffer(int handle, int size, char* srcBuffer)
 {
-    char* newBuff = allocateBuffer(key,size);
+    char* newBuff = allocateBuffer(handle,size);
     memcpy((void*)newBuff, (void*)srcBuffer, size);
     return newBuff;
 }
@@ -448,25 +650,61 @@ char* StorageEntry::allocateAndCopyBuffer(int key, int size, char* srcBuffer)
  * Only one call to allocateBuffer is allowed per key.  Attempts to reallocate will results in an exception.
  * The buffer will be initialized by copying the data value from the provided srcEntry.
  *
- * @param key the key
+ * @param handle the handle to the key
  * @param srcEntry the src entry from which the data should be copied
  * @return char* a pointer to the newly allocated buffer
  * @throws RuntimeException if the key is invalid, there is no such buffer in the srcEntry, or if there is an attempt to re-allocate the buffer
  */
-char* StorageEntry::allocateAndCopyBuffer(int key, StorageEntry* srcEntry)
+char* StorageEntry::allocateAndCopyBuffer(int handle, StorageEntry* srcEntry)
 {
-    int size = srcEntry->getBufferSize(key);
+    int size = srcEntry->getBufferSize(handle);
     if(size <= 0)
     {
         throw RuntimeException("Cannot copy from srcEntry, because the entry does not contain any data for this key", 
                                 RuntimeException::OTHER);
     }
 
-    char* srcBuffer = srcEntry->getBufferPointer(key);
-    char* newBuff = allocateBuffer(key,size);
+    char* srcBuffer = srcEntry->getBufferPointer(handle);
+    char* newBuff = allocateBuffer(handle,size);
     memcpy((void*)newBuff, (void*)srcBuffer, size);
 
     return newBuff;
+}
+
+/**
+ * @brief Clear a buffer in this storage entry
+ * After this call, the buffer will return to the unallocated state (size of -1).
+ * This method must be used with care, as it is deleting data that other modules might
+ * want to use.  Safe usages of this method include:
+ * - Clearing a buffer and then immediately re-allocating it with new data
+ * - In specific situations where temporary data is only used by one module, filling a temporary 
+ * buffer and then immediately clearing it (this should only be done if there are otherwise memory
+ * usage concerns, as temporary buffer data will be cleared automatically by the framework on each
+ * pass through the fuzzing loop)
+ * 
+ * @param handle the handle to clear
+ * @throws RuntimeException if the handle is invalid, or not a buffer handle
+ */
+void StorageEntry::clearBuffer(int handle)
+{
+    bool typeIsTmpBuffer = false;
+    int key = getBufferHandleIndex(handle, isMetadataEntry, typeIsTmpBuffer);
+    if(typeIsTmpBuffer)
+    {
+        if(tmpBufferSizes[key]!=UNALLOCATED_BUFFER)
+        {
+            free (tmpBufferValues[key]);
+            tmpBufferSizes[key] = UNALLOCATED_BUFFER;
+        }
+    }
+    else
+    {
+        if(bufferSizes[key]!=UNALLOCATED_BUFFER)
+        {
+            free (bufferValues[key]);
+            bufferSizes[key] = UNALLOCATED_BUFFER;
+        }
+    }
 }
 
 /**
@@ -475,23 +713,30 @@ char* StorageEntry::allocateAndCopyBuffer(int key, StorageEntry* srcEntry)
  * If the buffer has not yet been allocated, this method will return false.  If it has been 
  * allocated, this method will return true.
  * 
- * @param key the handle to the data field of interest
+ * @param handle the handle to the data field of interest
  * @return true if the field has been allocated
  * @return false otherwise
  * @throws RuntimeException if this is not a valid buffer key
  */
-bool StorageEntry::hasBuffer(int key) const
+bool StorageEntry::hasBuffer(int handle) const
 {
     bool hasData = false;
-
-    if(isMetadataEntry)
-        checkThatRangeIsValid(key,maxBuffersMetadata);
-    else
-        checkThatRangeIsValid(key,maxBuffers);
-
-    if(UNALLOCATED_BUFFER != bufferSizes[key])
+    bool typeIsTmpBuffer = false;
+    int key = getBufferHandleIndex(handle, isMetadataEntry, typeIsTmpBuffer);
+    
+    if(!typeIsTmpBuffer)
     {
-        hasData = true;
+        if(UNALLOCATED_BUFFER != bufferSizes[key])
+        {
+            hasData = true;
+        }
+    }
+    else
+    {
+        if(UNALLOCATED_BUFFER != tmpBufferSizes[key])
+        {
+            hasData = true;
+        }
     }
 
     return hasData;
@@ -500,41 +745,64 @@ bool StorageEntry::hasBuffer(int key) const
 /**
  * @brief Get the size of a data buffer
  *
- * @param key the key
+ * @param handle the handle to the key
  * @return int the size (this will equal -1 if the buffer has not been allocated yet)
  */
-int StorageEntry::getBufferSize(int key) const
+int StorageEntry::getBufferSize(int handle) const
 {
-    if(isMetadataEntry)
-        checkThatRangeIsValid(key,maxBuffersMetadata);
+    bool typeIsTmpBuffer = false;
+    int key = getBufferHandleIndex(handle, isMetadataEntry, typeIsTmpBuffer);    
+    
+    int size = 0;
+    if(!typeIsTmpBuffer)
+    {
+        size = bufferSizes[key];
+    }
     else
-        checkThatRangeIsValid(key,maxBuffers);
-
-    return bufferSizes[key];
+    {
+        size = tmpBufferSizes[key];
+    }
+    return size;
 }
 
 /**
  * @brief Get the pointer to the buffer.  Throws an exception if the buffer has not been allocated yet.
  *
- * @param key the key
+ * @param handle the handle to the key
  * @return char* the pointer to the buffer
  */
-char* StorageEntry::getBufferPointer(int key) const
+char* StorageEntry::getBufferPointer(int handle) const
 {
-    if(isMetadataEntry)
-        checkThatRangeIsValid(key,maxBuffersMetadata);
+    bool typeIsTmpBuffer = false;
+    int key = getBufferHandleIndex(handle, isMetadataEntry, typeIsTmpBuffer);  
+
+    if(!typeIsTmpBuffer)
+    {
+        if(bufferSizes[key] != UNALLOCATED_BUFFER)
+        {
+            return bufferValues[key];
+        }
+        else
+        {
+            throw RuntimeException("Attempt to access unallocated StorageEntry buffer",
+                                RuntimeException::USAGE_ERROR);
+        }
+
+    }
     else
-        checkThatRangeIsValid(key,maxBuffers);
+    {
+        if(tmpBufferSizes[key] != UNALLOCATED_BUFFER)
+        {
+            return tmpBufferValues[key];
+        }
+        else
+        {
+            throw RuntimeException("Attempt to access unallocated StorageEntry temp buffer",
+                                RuntimeException::USAGE_ERROR);
+        }
+    }
         
-    if(bufferSizes[key] != UNALLOCATED_BUFFER)
-    {
-        return bufferValues[key];
-    }
-    else
-    {
-        throw RuntimeException("Attempt to access unallocated StorageEntry buffer",
-                               RuntimeException::USAGE_ERROR);
-    }
+
 }
 
 /**
@@ -543,16 +811,16 @@ char* StorageEntry::getBufferPointer(int key) const
  * The tag must have been previously registed with the StorageRegistry.  This method
  * cannot be called on the metadata storage entry (if it is, an exception will be thrown).
  *
- * @param tagId the tag handle (as returned from a call to StorageRegistry.registerTag)
+ * @param tagHandle tag handle (as returned from a call to StorageRegistry.registerTag)
  */
-void StorageEntry::addTag(int tagId)
+void StorageEntry::addTag(int tagHandle)
 {
     if(isMetadataEntry)
     {
         throw RuntimeException("Tags cannot be set on metadata", RuntimeException::USAGE_ERROR);
     }
 
-    checkThatRangeIsValid(tagId,maxTags);
+    int tagId = getHandleIndex(tagHandle, StorageKeyHelper::TAG_TYPE_MASK, isMetadataEntry, maxTags, 0);
     
     //Don't bother notifying storage if the tag value isn't actually changing
     //Also don't notify storage if this is a local entry (storage should never be notified in this case)
@@ -573,16 +841,17 @@ void StorageEntry::addTag(int tagId)
  * This removes a tag from a previously tagged entry.  This method
  * cannot be called on the metadata storage entry (if it is, an exception will be thrown).
  * 
- * @param tagId the tag handle (as returned from a call to StorageRegistry.registerTag)
+ * @param tagHandle the tag handle (as returned from a call to StorageRegistry.registerTag)
  */
-void StorageEntry::removeTag(int tagId)
+void StorageEntry::removeTag(int tagHandle)
 {
     if(isMetadataEntry)
     {
         throw RuntimeException( "Tags cannot be set on metadata", RuntimeException::USAGE_ERROR);
     }
 
-    checkThatRangeIsValid(tagId,maxTags);
+    int tagId = getHandleIndex(tagHandle, StorageKeyHelper::TAG_TYPE_MASK, isMetadataEntry, maxTags, 0);
+    
 
     //Don't bother notifying storage if the tag value isn't actually changing
     //Also don't notify storage if this is a local entry (storage should never be notified in this case)
@@ -601,17 +870,18 @@ void StorageEntry::removeTag(int tagId)
  * 
  * This method cannot be called on the metadata storage entry (if it is, an exception will be thrown).
  * 
- * @param tagId the tag handle (as returned from a call to StorageRegistry.registerTag)
+ * @param tagHandle the tag handle (as returned from a call to StorageRegistry.registerTag)
  * @returns true if the entry has the tag, and false otherwise
  */
-bool StorageEntry::hasTag(int tagId)
+bool StorageEntry::hasTag(int tagHandle)
 {
     if(isMetadataEntry)
     {
         throw RuntimeException( "Metadata does not have tags", RuntimeException::USAGE_ERROR);
     }
 
-    checkThatRangeIsValid(tagId,maxTags);
+    int tagId = getHandleIndex(tagHandle, StorageKeyHelper::TAG_TYPE_MASK, isMetadataEntry, maxTags, 0);
+    
 
     return tagValues[tagId];
 }
@@ -635,7 +905,8 @@ std::vector<int> StorageEntry::getTagList()
     {
         if(tagValues[i])
         {
-            tagList.push_back(i);
+            int handle = StorageKeyHelper::addTypeToIndex(i,StorageKeyHelper::TAG_TYPE_MASK);
+            tagList.push_back(handle);
         }
     } 
     return tagList;

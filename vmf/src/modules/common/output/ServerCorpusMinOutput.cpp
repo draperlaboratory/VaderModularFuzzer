@@ -70,7 +70,7 @@ void ServerCorpusMinOutput::init(ConfigInterface& config)
 ServerCorpusMinOutput::ServerCorpusMinOutput(std::string name):
     OutputModule(name)
 {
-
+    minimizationRan = false;
 }
 
 /**
@@ -90,10 +90,16 @@ void ServerCorpusMinOutput::registerStorageNeeds(StorageRegistry& registry)
 void ServerCorpusMinOutput::run(StorageModule& storage)
 {
     //Call on the corpus min submodule to minimize the corpus
+    minimizationRan = false;
     corpusMinModule->run(storage);
+    minimizationRan = true; 
+    //The minimizationRan variable is needed in case corpus minimization throws an exception
+    //because in distributed mode, we will start to shutdown when there is an exception
+    //and then immediately receive a stop command from the server.  This was leading to a double
+    //free on the modules, because the shutdown method in this module was slow running.
 
     //Note: If we ever want to be able to minimize the common corpus periodically,
-    //such that this module could be included in something other than a RunOnceController,
+    //such that this module could be included in something other than a controller that only runs once,
     //it should be possible to refactor this module to perform that behavior instead.
     //
     //However, if doing this, it is important to note that items are not deleted from
@@ -104,19 +110,26 @@ void ServerCorpusMinOutput::run(StorageModule& storage)
 
 void ServerCorpusMinOutput::shutdown(StorageModule& storage)
 {
-    //Publish the current corpus (which should have been just minimized) to the server
-    std::vector<std::string> files;
-
-    std::unique_ptr<Iterator> allEntries = storage.getSavedEntries();
-    while(allEntries->hasNext())
+    if(minimizationRan)
     {
-        StorageEntry* theEntry = allEntries->getNext();
-        char* buff = theEntry->getBufferPointer(fileURLKey);
-        int size = theEntry->getBufferSize(fileURLKey);
-        std::string url;
-        url.assign(buff,buff+size);
-        files.push_back(url);
+        //Publish the current corpus (which should have been just minimized) to the server
+        std::vector<std::string> files;
+
+        std::unique_ptr<Iterator> allEntries = storage.getSavedEntries();
+        while(allEntries->hasNext())
+        {
+            StorageEntry* theEntry = allEntries->getNext();
+            char* buff = theEntry->getBufferPointer(fileURLKey);
+            int size = theEntry->getBufferSize(fileURLKey);
+            std::string url;
+            url.assign(buff,buff+size);
+            files.push_back(url);
+        }
+        
+        CDMSClient::getInstance()->requestCorpusSync(files, true); //sync at the cluster level
     }
-    
-    CDMSClient::getInstance()->requestCorpusSync(files, true); //sync at the cluster level
+    else
+    {
+        LOG_ERROR << "Corpus Minimization did not run properly, so no updated corpus will be sent to the server.";
+    }
 }

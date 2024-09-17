@@ -29,7 +29,7 @@
 #include "ServerCorpusInitialization.hpp"
 #include "Logging.hpp"
 #include "CDMSClient.hpp"
-#include "json11.hpp"
+#include "CDMSCommandAndCorpusHandler.hpp"
 
 
 using namespace vmf;
@@ -77,9 +77,7 @@ void ServerCorpusInitialization::init(ConfigInterface& config)
 
 void ServerCorpusInitialization::registerStorageNeeds(StorageRegistry& registry)
 {
-    testCaseKey = registry.registerKey("TEST_CASE",StorageRegistry::BUFFER,StorageRegistry::WRITE_ONLY);
-    
-    serverTestCaseTag = registry.registerTag("SERVER_TC", StorageRegistry::WRITE_ONLY);
+    CDMSCommandAndCorpusHandler::getInstance().registerStorageNeeds(registry);
 
     if(writeServerURL)
     {
@@ -93,21 +91,12 @@ void ServerCorpusInitialization::registerStorageNeeds(StorageRegistry& registry)
 void ServerCorpusInitialization::run(StorageModule& storage)
 {
 
-    CDMSClient* client = CDMSClient::getInstance();
    
     LOG_INFO << "About to request whole corpus from CDMS";
-    json11::Json json = client->getCorpus(tags);
-
-    if(writeServerURL)
+    bool done = CDMSCommandAndCorpusHandler::getInstance().loadWholeCorpus(storage, tags, fileURLKey);
+    if(!done)
     {
-        LOG_DEBUG << "Retrieving corpus, will write fileURL to storage";
-        client->createNewTestCasesFromJsonWithFilename(storage, json, testCaseKey, serverTestCaseTag, fileURLKey);
+        throw RuntimeException("Unable to load whole corpus due to error in CDMSCommandAndCorpusHandler", RuntimeException::UNEXPECTED_ERROR);
     }
-    else
-    {
-        LOG_DEBUG << "Retrieving corpus (fileURL will not be written to storage)";
-        client->createNewTestCasesFromJson(storage, json, testCaseKey, serverTestCaseTag);
-    }
-    
 }
 

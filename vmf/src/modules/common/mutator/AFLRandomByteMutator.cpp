@@ -73,7 +73,7 @@ Module* AFLRandomByteMutator::build(std::string name)
  */
 void AFLRandomByteMutator::init(ConfigInterface& config)
 {
-
+    rand = VmfRand::getInstance();
 }
 
 /**
@@ -84,7 +84,7 @@ void AFLRandomByteMutator::init(ConfigInterface& config)
 AFLRandomByteMutator::AFLRandomByteMutator(std::string name) :
     MutatorModule(name)
 {
-    rand.randInit();
+    rand = nullptr;
 }
 
 /**
@@ -110,6 +110,11 @@ void AFLRandomByteMutator::registerStorageNeeds(StorageRegistry& registry)
 void AFLRandomByteMutator::mutateTestCase(StorageModule& storage, StorageEntry* baseEntry, StorageEntry* newEntry, int testCaseKey)
 {
 
+    if (rand == nullptr)
+    {
+	throw RuntimeException("VmfRand was null, mutator was not initialized before use.");
+    }
+
     int size = baseEntry->getBufferSize(testCaseKey);
     char* buffer = baseEntry->getBufferPointer(testCaseKey);
 
@@ -122,7 +127,7 @@ void AFLRandomByteMutator::mutateTestCase(StorageModule& storage, StorageEntry* 
     char* newBuff = newEntry->allocateBuffer(testCaseKey, size);
     memcpy((void*)newBuff, (void*)buffer, size);
 
-    int idx = rand.randBelow(size);
-    newBuff[idx] ^= 1 + (uint8_t)rand.randBelow(255);
+    int idx = rand->randBelow(size);
+    newBuff[idx] ^= 1 + (uint8_t)rand->randBelow(255);
 
 }

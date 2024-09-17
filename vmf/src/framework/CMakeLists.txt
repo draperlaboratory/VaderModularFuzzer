@@ -31,17 +31,19 @@
 add_library(VMFFramework SHARED
     util/BaseException.cpp
     util/CDMSClient.cpp
+    util/CDMSCommandAndCorpusHandler.cpp
     util/ConfigInterface.cpp
     util/Logging.cpp
     util/ModuleFactory.cpp
     util/RuntimeException.cpp
     util/VmfUtil.cpp
     util/VmfRand.cpp
-    baseclasses/ControllerModule.cpp
+    baseclasses/ControllerModulePattern.cpp
     baseclasses/OutputScheduler.cpp
     baseclasses/SimpleIterator.cpp
     baseclasses/SimpleStorage.cpp
     baseclasses/StorageEntry.cpp
+    baseclasses/StorageKeyHelper.hpp
     baseclasses/StorageRegistry.cpp
 )
 

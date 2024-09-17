@@ -51,10 +51,7 @@ class ServerSeedInitialization: public InitializationModule
         virtual ~ServerSeedInitialization();
 
     private:
-        int    testCaseKey;
-        int    serverTestCaseTag;
         bool   getMinCorpus;
-
         std::string tags;
 };
 }

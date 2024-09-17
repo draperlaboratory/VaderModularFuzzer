@@ -11,6 +11,7 @@ vmfModules:
       - className: AFLFavoredFeedback
       - className: CorpusMinimization
       - className: SaveCorpusOutput
+      - className: ComputeStats
       - className: StatsOutput
   MOPTInputGenerator:
     children:
@@ -28,3 +29,21 @@ vmfModules:
   CorpusMinimization:
     children:
       - className: AFLForkserverExecutor
+        id: CorpusMinExecutor
+
+# Modules-specific parameters
+#(The SUT-specific portions of these all defined using YAML anchors)
+AFLForkserverExecutor:
+  sutArgv: *SUT_ARGV
+
+CorpusMinExecutor:
+  sutArgv: *SUT_ARGV
+  alwaysWriteTraceBits: true
+
+DirectoryBasedSeedGen:
+  inputDir: *INPUT_DIR
+
+#Only used if the StringsInitialization module is commented in above
+StringsInitialization:
+  sutArgv: *SUT_ARGV  
+

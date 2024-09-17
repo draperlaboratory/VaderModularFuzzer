@@ -75,7 +75,7 @@ Module* AFLCloneMutator::build(std::string name)
  */
 void AFLCloneMutator::init(ConfigInterface& config)
 {
-
+    rand = VmfRand::getInstance();
 }
 
 /**
@@ -86,7 +86,7 @@ void AFLCloneMutator::init(ConfigInterface& config)
 AFLCloneMutator::AFLCloneMutator(std::string name) :
     MutatorModule(name)
 {
-   rand.randInit();
+    rand = nullptr;
 }
 
 /**
@@ -112,6 +112,11 @@ void AFLCloneMutator::registerStorageNeeds(StorageRegistry& registry)
 void AFLCloneMutator::mutateTestCase(StorageModule& storage, StorageEntry* baseEntry, StorageEntry* newEntry, int testCaseKey)
 {
 
+    if (rand == nullptr)
+    {
+	throw RuntimeException("VmfRand was null, mutator was not initialized before use.");
+    }
+
     int size = baseEntry->getBufferSize(testCaseKey);
     char* buffer = baseEntry->getBufferPointer(testCaseKey);
 
@@ -121,16 +126,16 @@ void AFLCloneMutator::mutateTestCase(StorageModule& storage, StorageEntry* baseE
     }
 
     //The variable actually_clone determines which strategy is used.
-    int actually_clone = rand.randBelow(4);
+    int actually_clone = rand->randBelow(4);
     int clone_from;
     int clone_len;
-    int clone_to = rand.randBelow(size);
+    int clone_to = rand->randBelow(size);
 
     if (actually_clone) {
         //Clone a small block of the original data
 
-        clone_len = AFLDeleteMutator::choose_block_len(rand, size);
-        clone_from = rand.randBelow(size - clone_len + 1);
+        clone_len = AFLDeleteMutator::choose_block_len(*rand, size);
+        clone_from = rand->randBelow(size - clone_len + 1);
 
         int newSize = clone_len + size;
         char* newBuff = newEntry->allocateBuffer(testCaseKey, newSize);
@@ -147,8 +152,8 @@ void AFLCloneMutator::mutateTestCase(StorageModule& storage, StorageEntry* baseE
     } else {
         //Clone a large block of the original value
 
-        clone_len = AFLDeleteMutator::choose_block_len(rand, BLK_XL); //This constant is 32768
-        int randomByte = rand.randBelow(255);
+        clone_len = AFLDeleteMutator::choose_block_len(*rand, BLK_XL); //This constant is 32768
+        int randomByte = rand->randBelow(255);
 
         int newSize = clone_len + size;
         char* newBuff = newEntry->allocateBuffer(testCaseKey, newSize);

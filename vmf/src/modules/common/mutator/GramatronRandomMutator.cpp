@@ -43,6 +43,7 @@ Module* GramatronRandomMutator::build(std::string name)
 void GramatronRandomMutator::init(ConfigInterface& config)
 {
     pda = PDA::GetInstance();
+    rand = VmfRand::getInstance();
 }
 
 /**
@@ -116,7 +117,7 @@ void GramatronRandomMutator::random(StorageEntry* newEntry, char* buffer, int te
     Array* sliced;
 
     // Get offset at which to generate new input and slice it
-    int idx = rand() % input->used;
+    int idx = rand -> randBelow(input->used);
     sliced = slice(input, idx);
 
     // Reset current state to that of the slice's last member

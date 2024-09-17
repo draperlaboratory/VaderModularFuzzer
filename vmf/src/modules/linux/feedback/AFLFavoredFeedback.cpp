@@ -88,7 +88,7 @@ AFLFavoredFeedback::~AFLFavoredFeedback()
 void AFLFavoredFeedback::registerStorageNeeds(StorageRegistry& registry)
 {
     AFLFeedback::registerStorageNeeds(registry);
-    traceBitsKey = registry.registerKey("AFL_TRACE_BITS", StorageRegistry::BUFFER, StorageRegistry::WRITE_ONLY);
+    traceBitsKey = registry.registerKey("AFL_TRACE_BITS", StorageRegistry::BUFFER_TEMP, StorageRegistry::READ_ONLY);
     
     favoredTag = registry.registerTag("FAVORED", StorageRegistry::READ_WRITE);
 }

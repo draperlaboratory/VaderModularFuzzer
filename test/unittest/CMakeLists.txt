@@ -31,13 +31,18 @@
 find_package(Threads REQUIRED)
 
 SET(TEST_SRCS
+  TestConfigInterface.cpp
+  ModuleTestHelper.cpp
   TestAll.cpp
+  TestConfigInterfaceTest.cpp
   StorageRegistryTest.cpp
   StorageModuleTest.cpp
   StorageModuleTestFloat.cpp
   AFLMutatorTest.cpp
+  GAInputGenTest.cpp
   OutputSchedulerTest.cpp
   MOPTTest.cpp
+  linux/AFLForkserverExecutorTest.cpp
 )
 
 add_executable(VmfTest ${TEST_SRCS})

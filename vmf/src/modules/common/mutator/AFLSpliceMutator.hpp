@@ -78,7 +78,7 @@ public:
     
 private:
     int normalTag;
-    VmfRand rand;
+    VmfRand* rand;
 
 };
 }

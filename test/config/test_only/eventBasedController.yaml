@@ -12,10 +12,12 @@ vmfModules:
       - className: AFLForkserverExecutor
       - className: AFLFavoredFeedback
       - className: SaveCorpusOutput
+      - className: ComputeStats
       - className: StatsOutput
   CorpusMinimization:
     children:
       - className: AFLForkserverExecutor
+        id: CorpusMinExecutor
   primaryInputGen:
     children:
       - className: AFLFlipBitMutator
@@ -46,3 +48,6 @@ vmfModules:
 NewCoverageController:
   primaryInputGenerator: primaryInputGen
   newCoverageInputGenerator: newCoverageInputGen
+CorpusMinExecutor:
+  sutArgv: *SUT_ARGV
+  alwaysWriteTraceBits: true

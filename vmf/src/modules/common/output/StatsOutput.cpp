@@ -63,11 +63,6 @@ void StatsOutput::init(ConfigInterface& config)
         defaultRate = 20;
     }
     outputRate = config.getIntParam(getModuleName(),"outputRateInSeconds", defaultRate);
-    timeLastPrintedStats = time(0);
-    timeLastInterestingTestCaseFound = time(0);
-    prevTestCaseTotal = 0;
-    total_time = 0;
-    uniqueTotal = 0;
 }
 
 /**
@@ -88,17 +83,25 @@ StatsOutput::~StatsOutput()
 
 void StatsOutput::registerStorageNeeds(StorageRegistry& registry)
 {
-    crashedTag = registry.registerTag("CRASHED", StorageRegistry::READ_ONLY);
-    hungTag = registry.registerTag("HUNG", StorageRegistry::READ_ONLY);
+
 }
 
 void StatsOutput::registerMetadataNeeds(StorageRegistry& registry)
 {
-    totalTCCountMetadataKey = registry.registerKey("TOTAL_TEST_CASES", StorageRegistry::INT, StorageRegistry::READ_ONLY);
-    totalCrashedCountMetadataKey = registry.registerKey("TOTAL_CRASHED_CASES", StorageRegistry::INT, StorageRegistry::READ_ONLY);
-    totalHungCountMetadataKey = registry.registerKey("TOTAL_HUNG_CASES", StorageRegistry::INT, StorageRegistry::READ_ONLY);
-    totalBytesCoveredMetadataKey = registry.registerKey("TOTAL_BYTES_COVERED", StorageRegistry::INT, StorageRegistry::READ_ONLY);
-    mapSizeMetadataKey = registry.registerKey("MAP_SIZE", StorageRegistry::INT, StorageRegistry::READ_ONLY);        
+    totalTCCountMetadataKey = registry.registerKey("TOTAL_TEST_CASES", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+    totalCrashedCountMetadataKey = registry.registerKey("TOTAL_CRASHED_CASES", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+    totalHungCountMetadataKey = registry.registerKey("TOTAL_HUNG_CASES", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+    
+    totalBytesCoveredMetadataKey = registry.registerKey("TOTAL_BYTES_COVERED", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+    mapSizeMetadataKey = registry.registerKey("MAP_SIZE", StorageRegistry::UINT, StorageRegistry::READ_ONLY);        
+    secondsSinceLastUniqueMetadataKey = registry.registerKey("SECONDS_SINCE_LAST_UNIQUE_FINDING", StorageRegistry::FLOAT, StorageRegistry::READ_ONLY);
+
+    uniqueTCCountMetadataKey = registry.registerKey("UNIQUE_TEST_CASES", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+    uniqueCrashedCountMetadataKey = registry.registerKey("UNIQUE_CRASHED_CASES", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+    uniqueHungCountMetadataKey = registry.registerKey("UNIQUE_HUNG_CASES", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+    
+    latestExecPerSecMetadataKey = registry.registerKey("LATEST_EXEC_PER_SEC", StorageRegistry::FLOAT, StorageRegistry::READ_ONLY);
+    averageExecPerSecMetadataKey = registry.registerKey("AVERAGE_EXEC_PER_SEC", StorageRegistry::FLOAT, StorageRegistry::READ_ONLY);
 }
 
 OutputModule::ScheduleTypeEnum StatsOutput::getDesiredScheduleType()
@@ -115,69 +118,20 @@ void StatsOutput::run(StorageModule& storage)
 {
     StorageEntry& metadata = storage.getMetadata();
     
-    //Get basic stats from metadata
-    currentTotal = metadata.getIntValue(totalTCCountMetadataKey);
-    crashes = metadata.getIntValue(totalCrashedCountMetadataKey);
-    hangs = metadata.getIntValue(totalHungCountMetadataKey);
-    bytesCovered = metadata.getIntValue(totalBytesCoveredMetadataKey);
-
-    //Get the number of unique test cases by looking at what is in storage currently
-    int newUniqueTotal = storage.getSavedEntries()->getSize();
-    time_t now = time(0);
-    if(newUniqueTotal <= uniqueTotal)
-    {
-        //Nothing new was found -- Compute how long it's been since the last new finding
-        timeSinceLastFound = (float)difftime(now, timeLastInterestingTestCaseFound);
-    }
-    else
-    {
-        //We found something new, store the timestamp and set the time diff to 0.0
-        timeLastInterestingTestCaseFound = now;
-        timeSinceLastFound = 0.0;
-    }
-    uniqueTotal = newUniqueTotal;
-    uniqueCrashes = storage.getSavedEntriesByTag(crashedTag)->getSize();
-    uniqueHangs = storage.getSavedEntriesByTag(hungTag)->getSize();
-
-    //Compute coverage data
-    mapSize = metadata.getIntValue(mapSizeMetadataKey);
-    mapPercentFull = (float) 100.0 * bytesCovered / mapSize;
-
-    //Exec/s must be computed (via this helper method)
-    computeExecutionsPerSecond(currentTotal);
-
-    //Finally, output the data
-    outputStatistics();
-}
-
-
-/**
- * @brief Computes and prints the rate of test case execution
- * 
- * @param totalTestCaseCount the current total number of test cases
- * @param elapsed the elapsed time since the last call to this method
- */
-void StatsOutput::computeExecutionsPerSecond(int totalTestCaseCount)
-{
-    time_t now = time(0);
-    double elapsed = difftime(now, timeLastPrintedStats);
-    timeLastPrintedStats = now;
-    total_time += elapsed;
-
-    casePerSec = totalTestCaseCount / total_time;
-    latestCasePerSec = (totalTestCaseCount - prevTestCaseTotal)/elapsed;
-    prevTestCaseTotal = totalTestCaseCount;
-
-}
-
-/**
- * @brief Helper method to output the statistics
- * This method either prints to the logger or for distributed fuzzing,
- * sends the output to the server.  This behavior is controlled by the
- * "sendToServer" configuration option.
- */
-void StatsOutput::outputStatistics()
-{
+    //Get stats from metadata
+    int currentTotal = metadata.getUIntValue(totalTCCountMetadataKey);
+    int crashes = metadata.getUIntValue(totalCrashedCountMetadataKey);
+    int hangs = metadata.getUIntValue(totalHungCountMetadataKey);
+    int bytesCovered = metadata.getUIntValue(totalBytesCoveredMetadataKey);
+    int mapSize = metadata.getUIntValue(mapSizeMetadataKey);
+    int uniqueTotal = metadata.getUIntValue(uniqueTCCountMetadataKey);
+    int uniqueCrashes = metadata.getUIntValue(uniqueCrashedCountMetadataKey);
+    int uniqueHangs = metadata.getUIntValue(uniqueHungCountMetadataKey);
+    int latestCasePerSec = metadata.getFloatValue(latestExecPerSecMetadataKey);
+    int casePerSec  = metadata.getFloatValue(averageExecPerSecMetadataKey);
+    int timeSinceLastFound = metadata.getFloatValue(secondsSinceLastUniqueMetadataKey);
+    int mapPercentFull = (float) 100.0 * bytesCovered / mapSize;
+    //Output the data
     if(!writeToServer)
     {
         //Statistics are written to the console
@@ -201,17 +155,17 @@ void StatsOutput::outputStatistics()
             {"uid",     CDMSClient::getInstance()->getUniqueId()},
             {"metrics", Json::array 
                 {
-                Json::object { {"key","uniqueInterestingTestCases"},{"value", uniqueTotal} },
-                Json::object { {"key","uniqueCrashes"}, {"value", uniqueCrashes} },
+                Json::object { {"key","uniqueInterestingTestCases"},{"value", (int)uniqueTotal} },
+                Json::object { {"key","uniqueCrashes"}, {"value", (int)uniqueCrashes} },
                 Json::object { {"key","latestExecPerSec"}, {"value", latestCasePerSec} },
                 Json::object { {"key","timeSinceLastFound"}, {"value", timeSinceLastFound} },
-                Json::object { {"key","totalExecutions"}, {"value",currentTotal} },  
-                Json::object { {"key","totalUniqueHangs"}, {"value", uniqueHangs} },
+                Json::object { {"key","totalExecutions"}, {"value",(int)currentTotal} },  
+                Json::object { {"key","totalUniqueHangs"}, {"value", (int)uniqueHangs} },
                 Json::object { {"key","avgExecPerSec"}, {"value", casePerSec} },
-                Json::object { {"key","totalCrashes"}, {"value",crashes} },
-                Json::object { {"key","totalHangs"}, {"value", hangs} },
-                Json::object { {"key","coveredTuples"}, {"value", bytesCovered} },
-                Json::object { {"key","mapSize"}, {"value", mapSize} },
+                Json::object { {"key","totalCrashes"}, {"value",(int)crashes} },
+                Json::object { {"key","totalHangs"}, {"value", (int)hangs} },
+                Json::object { {"key","coveredTuples"}, {"value", (int)bytesCovered} },
+                Json::object { {"key","mapSize"}, {"value", (int)mapSize} },
                 Json::object { {"key","mapPercentFull"}, {"value", mapPercentFull} }
                 }
             } 

@@ -35,6 +35,6 @@ public class AppConfig
     public static String        sqlMapConfig = "com/draper/services/database/sqlmap.config";
     public static String        webservicePath;
     public static String        storagePath;
-    public static String        softwareVersion     = "4.0.0";
+    public static String        softwareVersion     = "4.1.0";
     public static int           invalidId           = -1;
 }

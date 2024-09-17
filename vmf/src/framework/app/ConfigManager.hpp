@@ -52,6 +52,7 @@ public:
     void readConfig();
     void readConfig(std::vector<std::string> filenames);
     void addConfig(std::string cfg);
+    void parseConfig();
     void reloadConfig();
     void writeConfig(std::string outputFilePath);
     void loadModules();

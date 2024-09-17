@@ -105,8 +105,6 @@ class CDMSClient
         json11::Json            getCorpusUpdates(std::string tags);
         json11::Json            getCorpus(std::string tags);
 
-        void createNewTestCasesFromJson(StorageModule& storage, json11::Json json, int testCaseKey, int serverTestCaseTag);
-        void createNewTestCasesFromJsonWithFilename(StorageModule& storage, json11::Json json, int testCaseKey, int serverTestCaseTag, int fileNameKey);
         std::string formatTagList(std::vector<std::string> tags);
 
     private:

@@ -174,6 +174,8 @@ void ModuleManager::deleteModules()
     }
 
     moduleList.clear();
+    rootModule = nullptr;
+    storageModule = nullptr;
 }
 
 /**

@@ -73,7 +73,7 @@ Module* AFLRandomByteAddSubMutator::build(std::string name)
  */
 void AFLRandomByteAddSubMutator::init(ConfigInterface& config)
 {
-
+    rand = VmfRand::getInstance();
 }
 
 /**
@@ -84,7 +84,7 @@ void AFLRandomByteAddSubMutator::init(ConfigInterface& config)
 AFLRandomByteAddSubMutator::AFLRandomByteAddSubMutator(std::string name) :
     MutatorModule(name)
 {
-    rand.randInit();
+    rand = nullptr;
 }
 
 /**
@@ -109,6 +109,10 @@ void AFLRandomByteAddSubMutator::registerStorageNeeds(StorageRegistry& registry)
  
 void AFLRandomByteAddSubMutator::mutateTestCase(StorageModule& storage, StorageEntry* baseEntry, StorageEntry* newEntry, int testCaseKey)
 {
+    if (rand == nullptr)
+    {
+	throw RuntimeException("VmfRand was null, mutator was not initialized before use.");
+    }
 
     int size = baseEntry->getBufferSize(testCaseKey);
     char* buffer = baseEntry->getBufferPointer(testCaseKey);
@@ -118,9 +122,9 @@ void AFLRandomByteAddSubMutator::mutateTestCase(StorageModule& storage, StorageE
         throw RuntimeException("AFLRandomByteAddSubMutator mutate called with zero sized buffer", RuntimeException::USAGE_ERROR);
     }
 
-    int byte = rand.randBelow(size);
+    int byte = rand->randBelow(size);
     char* newBuff = newEntry->allocateBuffer(testCaseKey, size);
     memcpy((void*)newBuff, (void*)buffer, size);
-    newBuff[byte] -= 1 + (uint8_t)rand.randBelow(ARITH_MAX);
-    newBuff[byte] += 1 + (uint8_t)rand.randBelow(ARITH_MAX);
+    newBuff[byte] -= 1 + (uint8_t)rand->randBelow(ARITH_MAX);
+    newBuff[byte] += 1 + (uint8_t)rand->randBelow(ARITH_MAX);
 }

@@ -167,6 +167,8 @@ void ConfigManager::readConfig()
 
 /**
  * @brief Adds additional yaml configuration information to the config manager
+ * This must be followed by a call to parseConfig() once all the new configuration
+ * data has been read in.
  * 
  * @param cfg the yaml to add
  */
@@ -190,6 +192,16 @@ void ConfigManager::addConfig(std::string cfg)
         theConfigAsString.append(cfg);
     }
 
+}
+
+/**
+ * @brief Parses the currently loaded configuration information
+ * This method should be called after addConfig in order to reparse the loaded
+ * information.
+ * @throws RuntimeException if there are any parsing errors
+ */
+void ConfigManager::parseConfig()
+{
     theConfig.reset();
     
     try

@@ -35,6 +35,7 @@ add_library(CoreModules SHARED
     linux/initialization/KleeInitialization.cpp
     linux/initialization/StringsInitialization.cpp
     linux/output/CorpusMinimization.cpp
+    common/controller/AnalysisController.cpp
     common/controller/RunOnceController.cpp
     common/controller/IterativeController.cpp
     common/controller/NewCoverageController.cpp
@@ -66,6 +67,9 @@ add_library(CoreModules SHARED
     common/mutator/AFLDeleteMutator.cpp
     common/mutator/AFLCloneMutator.cpp
     common/mutator/AFLSpliceMutator.cpp
+    common/output/ComputeStats.cpp
+    common/output/CSVMetadataOutput.cpp
+    common/output/LoggerMetadataOutput.cpp
     common/output/SaveCorpusOutput.cpp
     common/output/ServerCorpusMinOutput.cpp
     common/output/ServerCorpusOutput.cpp

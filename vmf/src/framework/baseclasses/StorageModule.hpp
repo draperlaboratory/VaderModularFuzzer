@@ -188,6 +188,28 @@ public:
     virtual std::string tagHandleToString(int tagId) = 0;
 
     /**
+     * @brief Get all the metadata key handles that storage is tracking
+     * This returns the list of all registered metadata handles in storage.
+     * Modules that want to generically handle all metadata keys should use this
+     * method sometime after initialization to retrieve all of the relevant keys.
+     * 
+     * @return std::vector<int> the list of key handles
+     */
+    virtual std::vector<int> getListOfMetadataKeyHandles(StorageRegistry::storageTypes type) = 0;
+    
+    /**
+     * @brief Convert a metadata key handle to the registered key name
+     * Modules may use this method to convert a metadata key handle to the associated
+     * key name.  This is useful for modules that generically support handling
+     * all metadata in the system.
+     * 
+     * @param handle the key handle
+     * @return std::string the name associated with the key
+     */
+    virtual std::string metadataKeyHandleToString(int handle) = 0;
+
+
+    /**
      * @brief Get all the saved entries that have been previously tagged with the provided tag.
      *
      * Returns an iterator that can be used to step through all of the tagged entries.

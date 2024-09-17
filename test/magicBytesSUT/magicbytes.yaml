@@ -1,13 +1,11 @@
 vmfVariables:
   - &SUT_ARGV ["test/magicBytesSUT/magicbytes", "@@"]
   - &INPUT_DIR test/magicBytesSUT/seeds/
+  #These two parameters are only used by RedPawn
+  - &CMPLOG_SUT_ARGV ["test/magicBytesSUT/magicbytes_cmplog", "@@"]
+  - &CMPLOG_MEM_LIMIT_MB 400
 
 vmfFramework:
   outputBaseDir: output/magicbytes
   logLevel : 1 #0=DEBUG, 1=INFO, 2=WARNING, 3=ERROR
 
-AFLForkserverExecutor:
-  sutArgv: *SUT_ARGV
-
-DirectoryBasedSeedGen:
-  inputDir: *INPUT_DIR

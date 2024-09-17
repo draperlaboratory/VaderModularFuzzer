@@ -71,7 +71,7 @@ private:
 
     ExecutorModule* executor;
     char* corpusCoverage;
-    int mapSize;
+    unsigned int mapSize;
     std::string outDir;
 };
 }

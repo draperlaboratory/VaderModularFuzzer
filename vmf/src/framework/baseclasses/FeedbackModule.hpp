@@ -53,10 +53,9 @@ public:
     /**
      * @brief Evaluate the test case results
      * This method must:
-     * 1) compute and save the fitness value to the storage entry
+     * 1) compute and save the sort by key (e.g fitness) to the storage entry
      * 2) save any other values of interest to the storage entry, including tagging the entry if relevant
      * 3) determine if the test case is interesting enough to save in long term storage (and save the entry if it is)
-     * 4) write any metadata metrics to storage (e.g. total number of crashes)
      * 
      * @param storage 
      * @param entries 

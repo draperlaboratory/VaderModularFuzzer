@@ -149,7 +149,7 @@ void CDMSClient::init(ConfigInterface& config, int pid, std::string name, std::s
     lastCorpusUpdateTimestamp = "0";
 
     //Create a working directory for working with zip files
-    tmpDir = config.getOutputDir() + "/cdmsclient_tmp";
+    tmpDir = config.getOutputDir() + "/tmp_zipoutput";
     VmfUtil::createDirectory(tmpDir.c_str());
 }
 /**
@@ -173,7 +173,7 @@ void CDMSClient::buildSocket()
 
     // allow multiple sockets to use the same PORT number
     //
-    u_int yes = 1;
+    unsigned int yes = 1;
     if (
         setsockopt(
             fd, SOL_SOCKET, SO_REUSEADDR, (char*) &yes, sizeof(yes)
@@ -974,91 +974,6 @@ int CDMSClient::getScenarioId()
 int CDMSClient::getUniqueId()
 {
     return uid;
-}
-
-/**
- * @brief Helper method to create new test cases from json
- * A zip file is retrieved from the CDMS server, using the provided URL, unzipped to a temporary
- * directory, and then a test case is created for each included file with the "SERVER_TC" tag set
- * 
- * @param storage the reference to storage
- * @param json the json to parse
- * @param testCaseKey the key for writing the test case
- * @param serverTestCaseTag the tag for test cases that came from the server
- */
-void CDMSClient::createNewTestCasesFromJson(StorageModule& storage, json11::Json json, int testCaseKey, int serverTestCaseTag)
-{
-    createNewTestCasesFromJsonImpl(storage, json, testCaseKey, serverTestCaseTag, -1, false);
-}
-
-/**
- * @brief Helper method to create new test cases from json (this version also writes the filename to storage)
- * A zip file is retrieved from the CDMS server, using the provided URL, unzipped to a temporary
- * directory, and then a test case is created for each with the "SERVER_TC" tag set
- * and the filename set to the server provided filename.
- * 
- * @param storage the reference to storage
- * @param json the json to parse
- * @param testCaseKey the key for writing the test case
- * @param serverTestCaseTag the tag for test cases that came from the server
- * @param fileNameKey the filename key
- */
-void CDMSClient::createNewTestCasesFromJsonWithFilename(StorageModule& storage, json11::Json json, int testCaseKey, int serverTestCaseTag, int fileNameKey)
-{
-    createNewTestCasesFromJsonImpl(storage, json, testCaseKey, serverTestCaseTag, fileNameKey, true);
-}
-
-/**
- * @brief This is the implementation method behind createNewTestCasesFromJson and createNewTestCasesFromJsonWithFilename 
- * 
- * @param storage the reference to storage
- * @param json the json to parse
- * @param testCaseKey the key for writing the test case
- * @param serverTestCaseTag the tag for test cases that came from the server
- * @param fileNameKey the filename key
- * @param useFilename when true, the filename is written, when false, it is not
- */
-void CDMSClient::createNewTestCasesFromJsonImpl(StorageModule& storage, json11::Json json, int testCaseKey, int serverTestCaseTag, int fileNameKey, bool useFilename)
-{
-    auto fileList    = json["files"].array_items();
-    int  size        = fileList.size();
-    int  count       = 0;
-
-    for(int i=0; i<size; i++)
-    {
-        auto fileJson = fileList[i];
-        LOG_DEBUG << "Getting Corpus Zip File from URL: " << fileJson.string_value();
-
-        //Retrieve zip file from server and write it to disk
-        std::string     contents    = getCorpusFile(fileJson.string_value());  
-
-        const char*     contentBuff = contents.data();
-        std::string     tmpFile     = "tmp_unzip.zip";
-        VmfUtil::writeBufferToFile(tmpDir, tmpFile, contentBuff, contents.length());
-
-        //Now extract it
-        std::string zipFilePath = tmpDir + "/" + tmpFile;
-        std::string zipOutPath = tmpDir + "/unzip_out";
-
-        //Now unzip to the output directory
-        VmfUtil::commandLineUnzip(zipFilePath, zipOutPath);
-
-        int fnameKey = fileNameKey;
-        if(!useFilename)
-        {
-            fnameKey = -1; //-1 signals that this field should not be written
-        }
-
-        count = VmfUtil::createNewTestCasesFromDir(storage, testCaseKey, zipOutPath, fnameKey, serverTestCaseTag);
-
-        //Now clear the output directory and the zip file
-        std::filesystem::remove_all(zipOutPath);
-        std::filesystem::remove(zipFilePath);
-    }
-
-    LOG_INFO << "Corpus Update retrieved new test cases from the server; " << count 
-             << "; (From " << size << " zip files)";
-
 }
 
 /**

@@ -45,7 +45,6 @@ public:
     virtual void init(ConfigInterface& config);
 
     virtual void registerStorageNeeds(StorageRegistry& registry);
-    virtual void registerMetadataNeeds(StorageRegistry& registry);
     virtual void evaluateTestCaseResults(StorageModule& storage, std::unique_ptr<Iterator>& entries); 
 
     /**
@@ -76,9 +75,9 @@ protected:
      * from this method is 1ms.
      * 
      * @param e the test case to examine
-     * @return int the execution time in milliseconds
+     * @return unsigned int the execution time in milliseconds
      */
-    int getExecTimeMs(StorageEntry* e);
+    unsigned int getExecTimeMs(StorageEntry* e);
 protected:
     std::string outputDir; ///< Location of output directory
 
@@ -87,12 +86,6 @@ protected:
     int coverageByteCountKey; ///< Handle for the "COVERAGE_COUNT" field
     int fitnessKey; ///< Handle for the "FITNESS" field
     int hasNewCoverageTag; ///< Handle for the "HAS_NEW_COVERAGE" tag
-    int normalTag; ///< Handle for the "RAN_SUCCESSFULLY" tag
-    int crashedTag; ///< Handle for the "CRASHED" tag
-    int hungTag; ///< Handle for the "HUNG" tag
-
-    int crashedTotalMetadata; ///<Handle for "TOTAL_CRASHED_CASES" metadata field
-    int hungTotalMetadata; ///<Handle for "TOTAL_HUNG_CASES" metadata field
 
     float avgExecTime; ///< The average execution time (for all test cases that have been evaluated)
     float maxExecTime; ///< The maximum exection time (for all test cases that have been evaluated)

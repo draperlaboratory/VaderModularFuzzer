@@ -241,29 +241,45 @@ TEST_F(StorageModuleTestFloat, saveEntryFloatKey)
     //Add 5 entries with increasing key values
     //Make sure they are stored in order
     GTEST_COUT << "Adding 5 float entries (increasing values)\n";
-    for (int i = 1; i < 6; i++)
+    try
     {
-        entry = storage->createNewEntry();
-        float f = 0.1 + i;
-        entry->setValue(float_key, f);
-        storage->saveEntry(entry);
-        EXPECT_EQ(storage->getSavedEntries()->getSize(), ++size) << "Size was not as expected";
-        EXPECT_TRUE(isSaveListInOrder()) << "Save list was out of order";
+        for (int i = 1; i < 6; i++)
+        {
+            entry = storage->createNewEntry();
+            float f = 0.1 + i;
+            entry->setValue(float_key, f);
+            storage->saveEntry(entry);
+            EXPECT_EQ(storage->getSavedEntries()->getSize(), ++size) << "Size was not as expected";
+            EXPECT_TRUE(isSaveListInOrder()) << "Save list was out of order";
+        }
     }
+    catch(RuntimeException e)
+    {
+        FAIL() <<"Exception when adding float entries: " << e.getReason();
+    }
+
 
     // add 5 entries with decreasing key valuse.
     // check that they are iserted in order.
     GTEST_COUT << "Adding 5 float entries (decreasing values)\n";
-    for (int i = 10; i > 5; i--)
+    try
     {
-        size = storage->getSavedEntries()->getSize();
-        entry = storage->createNewEntry();
-        float f = 0.1 + i;
-        entry->setValue(float_key, f);
-        storage->saveEntry(entry);
-        EXPECT_EQ(storage->getSavedEntries()->getSize(), size + 1) << "Size was not as expected (decreasing values)";
-        EXPECT_TRUE(isSaveListInOrder()) << "Save list was out of order (decreasing values)";
+        for (int i = 10; i > 5; i--)
+        {
+            size = storage->getSavedEntries()->getSize();
+            entry = storage->createNewEntry();
+            float f = 0.1 + i;
+            entry->setValue(float_key, f);
+            storage->saveEntry(entry);
+            EXPECT_EQ(storage->getSavedEntries()->getSize(), size + 1) << "Size was not as expected (decreasing values)";
+            EXPECT_TRUE(isSaveListInOrder()) << "Save list was out of order (decreasing values)";
+        }
     }
+    catch(RuntimeException e)
+    {
+        FAIL() <<"Exception when adding more float entries: " << e.getReason();
+    }
+
 
     //Check that the int values are correct
     GTEST_COUT << "Checking that float values are correct\n";
@@ -573,11 +589,12 @@ TEST_F(StorageModuleTestFloat, tagEntry)
         ASSERT_TRUE(contains(newTaggedEntries->getNext()->getID(), idList)) << "getNewEntriesByTag list has unexpected entry id for index: " << i;
     }
 
+    
+    //Remove this entry1 as it is is about to be deleted
+    remove(idList.begin(),idList.end(),entry1->getID());
+
     GTEST_COUT << "Calling clearNewAndLocalEntries\n";
     storage->clearNewAndLocalEntries();
-
-    //Remove this entry1 as it should have been deleted
-    remove(idList.begin(),idList.end(),entry1->getID());
 
     GTEST_COUT << "Checking that the saved entries are there after clearing\n";
     //Make sure they are there after clearing new entries and tags

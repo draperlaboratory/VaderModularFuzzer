@@ -13,6 +13,7 @@ This "Getting Started" document is a more in-depth version of VMF's basic usage 
   * [Reconfiguring VMF](#reconfiguring-vmf)
     + [Strings Initialization](#strings-initialization)
     + [Configuration Parameters](#configuration-parameters)
+    + [YAML Anchors in the VMF Config Files](#yaml-anchors-in-the-vmf-config-files)
 
 ## Running VMF Configurations
 
@@ -41,7 +42,7 @@ cd vmf_install
 ./bin/vader -c test/config/basicModules.yaml -c test/haystackSUT/haystack_file.yaml
 ```
 
-You may copy and modify haystack_file.yaml or haystack_stdin.yaml to configure VMF to fuzz a different SUT of your chosing (as long as that SUT will take stdin or file based inputs).
+You may copy and modify haystack_file.yaml or haystack_stdin.yaml to configure VMF to fuzz a different SUT of your chosing (as long as that SUT will take stdin or file based inputs).  If you are unfamiliar with YAML Anchors (i.e you are wondering what the * and &'s mean), it may be helpful to read this section: [YAML Anchors in the VMF Config Files](#yaml-anchors-in-the-vmf-config-files).
 
 Note that the VMF configuration files can also be arbitrarily configured to move individual sections to different areas, and to be split into as many configuration files as are desired.  VMF will concatenate the provided configuration files into a single yaml configuration, however the resulting concatenated configuration must be valid yaml.  Practically this will impose some limitations on how the configuration can be split.  The simplest approach is to not attempt to split top level sections of the configuration (e.g. "vmfModules:") into more than one file.
 
@@ -111,12 +112,13 @@ Specifically, the following modules are added:
 - AFLFavoredFeedback (instead of AFLFeedback)
 - CorpusMinimization
 
-The first two modules provide better performing versions of the basic capabilities discussed previously.  CorpusMinimimization will remove rendundant test cases (by default it is configured to run every half hour as well as at application shutdown).  As CorpusMinimization needs to re-run all the test cases to get more detailed coverage information, it also needs a second copy of the AFLForkserverExecutor to assist in this task.
+The first two modules provide better performing versions of the basic capabilities discussed previously.  CorpusMinimimization will remove rendundant test cases (by default it is configured to run every half hour as well as at application shutdown).  As CorpusMinimization needs to re-run all the test cases to get more detailed coverage information, it also needs a second copy of the AFLForkserverExecutor to assist in this task.  This second copy of the executor must be configured to always write the coverage bits to storage.
 
 Additionally, a number of commented out modules are provided for conviently reconfiguring VMF for your needs.  These are discussed in detail in [Reconfiguring VMF](#reconfiguring-vmf).
 
 ## Reconfiguring VMF
 The [test/config/defaultModules.yaml](../test/config/defaultModules.yaml) configuration file can be easily modified to enable some additional modules in this VMF configuration.
+
 
 ### Strings Initialization
 As a quick example of VMF's configuration, you may comment in the line that reference "StringInitialization" to add an additional Initialization module to the configuration.  This Initialization modules will extract any ascii strings from the SUT and use these to generate a large set of additional initial test cases.
@@ -131,43 +133,28 @@ vmfModules:
       #- className: StringsInitialization    #***Comment in this line***
  ```
 
-You will also need to provide StringsInitialization with the path to the SUT.  Add the following section to your SUT-specific configuration file:
-```yaml
-StringsInitialization:
-  sutArgv: *SUT_ARGV    #You may also directly list the value here, rather than using a yaml anchor
-  #sutArv: ["test/haystackSUT/haystack"]   #This is an example of directly providing the value
-```
-
 Rerun VMF with the modified configuration file, and you will observe the generation of additional initial test cases.
 
 ### Configuration Parameters
-At the bottom of the [test/config/defaultModules.yaml](../test/config/defaultModules.yaml) configuration file, there are a number of module specific configuration options that can be adjusted to change the behavior of the modules.  See also the more detailed module by module documentation in [docs/coremodules/core_modules_readme.md](/docs/coremodules/core_modules_readme.md) for additional parameters that can be adjusted.
+There are a number of additional module specific configuration options that can be adjusted to change the behavior of the VMF modules.  See the more detailed module by module documentation in [docs/coremodules/core_modules_readme.md](/docs/coremodules/core_modules_readme.md) for additional parameters that can be adjusted.
 
-#### Fuzzer Runtime
-By changing the runTimeInMinutes parameter to a non-zero value, you can configure the fuzzer to shutdown automatically after a specified amount of time has passed.  Note that this parameter is specified as a whole number of minutes, and that the fuzzer may not shutdown precisely after this time has passed, as it will finish it's current fuzzing loop and perform any shutdown processing first.
+### YAML Anchors in the VMF Config Files
+The VMF-provided example use YAML anchors to parameterize the SUT-specific parts of our configuration, but the use of YAML anchors is not required by VMF.  A YAML anchor is just like a variable with a key and value.
 
-Add the following section to your SUT-specific configuration file:
+For example, the top of haystack_stdin.yaml contains the following YAML, which defines a value for SUT_ARGV
 ```yaml
-IterativeController:
-  runTimeInMinutes: 0     #***Change this line***
+vmfVariables:
+  - &SUT_ARGV ["test/haystackSUT/haystack"]
 ```
 
-#### Output Statistics Logging
-The outputRateInSeconds parameter controls how frequently the output statistics are printed to the log file.  For longer running test runs, you will likely want to increase the value of this parameter, as the default value prints every 5 seconds.
-
-Add the following section to your SUT-specific configuration file:
+SUT_ARGV is used again later in basicModules.yaml
 ```yaml
-StatsOutput:
-  outputRateInSeconds: 5     #***Change this line***
+AFLForkserverExecutor:
+  sutArgv: *SUT_ARGV
 ```
 
-#### Corpus Minimization Parameters
-You can change the frequency of CorpusMinimization by modifying the parameter at the bottom of the config file.  Try changing it to a few minutes to see CorpusMinimization run without having to wait 30 minutes (Note: this is for demonstration purposes only, we do not recommend running a real fuzzing campaign with Corpus Minimization happening more frequently than every half hour).  You may also set this parameter to 0 to have CorpusMinimization only run when the fuzzer shuts down.
-
-Add the following section to your SUT-specific configuration file:
+This is entirely equivalent to having put this in basicModules.yaml instead (the *SUT_ARGV is simpy replace with whatever it was defined as elsewhere in the YAML file)
 ```yaml
-CorpusMinimization:
-  frequencyInMinutes: 30   #***Change this line***
+AFLForkserverExecutor:
+  sutArgv: ["test/haystackSUT/haystack"]
 ```
-
-After running, CorpusMinimization will write the minimized subset of test cases to the output directory under "minimized" (e.g. for the haystack configuration, see `/output/TIMESTAMP/minimized`).

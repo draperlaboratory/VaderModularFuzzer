@@ -17,6 +17,7 @@ vmfModules:
         - className: AFLForkserverExecutor
         - className: AFLFeedback
         - className: SaveCorpusOutput
+        - className: ComputeStats
         - className: StatsOutput
   GeneticAlgorithmInputGenerator:
       children:

@@ -73,7 +73,7 @@ Module* AFLSpliceMutator::build(std::string name)
  */
 void AFLSpliceMutator::init(ConfigInterface& config)
 {
-
+    rand = VmfRand::getInstance();
 }
 
 /**
@@ -84,7 +84,7 @@ void AFLSpliceMutator::init(ConfigInterface& config)
 AFLSpliceMutator::AFLSpliceMutator(std::string name) :
     MutatorModule(name)
 {
-    rand.randInit();
+
 }
 
 /**
@@ -133,7 +133,7 @@ void AFLSpliceMutator::mutateTestCase(StorageModule& storage, StorageEntry* base
     int count=0;
     while((secondID == baseID)&&(count<3))
     {
-        randIndex = rand.randBelow(maxIndex);
+        randIndex = rand->randBelow(maxIndex);
         secondEntry = entries->setIndexTo(randIndex);
         secondID = secondEntry->getID();
         count++; //We need to prevent an infinite loop in case there are only a few test cases in the queue
@@ -146,7 +146,7 @@ void AFLSpliceMutator::mutateTestCase(StorageModule& storage, StorageEntry* base
 
     //pick random splice point, from 1 to second to last byte.
     //TODO(VADER-609): Consider limiting splice range to where bytes differ. 
-    int splitAt = rand.randBelow(minSize - 1) + 1;
+    int splitAt = rand->randBelow(minSize - 1) + 1;
 
     // secondSize is the size of the new testcase: we copy splitAt bytes from the first,
     // and (secondSize - splitAt) from the second. splitAt + secondSize - splitAt = secondSize.

@@ -1,3 +1,4 @@
+#vmfVariables.PDA_PATH must be defined to use this config
 vmfModules:
   storage: #a storage module must be specified
     className: SimpleStorage
@@ -10,6 +11,7 @@ vmfModules:
       - className: AFLFavoredFeedback
       - className: CorpusMinimization
       - className: SaveCorpusOutput
+      - className: ComputeStats
       - className: StatsOutput
   MOPTInputGenerator:
     children:
@@ -20,3 +22,17 @@ vmfModules:
   CorpusMinimization:
     children:
       - className: AFLForkserverExecutor
+        id: CorpusMinExecutor
+
+# Modules-specific parameters
+#(The SUT-specific portions of these all defined using YAML anchors)
+AFLForkserverExecutor:
+  sutArgv: *SUT_ARGV
+
+CorpusMinExecutor:
+  sutArgv: *SUT_ARGV
+  alwaysWriteTraceBits: true
+
+GramatronBasedSeedGen:
+  PDAPath: *PDA_PATH
+  numTestCases: 100

@@ -22,12 +22,16 @@ Executor and Feedback modules
 * [`AFLFavoredFeedback`](#section-aflfavoredfeedback)
 
 Output modules
+* [`ComputeStats`](#section-computestats)
 * [`CorpusMinimization`](#section-corpusminimization)
+* [`CSVMetadataOutput`](#section-csvmetadataoutput)
+* [`LoggerMetadataOutput`](#section-loggermetadataoutput)
 * [`SaveCorpusOutput`](#section-savecorpusoutput)
 * [`StatsOutput`](#section-statsoutput)
 
 Controller modules
 * [`Parameters Common to All Controller Modules`](#section-parameters-common-to-all-controller-modules)
+* [`AnalysisController`](#section-analysiscontroller)
 * [`IterativeController`](#section-iterativecontroller)
 * [`NewCoverageController`](#section-newcoveragecontroller)
 * [`RunOnceController`](#section-runoncecontroller)
@@ -530,6 +534,25 @@ AFLFavoredFeedback:
   sizeWeight: 1.0           # sizeWeight should be 0.0-10.0 (0.0 will remove this factor. Must be nonnegative.)
   speedWeight: 5.0          # speedWeight should be 0.0-10.0 (0.0 will remove this factor. Must be nonnegative.)
 ```
+## <a id="ComputeStats"></a>Section: `ComputeStats`
+
+Configuration information specific to the ComputeStats module, which computes statistics using the information in storage.
+
+### `ComputeStats.statsRateInSeconds`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default value: 1
+
+Usage: This parameter specifies how often the module should compute statistics, in seconds.  Note that a few of the total test case statistics have to be counted on every pass through the fuzzing loop, because they rely on directly observing new test cases on storage.  This parameter controls the rate of computing the remaining statistics.
+
+### Configuration example
+```yaml
+ComputeStats:
+  statsRateInSeconds: 10
+```
 
 ## <a id="CorpusMinimization"></a>Section: `CorpusMinimization`
 
@@ -549,6 +572,56 @@ Usage: This parameter specifies how often the module is scheduled, in minutes. I
 ```yaml
 SaveCorpusOutput:
   frequencyInMinutes: 30
+```
+## <a id="CSVMetadataOutput"></a>Section: `CSVMetadataOutput`
+
+Configuration information specific to the CSVMetadataOutput module, which periodically writes the numeric values in metadata to a CSV file.
+
+### `CSVMetadataOutput.outputRateInSeconds`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default value: 5
+
+Usage: This parameter specifies how often (in seconds) the metadata values should be written to the CSV file
+
+### `CSVMetadataOutput.outputFileName`
+
+Value type: `<string>`
+
+Status: Optional
+
+Default value: "metadata.csv"
+
+Usage: This parameter specifies the filename of the CSV output file.  The directory used is the VMF output directory (vmfFramework.outputBaseDir).
+
+### Configuration example
+```yaml
+CSVMetadataOutput:
+  outputFileName: "Test_3.CSV"
+  outputRateInSeconds: 1
+```
+
+## <a id="LoggerMetadataOutput"></a>Section: `LoggerMetadataOutput`
+
+Configuration information specific to the LoggerMetadataOutput module, which periodically writes the numeric values in metadata to the VMF Logger.
+
+### `LoggerMetadataOutput.outputRateInSeconds`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default value: 5
+
+Usage: This parameter specifies how often (in seconds) the metadata values should be written to the Logger.
+
+### Configuration example
+```yaml
+LoggerMetadataOutput:
+  outputRateInSeconds: 60
 ```
 
 ## <a id="SaveCorpusOutput"></a>Section: `SaveCorpusOutput`
@@ -603,23 +676,44 @@ StatsOutput:
 ```
 
 ## <a id="ControllerCommonParameters"></a>Section: `Parameters Common to All Controller Modules`
-Parameters that are common to all Controller Modules (these parameters are supported by the base ControllerModule class).  Each of these parameters is only relevant for distributed fuzzing, and will have no effect on standalone execution.
+
+Parameters that are common to all core Controller Modules (these parameters are supported by the base ControllerModulePattern class). Note that some are relevant ONLY for distributed fuzzing and will have no effect on standalone execution.
+
+### `controller.keepAllSeeds`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default value: true
+
+Usage: If set to true, all seed testcases will be saved and inserted into the fuzzing queue regardless of their coverage or quality. If set to false, only testcases that the feedback module decides to keep (eg have new coverage) will be kept. When set to true, more care should be given to seed redundancy and quality.
 
 ### `controller.corpusInitialUpdateMins`
 
 Value type: `<int>`
 
-Status: Optional
+Status: Optional - Distributed fuzzing only
 
 Default value: 5
 
 Usage: This sets the minimum number of minutes that must pass before the controller will perform the first corpus update.  Do not configure this parameter to be smaller than 5min unless you are using a very small number of VMFs.
 
+### `controller.batchSize`
+
+Value type: `<int>`
+
+Status: Optional - Distributed fuzzing only
+
+Default value: 1000
+
+Usage: This sets a maximum number of new test cases that will be pulled in from the server at once.  All the test cases will eventually be pulled in, but this parameter limits how many get pulled in at once (in order to limit the RAM usage by VMF).  When this value is too large, VMF will use an excessive amount of RAM (with resulting slow downs, consequently this value may need to be set to be smaller if the test cases are large).
+
 ### `controller.corpusUpdateRateMins`
 
 Value type: `<int>`
 
-Status: Optional
+Status: Optional - Distributed fuzzing only
 
 Default value: 5
 
@@ -629,11 +723,14 @@ Usage: This sets a minimum rate for the controller to retrieve subsequent corpus
 
 Value type: `<list of strings>`
 
-Status: Optional
+Status: Optional - Distributed fuzzing only
 
 Default value: ["RAN_SUCCESSFULLY"]
 
 Usage: This parameter controls which test case tags are retrieved by the controller. The default value is ["RAN_SUCCESSFULLY"], which will retrieve only the test cases ran succesfully (i.e. didn't hang or crash). This is the correct value if you are using VMF Core Modules in your fuzzer.
+
+## <a id="AnalysisController"></a>Section: `AnalysisController`
+The AnalysisController does not support any custom configuration parameters.
 
 ## <a id="IterativeController"></a>Section: `IterativeController`
 Configuration information specific to the IterativeController.

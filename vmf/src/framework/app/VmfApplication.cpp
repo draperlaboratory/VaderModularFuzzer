@@ -32,6 +32,7 @@
 #include "RuntimeException.hpp"
 #include "Logging.hpp"
 #include "VmfUtil.hpp"
+#include "VmfRand.hpp"
 #include <fstream>  
 #include <thread> //for sleep
 #include <random> //for random sleep time
@@ -251,6 +252,7 @@ bool VmfApplication::pollForTasking()
 
             myConfig->addConfig(yaml);
         }
+        myConfig->parseConfig();
     
         LOG_INFO << "Loading and initializing VMF modules";
 
@@ -343,6 +345,19 @@ void VmfApplication::loadAndInitModules()
     {
         throw RuntimeException("Configuration file must specify a ControllerModule as the root", RuntimeException::CONFIGURATION_ERROR);
     }
+
+    //Check for seed specification
+    int seed = myConfig->getIntParam(ConfigInterface::VMF_FRAMEWORK_KEY, "seed", 0);
+    if (seed != 0)
+    {
+        LOG_INFO << "VMF using seeded RNG, seed = " << seed;
+        VmfRand::getInstance()->reproducibleInit(seed);
+    }
+    else
+    {
+        VmfRand::getInstance()->randInit();
+    }
+
 }
 
 /**
@@ -684,6 +699,12 @@ void VmfApplication::doRunningState(std::string& reason, bool performCorpusUpdat
         if(performCorpusUpdate)
         {
             myController->handleCommand(*myStorage,distributedMode,ControllerModule::NEW_CORPUS);
+        }
+        else
+        {
+            //Command handling gets a chance to run on every pass, in case there is leftover work
+            //that the top-level controller needs to perform
+            myController->handleCommand(*myStorage,distributedMode,ControllerModule::NONE);
         }
 
 

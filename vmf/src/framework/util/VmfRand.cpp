@@ -28,16 +28,33 @@
  * ===========================================================================*/
 
 #include "VmfRand.hpp"
+#include "Logging.hpp"
 
 using namespace vmf;
 
+VmfRand::VmfRand() {
+  
+}
+
+/**
+ * @brief Returns the singleton instance of VmfRand
+ * 
+ * @return VmfRand* the instance
+ */
+VmfRand* VmfRand::getInstance()
+{
+    static VmfRand instance; 
+    return &instance;
+}
+
 /**
  * @brief Initialize random generator for a uniform random
- * distribution using the random seed provided
+ * distribution using the seed provided
  *
  * @param seed the random seed 
  */
-void VmfRand::randInitSeed(unsigned seed) {
+void VmfRand::initSeed(unsigned seed) {
+  LOG_INFO << "VMF initialized with random seed=" << seed;
   this->gen.seed(seed);
 }
 
@@ -47,7 +64,15 @@ void VmfRand::randInitSeed(unsigned seed) {
  * seed specified, fetch one from the VmfRand random device
  */
 void VmfRand::randInit() {
-  randInitSeed(rd());
+  initSeed(rd());
+}
+
+/**
+ * @brief Initializes VmfRand random device and generator to support
+ * subsequent calls to randomness access functions.
+ */
+void VmfRand::reproducibleInit(unsigned seed) {
+  initSeed(seed);
 }
 
 /**

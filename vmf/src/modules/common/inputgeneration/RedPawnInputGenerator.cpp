@@ -93,8 +93,9 @@ void RedPawnInputGenerator::init(ConfigInterface& config)
     skipStaticLogEntries = config.getBoolParam(getModuleName(), "skipStaticLogEntries", true);
     LOG_INFO << "skipStaticLogEntries optimization set to: " << skipStaticLogEntries;
 
-    rng = std::mt19937_64(time(0));
-    uni_uint = std::uniform_int_distribution<u_int32_t>(0, UINT32_MAX);
+    rand = VmfRand::getInstance();
+    rng = std::mt19937_64(rand->randBelow(INT32_MAX));
+    uni_uint = std::uniform_int_distribution<uint32_t>(0, UINT32_MAX);
 
     // Determine which transforms to use. Default is all enabled.
     bool useDirectTransform = config.getBoolParam(getModuleName(), "useDirectTransform", true);
@@ -147,7 +148,8 @@ void RedPawnInputGenerator::init(ConfigInterface& config)
 RedPawnInputGenerator::RedPawnInputGenerator(std::string name) :
     InputGeneratorModule(name)
 {
-
+    colorized_testcase = nullptr;
+    base_testcase = nullptr;
 }
 
 
@@ -160,9 +162,9 @@ RedPawnInputGenerator::~RedPawnInputGenerator()
         delete t;
 
     // Free scratch space testcases
-    if (colorized_testcase != NULL)
+    if (colorized_testcase != nullptr)
         free(colorized_testcase);
-    if (base_testcase != NULL)
+    if (base_testcase != nullptr)
         free(base_testcase);
 }
 
@@ -173,9 +175,9 @@ void RedPawnInputGenerator::registerStorageNeeds(StorageRegistry& registry)
     newCoverageTag = registry.registerTag("HAS_NEW_COVERAGE", StorageRegistry::READ_ONLY);
     ranNormallyTag = registry.registerTag("RAN_SUCCESSFULLY", StorageRegistry::READ_ONLY);    
     testCaseKey = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_ONLY);
-    traceBitsKey = registry.registerKey("AFL_TRACE_BITS", StorageRegistry::BUFFER, StorageRegistry::READ_ONLY);
-    execTimeKey = registry.registerKey("EXEC_TIME_US", StorageRegistry::INT, StorageRegistry::READ_ONLY);
-    cmpLogMapKey = registry.registerKey("CMPLOG_MAP_BITS", StorageRegistry::BUFFER, StorageRegistry::READ_ONLY);
+    traceBitsKey = registry.registerKey("AFL_TRACE_BITS", StorageRegistry::BUFFER_TEMP, StorageRegistry::READ_ONLY);
+    execTimeKey = registry.registerKey("EXEC_TIME_US", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+    cmpLogMapKey = registry.registerKey("CMPLOG_MAP_BITS", StorageRegistry::BUFFER_TEMP, StorageRegistry::READ_ONLY);
 
     // Write
     redPawnNewCoverageTag = registry.registerTag("REDPAWN_NEW_COVERAGE", StorageRegistry::READ_WRITE);
@@ -242,7 +244,7 @@ void RedPawnInputGenerator::addNewTestCases(StorageModule& storage)
         size = entry -> getBufferSize(testCaseKey);
         base_testcase = (char *) malloc(size);
         memcpy(base_testcase, entry -> getBufferPointer(testCaseKey), size);
-currTestCaseID = entry -> getID();
+        currTestCaseID = entry -> getID();
 
         // Create colorized version by first starting with a copy of the base testcase
         colorized_testcase = (char *) malloc(size);
@@ -350,7 +352,7 @@ void RedPawnInputGenerator::validateCmpLog(StorageModule& storage)
         
         // Make sure we have some cmplog entries
         int totalHits = 0;
-        for (uint i = 0; i < CMP_MAP_W; i++)
+        for (unsigned int i = 0; i < CMP_MAP_W; i++)
         {
             totalHits += cmp_map->headers[i].hits;
         }
@@ -413,10 +415,10 @@ void RedPawnInputGenerator::collectLogEntries(StorageModule& storage, StorageEnt
     int skipped_compare_too_large = 0;
 
     // Now we iterate through the cmp_map and add the records into logEntries.
-    for (uint i = 0; i < CMP_MAP_W; i++)
+    for (unsigned int i = 0; i < CMP_MAP_W; i++)
     {
         // Skip empty log entries
-        uint hit_count = cmp_map->headers[i].hits;
+        unsigned int hit_count = cmp_map->headers[i].hits;
         if (hit_count == 0)
         {
             continue;
@@ -439,7 +441,7 @@ void RedPawnInputGenerator::collectLogEntries(StorageModule& storage, StorageEnt
         }
         
         // Each index has a circular buffer of size CMP_MAP_H, so that is max index
-        uint num_hit_entries = std::min((int)hit_count, CMP_MAP_H);
+        unsigned int num_hit_entries = std::min((int)hit_count, CMP_MAP_H);
         
         int compare_size = cmp_map->headers[i].shape + 1; // Shape starts at 0
         int compare_type = cmp_map->headers[i].attribute;
@@ -451,7 +453,7 @@ void RedPawnInputGenerator::collectLogEntries(StorageModule& storage, StorageEnt
         }
 
         // for each entry in the log for comparision id #i, see if we can find an I2S spot
-        for (uint j=0; j < num_hit_entries; j++)
+        for (unsigned int j=0; j < num_hit_entries; j++)
         {
             
             // Not that we only use the first 8 bytes of operands for now. The _128 fields have 8 more bytes.
@@ -521,7 +523,7 @@ bool RedPawnInputGenerator::generateRedPawnCandidates(StorageModule& storage)
             // Search for decoded value and replace instances with encoded value:
             
             // Left hand side
-            std::vector<uint>* matches = findMatchesOfPattern(base_testcase, colorized_testcase, size, og_lhs_decoded, co_lhs_decoded, compare_size);
+            std::vector<unsigned int>* matches = findMatchesOfPattern(base_testcase, colorized_testcase, size, og_lhs_decoded, co_lhs_decoded, compare_size);
             bool res = performPatternReplacements(base_testcase, size, matches, t -> Encode(og_rhs, compare_size), compare_size);
             delete matches;
             if (!res)
@@ -658,19 +660,19 @@ bool RedPawnInputGenerator::generateRedPawnCandidates(StorageModule& storage)
 /**
  * @brief Search a buffer for all the matching indices where the pattern of the given size is found.
  */
-std::vector<uint>* RedPawnInputGenerator::findMatchesOfPattern(char * buff, char * colorizedBuff, int len, uint64_t base_pattern, uint64_t colorized_pattern, int compare_size)
+std::vector<unsigned int>* RedPawnInputGenerator::findMatchesOfPattern(char * buff, char * colorizedBuff, int len, uint64_t base_pattern, uint64_t colorized_pattern, int compare_size)
 {
 
     // This bool can be used to measure the impact of colorization.
     // When turned off, we only check in the original buffer and pattern
     bool doCheckColorized = true;
 
-    std::vector<uint> *indices = new std::vector<uint>();
+    std::vector<unsigned int> *indices = new std::vector<unsigned int>();
 
     // Search entire testcase for the pattern. If we find it, then if colorization checking
     // is enabled, then make sure we find the same match in the colorized data as well.
     // The colorization check can reduce matches by 99%.
-    for (uint i = 0; i < (uint) len - compare_size; i++)
+    for (unsigned int i = 0; i < (unsigned int) len - compare_size; i++)
     {
         // Check the pattern against the base testcase
         if (memcmp((void *) (buff + i), &base_pattern, compare_size) == 0)
@@ -773,7 +775,7 @@ uint64_t RedPawnInputGenerator::hashTestCase(char * buff, int size)
  * @brief Perform a direct replacement of the given pattern and size at the provided indices.
  * Adds candidates by calling addCandidateTestCase which performs uniqueness checking.
  */
-bool RedPawnInputGenerator::performPatternReplacements(char * buff, int len, std::vector<uint>* indices, uint64_t replacement, int compare_size)
+bool RedPawnInputGenerator::performPatternReplacements(char * buff, int len, std::vector<unsigned int>* indices, uint64_t replacement, int compare_size)
 {
 
     if (compare_size > 8)
@@ -782,9 +784,9 @@ bool RedPawnInputGenerator::performPatternReplacements(char * buff, int len, std
         return true;
     }
 
-    for (uint i = 0; i < indices -> size(); i++)
+    for (unsigned int i = 0; i < indices -> size(); i++)
     {
-        uint replaceIndex = indices->at(i);
+        unsigned int replaceIndex = indices->at(i);
 
         // Create variant 1: direct copy
         char * rp_candidate = (char *) malloc(len);
@@ -886,17 +888,25 @@ bool RedPawnInputGenerator::colorize(StorageModule& storage, StorageEntry * base
         return false;
     }
 
+    //Re-run the base test case to get coverage data, if needed.  This has to occur because trace bit
+    //data is in a temporary buffer, and this is a test case that is potentially from a prior
+    //fuzzing loop.
+    if(!baseEntry->hasBuffer(traceBitsKey))
+    {
+        regular_executor->runTestCase(storage, baseEntry);
+    }
+
     // Load information about the base testcase
     char * base_testcase = baseEntry -> getBufferPointer(testCaseKey);
 
     if (baseEntry -> getBufferSize(traceBitsKey) == -1)
     {
-        throw RuntimeException("A testcase did not have trace bits. Did you forget to set alwaysSaveTraceBits in your executor?", RuntimeException::CONFIGURATION_ERROR);
+        throw RuntimeException("The base testcase did not have trace bits. Did you forget to set alwaysSaveTraceBits in your executor?", RuntimeException::CONFIGURATION_ERROR);
     }
 
     int traceBitsSize = baseEntry -> getBufferSize(traceBitsKey);
     char * baseTraceBits = baseEntry -> getBufferPointer(traceBitsKey);
-    int baseExecTime = baseEntry -> getIntValue(execTimeKey);
+    unsigned int baseExecTime = baseEntry -> getUIntValue(execTimeKey);
 
     // The format for ranges is (width of range, (start of range, end of range))
     // Width first makes the priority queue (max heap) sorted by size which we want
@@ -941,10 +951,10 @@ bool RedPawnInputGenerator::colorize(StorageModule& storage, StorageEntry * base
         // Inspect traces to see if it behaved the same
         if (testEntry -> getBufferSize(traceBitsKey) == -1)
         {
-            throw RuntimeException("A testcase did not have trace bits. Did you forget to set alwaysSaveTraceBits in your executor?", RuntimeException::CONFIGURATION_ERROR);
+            throw RuntimeException("The colorized testcase did not have trace bits. Did you forget to set alwaysSaveTraceBits in your executor?", RuntimeException::CONFIGURATION_ERROR);
         }
         char * testTraceBits = testEntry -> getBufferPointer(traceBitsKey);
-        int thisExecTime = testEntry -> getIntValue(execTimeKey);
+        unsigned int thisExecTime = testEntry -> getUIntValue(execTimeKey);
 
         // A testcase is "the same" as the original if it has the same coverage map
         // and the execution time is within a factor of 2.
@@ -1073,14 +1083,14 @@ void RedPawnInputGenerator::getUniformlyRandomBytes(char* outbuff, int size)
     for(int i = 0; i < iterations; i++)
     {
         // Generate 4 bytes of randomness and copy into buffer
-        u_int32_t random_4_bytes =  uni_uint(rng);
+        uint32_t random_4_bytes =  uni_uint(rng);
         memcpy(outbuff + i * 4, &random_4_bytes, 4);
     }
 
     // Handle trailing bytes
     if (trailing_bytes > 0)
     {
-        u_int32_t random_4_bytes =  uni_uint(rng);
+        uint32_t random_4_bytes =  uni_uint(rng);
         memcpy(outbuff + iterations * 4, &random_4_bytes, trailing_bytes);
     }
 }

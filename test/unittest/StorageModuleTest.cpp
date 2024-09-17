@@ -30,6 +30,7 @@
 #include "SimpleStorage.hpp"
 #include <string>
 #include <cmath>
+#include "StorageKeyHelper.hpp"
 
 using namespace vmf;
 
@@ -62,6 +63,13 @@ protected:
         );
 
         // Setup: add a key to the registry.
+        uint_key = registry->registerKey(
+            "TEST_UINT",
+            StorageRegistry::UINT,
+            StorageRegistry::READ_WRITE
+        );
+
+        // Setup: add a key to the registry.
         float_key = registry->registerKey(
             "TEST_FLOAT",
             StorageRegistry::FLOAT,
@@ -75,6 +83,12 @@ protected:
             StorageRegistry::READ_WRITE
         );
 
+        tmp_buf_key = registry->registerKey(
+            "TEST_TEMP_BUFFER",
+            StorageRegistry::BUFFER_TEMP,
+            StorageRegistry::READ_WRITE
+        );
+
         test_tag = registry->registerTag("TEST_TAG", StorageRegistry::READ_WRITE);
         test_tag2 = registry->registerTag("TEST_TAG2", StorageRegistry::READ_WRITE);
         test_tag3 = registry->registerTag("TEST_TAG3", StorageRegistry::READ_WRITE);
@@ -85,9 +99,34 @@ protected:
             StorageRegistry::INT,
             StorageRegistry::READ_WRITE
         );
-        meta_float_key = registry->registerKey(
+        meta_uint_key = metadata->registerKey(
+            "META_UINT",
+            StorageRegistry::UINT,
+            StorageRegistry::READ_WRITE
+        );
+        meta_uint2_key = metadata->registerKey(
+            "META_UINT_2",
+            StorageRegistry::UINT,
+            StorageRegistry::READ_WRITE
+        );
+        meta_uint3_key = metadata->registerKey(
+            "META_UINT_3",
+            StorageRegistry::UINT,
+            StorageRegistry::READ_WRITE
+        );
+        meta_float_key = metadata->registerKey(
             "META_FLOAT",
             StorageRegistry::FLOAT,
+            StorageRegistry::READ_WRITE
+        );
+        meta_tmp_buf_key = metadata->registerKey(
+            "META_TMP_BUFFER",
+            StorageRegistry::BUFFER_TEMP,
+            StorageRegistry::READ_WRITE
+        );
+        meta_buffer_key = metadata->registerKey(
+            "META_BUFFER",
+            StorageRegistry::BUFFER,
             StorageRegistry::READ_WRITE
         );
         storage->configure(registry, metadata);
@@ -103,14 +142,21 @@ protected:
     StorageRegistry* registry;
     StorageRegistry* metadata;
     int int_key;
+    int uint_key;
     int float_key;
     int buf_key;
+    int tmp_buf_key;
     int test_tag;
     int test_tag2;
     int test_tag3;
 
     int meta_int_key;
+    int meta_uint_key;
+    int meta_uint2_key;
+    int meta_uint3_key;
     int meta_float_key;
+    int meta_tmp_buf_key;
+    int meta_buffer_key;
 
     void addNInts(int N)
     {
@@ -316,16 +362,28 @@ TEST_F(StorageModuleTest, saveEntryFloatKey)
     StorageEntry* entry = storage->createNewEntry();
 
     GTEST_COUT << "Adding 5 float entries\n";
-    for (int i = 1; i < 6; i++)
+    try
     {
-        size = storage->getSavedEntries()->getSize();
-        entry = storage->createNewEntry();
-        entry->setValue(int_key, i);
-        entry->setValue(float_key, i/10);
-        storage->saveEntry(entry);
-        EXPECT_EQ(storage->getSavedEntries()->getSize(), size + 1) << "Size was not as expected";
-        EXPECT_TRUE(isSaveListInOrder()) << "Save list was out of order";
+
+        for (int i = 1; i < 6; i++)
+        {
+            size = storage->getSavedEntries()->getSize();
+            entry = storage->createNewEntry();
+            float tmp = i/10;
+            entry->setValue(int_key, i);
+            entry->setValue(float_key, tmp);
+            storage->saveEntry(entry);
+            EXPECT_EQ(storage->getSavedEntries()->getSize(), size + 1) << "Size was not as expected";
+            EXPECT_TRUE(isSaveListInOrder()) << "Save list was out of order";
+        }
+     }
+    catch(RuntimeException e)
+    {
+        GTEST_COUT << "Int handle:" << int_key << ", index=" << StorageKeyHelper::getIndex(int_key) << ", type=" << StorageKeyHelper::getType(int_key) << "\n";
+        GTEST_COUT << "Float handle:" << float_key << ", index=" << StorageKeyHelper::getIndex(float_key) << ", type=" << StorageKeyHelper::getType(float_key) << "\n";
+        FAIL() <<"Exception when adding float entries: " << e.getReason();
     }
+
     
     //Check that float values are correct
     GTEST_COUT << "Checking that float entries are correct\n";
@@ -618,10 +676,10 @@ TEST_F(StorageModuleTest, tagEntry)
     }
 
     GTEST_COUT << "Calling clearNewAndLocalEntries\n";
+    //Remove this entry1 as it is about to be deleted
+    remove(idList.begin(),idList.end(),entry1->getID());
     storage->clearNewAndLocalEntries();
 
-    //Remove this entry1 as it should have been deleted
-    remove(idList.begin(),idList.end(),entry1->getID());
 
     GTEST_COUT << "Checking that the saved entries are there after clearing\n";
     //Make sure they are there after clearing new entries and tags
@@ -1106,10 +1164,17 @@ TEST_F(StorageModuleTest, MetadataTest)
     int x = metadata.getIntValue(meta_int_key);
     ASSERT_EQ(x, 45) << "VALUE NOT SET";
 
+    unsigned int val = 4000000000; //large enough that if treated as a signed value, it would be negative
+    metadata.setValue(meta_uint_key, val);
+    unsigned int y = metadata.getUIntValue(meta_uint_key);
+    ASSERT_EQ(y, val) << "UINT VALUE NOT SET";
+
     //This should still be 45 with another copy of metadata
     StorageEntry& metadata2 = storage->getMetadata();
     x = metadata2.getIntValue(meta_int_key);
+    y = metadata2.getUIntValue(meta_uint_key);
     ASSERT_EQ(x, 45) << "SET VALUE DOES NOT PERSIST";
+    ASSERT_EQ(y, val) << "UINT VALUE DOES NOT PERSIST";
 }
 
 TEST_F(StorageModuleTest, IncrementTest)
@@ -1150,6 +1215,333 @@ TEST_F(StorageModuleTest, IncrementTest)
 
     StorageEntry& metadata3 = storage->getMetadata();
     ASSERT_EQ(3, metadata3.getIntValue(meta_int_key)) << "Metadata doesn't persist after clear";
+}
+
+TEST_F(StorageModuleTest, UINTIncrementTest)
+{
+    StorageEntry* e1 = storage->createNewEntry();
+    ASSERT_EQ(0, e1->getUIntValue(uint_key));
+    e1->incrementUIntValue(uint_key);
+    ASSERT_EQ(1, e1->getUIntValue(uint_key));
+    e1->incrementUIntValue(uint_key);
+    ASSERT_EQ(2, e1->getUIntValue(uint_key));
+    e1->incrementUIntValue(uint_key);
+    ASSERT_EQ(3, e1->getUIntValue(uint_key));
+
+    try
+    {
+    StorageEntry& metadata = storage->getMetadata();
+    ASSERT_EQ(0, metadata.getUIntValue(meta_uint_key));
+    int x = metadata.incrementUIntValue(meta_uint_key);
+    ASSERT_EQ(1, metadata.getUIntValue(meta_uint_key));
+    ASSERT_EQ(1, x) << "Return value not 1";
+    x = metadata.incrementUIntValue(meta_uint_key);
+    ASSERT_EQ(2, metadata.getUIntValue(meta_uint_key));
+    ASSERT_EQ(2, x) << "Return value not 2";
+    x = metadata.incrementUIntValue(meta_uint_key);
+    ASSERT_EQ(3, metadata.getUIntValue(meta_uint_key));
+    ASSERT_EQ(3, x) << "Return value not 3";
+    } 
+    catch (BaseException e)
+    {
+        GTEST_COUT << e.getReason();
+        FAIL();
+    }
+
+    StorageEntry& metadata2 = storage->getMetadata();
+    ASSERT_EQ(3, metadata2.getUIntValue(meta_uint_key)) << "Metadata doesn't persist when accessed again";
+
+    storage->clearNewAndLocalEntries();
+
+    StorageEntry& metadata3 = storage->getMetadata();
+    ASSERT_EQ(3, metadata3.getUIntValue(meta_uint_key)) << "Metadata doesn't persist after clear";
+}
+
+TEST_F(StorageModuleTest, UIntTest)
+{
+
+    StorageEntry* entry = storage->createNewEntry();
+    unsigned int x = 123;
+    entry->setValue(uint_key, x);
+
+    unsigned int y = entry->getUIntValue(uint_key);
+    ASSERT_EQ(x,y);
+
+}
+
+TEST_F(StorageModuleTest, TypeCheckTest)
+{
+    StorageEntry* entry = storage->createNewEntry();
+
+    try
+    {
+        unsigned int z = entry->getIntValue(uint_key);
+        FAIL() << "Exception should have been thrown 1";
+    }
+    catch(RuntimeException e)
+    {
+        //Expected error
+    }
+
+    try
+    {
+        int a = entry->getUIntValue(int_key);
+        FAIL() << "Exception should have been thrown 2";
+    }
+    catch(RuntimeException e)
+    {
+        //Expected error
+    }
+
+    try
+    {
+        float f = entry->getFloatValue(buf_key);
+        FAIL() << "Exception should have been thrown 3";
+    }
+    catch(RuntimeException e)
+    {
+        //Expected error
+    }
+
+    try
+    {
+        char* buff = entry->allocateBuffer(int_key,10);
+        FAIL() << "Exception should have been thrown 4";
+    }
+    catch(RuntimeException e)
+    {
+        //Expected error
+    }
+
+    entry->allocateBuffer(buf_key,16);
+
+    try
+    {
+        int size = entry->getBufferSize(int_key);
+        FAIL() << "Exception should have been thrown 5";
+    }
+    catch(RuntimeException e)
+    {
+        //Expected error
+    }
+
+    try
+    {
+        char* buffPtr = entry->getBufferPointer(uint_key);
+        FAIL() << "Exception should have been thrown 6";
+    }
+    catch(RuntimeException e)
+    {
+        //Expected error
+    }
+
+}
+
+TEST_F(StorageModuleTest, TempBufferMetadataTest)
+{
+    GTEST_COUT << "Checking metadata registration\n";
+    std::vector<int> buffTmpKeys = metadata->getKeyHandles(StorageRegistry::BUFFER_TEMP);
+    ASSERT_EQ(buffTmpKeys.size(),1);
+    ASSERT_EQ(buffTmpKeys[0],meta_tmp_buf_key);
+
+    GTEST_COUT << "Allocating buffer\n";
+    StorageEntry& metadataEntry = storage->getMetadata();
+    char* buff = metadataEntry.allocateBuffer(meta_tmp_buf_key,3);
+    buff[0] = 'V';
+    buff[1] = 'M';
+    buff[2] = 'F';
+
+    GTEST_COUT << "Checking buffer\n";
+    ASSERT_TRUE(metadataEntry.hasBuffer(meta_tmp_buf_key));
+    ASSERT_EQ(3, metadataEntry.getBufferSize(meta_tmp_buf_key));
+    ASSERT_EQ(buff,metadataEntry.getBufferPointer(meta_tmp_buf_key));
+
+    GTEST_COUT << "Clearing new and local entries\n";
+    storage->clearNewAndLocalEntries();
+
+    GTEST_COUT << "Checking that buffer is now clear\n";
+    ASSERT_FALSE(metadataEntry.hasBuffer(meta_tmp_buf_key));
+
+    ASSERT_EQ(metadataEntry.getBufferSize(meta_tmp_buf_key),-1);
+
+    GTEST_COUT << "Checking for exceptions\n";
+    try
+    {
+        metadataEntry.getBufferPointer(meta_tmp_buf_key);
+        FAIL() << "Exception 2 expected";
+    }
+    catch(RuntimeException e)
+    {
+        //Exception is the expected result here, as buffer should be unallocated
+    }
+}
+
+TEST_F(StorageModuleTest, TempBufferTest)
+{
+    StorageEntry* e1 = storage->createNewEntry();
+    StorageEntry* e2 = storage->createNewEntry();
+    StorageEntry* e3 = storage->createNewEntry();
+    StorageEntry* e4 = storage->createNewEntry();
+
+    char* buff1 = e1->allocateBuffer(tmp_buf_key, 20);
+    for(int i=0; i<20; i++)
+    {
+        buff1[i] = (char)i;
+    }
+    char* buff2 = e2->allocateBuffer(tmp_buf_key, 30);
+    for(int i=0; i<30; i++)
+    {
+        buff2[i] = (char)i;
+    }
+
+    char* buff3 = e3->allocateAndCopyBuffer(tmp_buf_key, e2);
+    char* buff4 = e4->allocateAndCopyBuffer(tmp_buf_key, 30, buff3);
+
+    ASSERT_TRUE(e1->hasBuffer(tmp_buf_key));
+    ASSERT_TRUE(e2->hasBuffer(tmp_buf_key));
+    ASSERT_TRUE(e3->hasBuffer(tmp_buf_key));
+    ASSERT_TRUE(e4->hasBuffer(tmp_buf_key));
+
+    ASSERT_EQ(20, e1->getBufferSize(tmp_buf_key));
+    ASSERT_EQ(buff1,e1->getBufferPointer(tmp_buf_key));
+    ASSERT_EQ(30, e2->getBufferSize(tmp_buf_key));
+    ASSERT_EQ(buff2,e2->getBufferPointer(tmp_buf_key));
+    ASSERT_EQ(30, e3->getBufferSize(tmp_buf_key));
+    ASSERT_EQ(buff3,e3->getBufferPointer(tmp_buf_key));
+    ASSERT_EQ(30, e4->getBufferSize(tmp_buf_key));
+    ASSERT_EQ(buff4,e4->getBufferPointer(tmp_buf_key));
+
+    buff2 = e2->getBufferPointer(tmp_buf_key);
+    buff3 = e3->getBufferPointer(tmp_buf_key);
+    buff4 = e4->getBufferPointer(tmp_buf_key);
+    for(int i=0;i<30;i++)
+    {
+        ASSERT_EQ(buff2[i],(char)i);
+        ASSERT_EQ(buff3[i],(char)i);
+        ASSERT_EQ(buff4[i],(char)i);
+    }
+
+    GTEST_COUT << "Manually clearing buffer\n";
+    e3->clearBuffer(tmp_buf_key);
+    ASSERT_FALSE(e3->hasBuffer(tmp_buf_key));
+    ASSERT_EQ(-1,e3->getBufferSize(tmp_buf_key));
+
+    storage->saveEntry(e1);
+    storage->saveEntry(e2);
+    storage->saveEntry(e3);
+    storage->clearNewAndLocalEntries();
+    //e4 has now been deleted
+
+    GTEST_COUT << "Checking that buffer is now clear\n";
+    ASSERT_FALSE(e1->hasBuffer(tmp_buf_key));
+    ASSERT_FALSE(e2->hasBuffer(tmp_buf_key));
+    ASSERT_FALSE(e3->hasBuffer(tmp_buf_key));
+
+    ASSERT_EQ(-1,e1->getBufferSize(tmp_buf_key));
+    ASSERT_EQ(-1,e2->getBufferSize(tmp_buf_key));
+    ASSERT_EQ(-1,e3->getBufferSize(tmp_buf_key));
+
+    try
+    {
+        e3->getBufferPointer(tmp_buf_key);
+        FAIL() << "Exception expected";
+    }
+    catch(RuntimeException e)
+    {
+        //Exception should be thrown
+    }
+
+}
+
+TEST_F(StorageModuleTest, ClearBufferTest)
+{
+    StorageEntry* e = storage->createNewEntry();
+    char* buff = e->allocateBuffer(buf_key,16);
+    for(int i=0; i<16; i++)
+    {
+        buff[i] = (char)i;
+    }
+    char* tmpbuff = e->allocateBuffer(tmp_buf_key,32);
+    for(int i=0; i<32; i++)
+    {
+        tmpbuff[i] = (char)i*2;
+    }
+
+    ASSERT_TRUE(e->hasBuffer(buf_key));
+    ASSERT_EQ(e->getBufferSize(buf_key),16);
+    ASSERT_TRUE(e->hasBuffer(tmp_buf_key));
+    ASSERT_EQ(e->getBufferSize(tmp_buf_key),32);
+
+    storage->saveEntry(e);
+    storage->clearNewAndLocalEntries();
+
+    ASSERT_TRUE(e->hasBuffer(buf_key));
+    ASSERT_EQ(e->getBufferSize(buf_key),16);
+    ASSERT_EQ(buff,e->getBufferPointer(buf_key));
+
+    ASSERT_FALSE(e->hasBuffer(tmp_buf_key));
+
+    e->clearBuffer(buf_key);
+    ASSERT_FALSE(e->hasBuffer(buf_key));
+    try
+    {
+        e->getBufferPointer(buf_key);
+        FAIL() << "Exception expected";
+    }
+    catch(RuntimeException e)
+    {
+        //Expected
+    }
+
+    //Now re-allocate
+    buff = e->allocateBuffer(buf_key,8);
+    for(int i=0; i<8; i++)
+    {
+        buff[i] = (char)i*3;
+    }
+    tmpbuff = e->allocateBuffer(tmp_buf_key,16);
+    for(int i=0; i<16; i++)
+    {
+        tmpbuff[i] = (char)i*4;
+    }
+
+    ASSERT_TRUE(e->hasBuffer(buf_key));
+    ASSERT_TRUE(e->hasBuffer(tmp_buf_key));
+
+    ASSERT_EQ(e->getBufferSize(buf_key),8);
+    ASSERT_EQ(e->getBufferSize(tmp_buf_key),16);
+
+    ASSERT_EQ(buff,e->getBufferPointer(buf_key));
+    ASSERT_EQ(tmpbuff,e->getBufferPointer(tmp_buf_key));
+
+}
+
+TEST_F(StorageModuleTest, metadataNameTest)
+{
+    std::string expectedINTname = "META_INT";
+    std::string expectedUINTname = "META_UINT";
+    std::string expectedUINT2name = "META_UINT_2";
+    std::string expectedUINT3name = "META_UINT_3";
+    std::string expectedFLOATname = "META_FLOAT";
+    std::string expectedBUFFERname = "META_BUFFER";
+
+    //One handle was registered for each type
+    std::vector<int> intHandles = storage->getListOfMetadataKeyHandles(StorageRegistry::INT);
+    std::vector<int> uintHandles = storage->getListOfMetadataKeyHandles(StorageRegistry::UINT);
+    std::vector<int> floatHandles = storage->getListOfMetadataKeyHandles(StorageRegistry::FLOAT);
+    std::vector<int> bufferHandles = storage->getListOfMetadataKeyHandles(StorageRegistry::BUFFER);
+    ASSERT_EQ(intHandles.size(),1);
+    ASSERT_EQ(uintHandles.size(),3);
+    ASSERT_EQ(floatHandles.size(),1);
+    ASSERT_EQ(bufferHandles.size(),1);
+
+    //Make sure the names are correct
+    ASSERT_EQ(expectedINTname,storage->metadataKeyHandleToString(intHandles[0]));
+    ASSERT_EQ(expectedUINTname,storage->metadataKeyHandleToString(uintHandles[0]));
+    ASSERT_EQ(expectedUINT2name,storage->metadataKeyHandleToString(uintHandles[1]));
+    ASSERT_EQ(expectedUINT3name,storage->metadataKeyHandleToString(uintHandles[2]));
+    ASSERT_EQ(expectedFLOATname,storage->metadataKeyHandleToString(floatHandles[0]));
+    ASSERT_EQ(expectedBUFFERname,storage->metadataKeyHandleToString(bufferHandles[0]));
 }
 
 }  // namespace

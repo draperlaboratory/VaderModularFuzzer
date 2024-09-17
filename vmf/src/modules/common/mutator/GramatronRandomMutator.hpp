@@ -22,6 +22,7 @@
 #include "MutatorModule.hpp"
 #include "StorageEntry.hpp"
 #include "RuntimeException.hpp"
+#include "VmfRand.hpp"
 
 namespace vmf
 {
@@ -46,6 +47,7 @@ public:
 private:
     int autRepKey;
     PDA* pda;
+    VmfRand* rand;
 
     void random(StorageEntry* newEntry, char* buffer, int testCaseKey);
 };

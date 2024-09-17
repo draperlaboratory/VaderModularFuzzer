@@ -106,7 +106,7 @@ void AFLForkserverExecutor::init(ConfigInterface& config) {
     verifyCorePattern();
 
     /* Pick map size to use based on both auto detected size and manual configuration */
-    int auto_map_size = getSUTMapSize();
+    unsigned int auto_map_size = getSUTMapSize();
     if (map_size == 0) {
         /* If no configured size, use autodetection if it worked and DEFAULT_MAP_SIZE otherwise*/
         if (auto_map_size != 0) {
@@ -155,7 +155,7 @@ void AFLForkserverExecutor::checkTimeout(StorageModule &storage) {
 
     /* Check if another executor recorded their timeout as metadata */
     StorageEntry& metadata = storage.getMetadata();
-    int timeout = metadata.getIntValue(calib_timeout_key);
+    int timeout = metadata.getUIntValue(calib_timeout_key);
     if (!timeout)
         throw RuntimeException("Couldn't find a timeout value",
                                RuntimeException::UNEXPECTED_ERROR);
@@ -371,7 +371,7 @@ void AFLForkserverExecutor::handleStatus(StorageModule& storage, StorageEntry *e
     }
 
     /* Record SUT execution time */
-    entry->setValue(exec_time_key, static_cast<int>(time_taken));
+    entry->setValue(exec_time_key, static_cast<unsigned int>(time_taken));
 
     /* Check for new coverage, write new coverage tag and coverage bits to storage, as relevant*/
     handleCoverageBitmap(storage,entry);
@@ -423,7 +423,7 @@ void AFLForkserverExecutor::handleCoverageBitmap(StorageModule& storage, Storage
         entry->addTag(has_new_coverage_tag);
 
         /* Expensive Compute for coverage byte count */
-        entry->setValue(coverage_count_key, static_cast<int>(cov_util.countBytes(trace_bits, map_size)));
+        entry->setValue(coverage_count_key, cov_util.countBytes(trace_bits, map_size));
 
         /* Write classified coverage bits, if the coverage_only_trace flag was set.
          * Skip this if always_write-trace is also set, because the bits have then already been written */
@@ -435,7 +435,7 @@ void AFLForkserverExecutor::handleCoverageBitmap(StorageModule& storage, Storage
         /* Calculate cumulative coverage over all test cases so far */
         if (write_stats)
         {
-            int cumulative_coverage = cov_util.countNon255Bytes(virgin_trace, map_size);
+            unsigned int cumulative_coverage = cov_util.countNon255Bytes(virgin_trace, map_size);
             metadata.setValue(cumulative_coverage_metadata, cumulative_coverage);
         }
     }
@@ -999,9 +999,10 @@ int AFLForkserverExecutor::getSUTMapSize(void) {
     setenv("AFL_DEBUG", "1", 1);
 
     /* Construct run command. We must redirect stderr to stdout so popen captures it,
-       because AFL_DEBUG info is sent on stderr. We add a timeout to kill any waiting for stdin.*/
-    char cmd[sut_argv[0].length() + 32];
-    sprintf(cmd, "timeout 1s %s 2>&1", sut_argv[0].c_str());
+       because AFL_DEBUG info is sent on stderr. We add a timeout to kill any waiting for stdin.
+       Timeout with -k issues a SIGTERM after 1s and a SIGKILL after 2s.*/
+    char cmd[sut_argv[0].length() + 64];
+    sprintf(cmd, "timeout -k 1s 2s %s 2>&1", sut_argv[0].c_str());
 
     /* Run SUT with popen. We don't need to run it properly with args etc.
        As long as it reaches main that is enough to get info we need. That makes
@@ -1225,26 +1226,25 @@ void AFLForkserverExecutor::killSUT(void) {
 
 void AFLForkserverExecutor::registerStorageNeeds(StorageRegistry& registry) {
     test_case_key = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_ONLY);
-    exec_time_key = registry.registerKey("EXEC_TIME_US", StorageRegistry::INT, StorageRegistry::WRITE_ONLY);
-    exec_status_key = registry.registerKey("AFL_EXEC_STATUS", StorageRegistry::INT, StorageRegistry::WRITE_ONLY);
+    exec_time_key = registry.registerKey("EXEC_TIME_US", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);
     if(always_write_trace || coverage_only_trace)
     {
         //If either of these is set, trace bits will be written
-        trace_bits_key = registry.registerKey("AFL_TRACE_BITS", StorageRegistry::BUFFER, StorageRegistry::WRITE_ONLY);
+        trace_bits_key = registry.registerKey("AFL_TRACE_BITS", StorageRegistry::BUFFER_TEMP, StorageRegistry::WRITE_ONLY);
     }
     crashed_tag = registry.registerTag("CRASHED", StorageRegistry::WRITE_ONLY);
     hung_tag = registry.registerTag("HUNG", StorageRegistry::WRITE_ONLY);
     normal_tag = registry.registerTag("RAN_SUCCESSFULLY", StorageRegistry::WRITE_ONLY);
     has_new_coverage_tag = registry.registerTag("HAS_NEW_COVERAGE", StorageRegistry::WRITE_ONLY);
-    coverage_count_key = registry.registerKey("COVERAGE_COUNT", StorageRegistry::INT, StorageRegistry::WRITE_ONLY);
+    coverage_count_key = registry.registerKey("COVERAGE_COUNT", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);
     if(cmp_log_enabled)
     {
         //The additional cmp log data is only written if cmplog mode is enabled
-        cmpLogMapKey = registry.registerKey("CMPLOG_MAP_BITS", StorageRegistry::BUFFER, StorageRegistry::WRITE_ONLY);
+        cmpLogMapKey = registry.registerKey("CMPLOG_MAP_BITS", StorageRegistry::BUFFER_TEMP, StorageRegistry::WRITE_ONLY);
     }
 }
 void AFLForkserverExecutor::registerMetadataNeeds(StorageRegistry& registry) {
-    cumulative_coverage_metadata = registry.registerKey("TOTAL_BYTES_COVERED", StorageRegistry::INT, StorageRegistry::WRITE_ONLY);
-    map_size_key = registry.registerKey("MAP_SIZE", StorageRegistry::INT, StorageRegistry::WRITE_ONLY);
-    calib_timeout_key = registry.registerKey("CALIBRATED_TIMEOUT", StorageRegistry::INT, StorageRegistry::READ_WRITE);
+    cumulative_coverage_metadata = registry.registerKey("TOTAL_BYTES_COVERED", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);
+    map_size_key = registry.registerKey("MAP_SIZE", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);
+    calib_timeout_key = registry.registerKey("CALIBRATED_TIMEOUT", StorageRegistry::UINT, StorageRegistry::READ_WRITE);
 }

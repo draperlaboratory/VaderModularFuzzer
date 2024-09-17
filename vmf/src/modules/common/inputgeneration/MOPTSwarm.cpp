@@ -30,7 +30,7 @@
 #include "MOPTSwarm.hpp"
 #include "RuntimeException.hpp"
 #include "Logging.hpp"
-#include <random>
+#include <climits>
 
 using namespace vmf;
 
@@ -42,6 +42,7 @@ using namespace vmf;
 MOPTSwarm::MOPTSwarm(int _numMutators)
 {
 
+    rand = VmfRand::getInstance();
     numMutators = _numMutators;
     x_now = new double[numMutators];
     v_now = new double[numMutators];
@@ -56,14 +57,14 @@ MOPTSwarm::MOPTSwarm(int _numMutators)
     // Initialize starting values
     for (unsigned int i = 0; i < numMutators; i++)
     {
-	    x_now[i] = (double) (rand() % 1000);
-	    v_now[i] = 0.1;
-	    L_best[i] = 0.5;
-	    eff_best[i] = 0.0;
-	    finds_total[i] = 0;
-	    finds_iteration[i] = 0;
-	    execs_total[i] = 0;
-	    execs_iteration[i] = 0;
+	x_now[i] = (double) rand -> randBelow(1000);
+        v_now[i] = 0.1;
+        L_best[i] = 0.5;
+        eff_best[i] = 0.0;
+        finds_total[i] = 0;
+        finds_iteration[i] = 0;
+        execs_total[i] = 0;
+        execs_iteration[i] = 0;
     }
 
     // Normalize the x_now (random starting weights) so they sum to 1.0
@@ -98,8 +99,8 @@ void MOPTSwarm::updatePSO(double * G_best, double w_now, double v_min, double v_
     for (unsigned int i = 0; i < numMutators; i++)
     {
         // r1 and r2 are random displacement weights
-        float r1 = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-        float r2 = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+        float r1 = genRandomWeight();
+        float r2 = genRandomWeight();
         v_now[i] = w_now * v_now[i] + r1 * (G_best[i] - x_now[i]) + r2 * (L_best[i] - x_now[i]);
         x_now[i] += v_now[i];
         if (x_now[i] < v_min)
@@ -191,6 +192,11 @@ void MOPTSwarm::normalize()
 	    x_now[i] /= sum;
 }
 
+// Generate a random float between 0 and 1
+float MOPTSwarm::genRandomWeight()
+{
+    return static_cast <float> (rand->randBelow(INT_MAX)) / static_cast <float> (INT_MAX);
+}
 
 /**
  * @brief Use the weights to randomly sample a mutator. Assumes already normalized.
@@ -201,7 +207,7 @@ int MOPTSwarm::pickMutator()
 {
 
     // Roll a random float between 0 and 1
-    float roll = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+    float roll = genRandomWeight();
     
     // Return which mutator we selected
     float sum = 0.0;

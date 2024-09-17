@@ -73,6 +73,7 @@ Module* AFLFlip2BitMutator::build(std::string name)
  */
 void AFLFlip2BitMutator::init(ConfigInterface& config)
 {
+    rand = VmfRand::getInstance();
 }
 
 /**
@@ -83,7 +84,7 @@ void AFLFlip2BitMutator::init(ConfigInterface& config)
 AFLFlip2BitMutator::AFLFlip2BitMutator(std::string name) :
     MutatorModule(name)
 {
-    rand.randInit();
+    rand = nullptr;
 }
 
 /**
@@ -110,6 +111,11 @@ void AFLFlip2BitMutator::registerStorageNeeds(StorageRegistry& registry)
 void AFLFlip2BitMutator::mutateTestCase(StorageModule& storage, StorageEntry* baseEntry, StorageEntry* newEntry, int testCaseKey)
 {
 
+    if (rand == nullptr)
+    {
+	throw RuntimeException("VmfRand was null, mutator was not initialized before use.");
+    }
+
     int size = baseEntry->getBufferSize(testCaseKey);
     char* buffer = baseEntry->getBufferPointer(testCaseKey);
 
@@ -118,7 +124,7 @@ void AFLFlip2BitMutator::mutateTestCase(StorageModule& storage, StorageEntry* ba
         throw RuntimeException("AFLFlip2BitMutator mutate called with zero sized buffer", RuntimeException::USAGE_ERROR);
     }
 
-    int bit = rand.randBelow((size * 8) - 1) + 1;
+    int bit = rand->randBelow((size * 8) - 1) + 1;
     char* newBuff = newEntry->allocateBuffer(testCaseKey, size);
     memcpy((void*)newBuff, (void*)buffer, size);
 

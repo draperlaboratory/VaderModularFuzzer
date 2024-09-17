@@ -81,6 +81,22 @@ public:
      * @param tagId the handle for the tag
      */
     virtual void notifyTagRemoved(StorageEntry* entry, int tagId) = 0;
+
+    /**
+     * @brief Called by StorageEntry when a temp buffer is set
+     * 
+     * StorageEntry will call this method everytime a temp buffer is set, so that 
+     * storage can maintain a list of test cases for which a temp buffer was written.
+     * This allows storage to clear the temp data at the end of the fuzzing loop.
+     *
+     * Note: This may result in an overcounting of impacted entries if a module
+     * chooses to manually clear temp data, but the StorageEntry.clearBuffer method is
+     * resilient to being called on an empty buffer.
+     * 
+     * @param entry the storage entry that was set
+     * @param isMetadata true if this is the metadata storage entry, false otherwise
+     */
+    virtual void notifyTempBufferSet(StorageEntry* entry, bool isMetadata) = 0;
 };
 
 }
