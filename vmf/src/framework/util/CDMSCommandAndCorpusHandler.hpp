@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -44,6 +35,13 @@ namespace vmf
  * by the controller module, as the configuration options for this module are part
  * of the controller config.  But all users of this module should call register
  * storage needs to accurated reflect their storage usage.
+ * 
+ * When running in distributed mode, this class will regulate the flow of new tests
+ * from the server into the fuzzer (to avoid a large memory spike if many test cases are
+ * read in at once).  It tags all test cases that came from the server with the SERVER_TC
+ * tag, so that other modules can avoid sending these test cases back to the server.
+ * @image html CoreModuleDataModel_9.png width=800px
+ * @image latex CoreModuleDataModel_9.png width=6in
  */
 class CDMSCommandAndCorpusHandler
 {

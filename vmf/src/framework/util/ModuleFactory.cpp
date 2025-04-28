@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -34,6 +25,31 @@ using namespace vmf;
 
 ModuleFactory::ModuleFactory()
 {
+}
+
+ModuleFactory::~ModuleFactory()
+{
+}
+
+/**
+ * @brief Returns the module's instance-specific identifier
+ *
+ * @param id the unique module instance identifier
+ * @return std::string moduleinstance name
+ * @throws RuntimeException if the module ID is unknown
+ */
+std::string ModuleFactory::getModuleName(int id)
+{
+    /* Lookup using ID to get module's instance name */
+    std::string name = idMap[id];
+    if (""==name)
+    {
+       LOG_ERROR << "UNKNOWN MODULE ID: " << id;
+       throw RuntimeException("Unknown module ID specified",
+                              RuntimeException::CONFIGURATION_ERROR);
+    }
+
+    return name;
 }
 
 /**
@@ -63,15 +79,25 @@ void ModuleFactory::registerModule(std::string className, TModuleBuildMethod bui
  */
 Module* ModuleFactory::buildModule(std::string className, std::string name)
 {
-    TModuleBuildMethod builderFunc = factoryMap[className]; 
+
+    TModuleBuildMethod builderFunc = factoryMap[className];
     if(nullptr==builderFunc)
     {
        LOG_ERROR << "UNKNOWN MODULE:" << className;
        throw RuntimeException("Unknown module specified, unable to build",
                               RuntimeException::CONFIGURATION_ERROR);
     }
-    
-    return (*builderFunc)(name); //call the builder method
+
+    /* Call the builder method */
+    Module* M = (*builderFunc)(name);
+    /* Set unique ID for the new module instance */
+    M->setID(next_id);
+    /* Update the ID to instance name map */
+    idMap.insert(std::pair<int,std::string>(next_id, className));
+    /* Increment ID counter */
+    next_id++;
+    LOG_DEBUG << "Built new module [" << className << "] ID: " << next_id;
+    return M;
 }
 
 /**

@@ -14,6 +14,7 @@ RUN  apt-get update \
      && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --fix-missing \
        graphviz \
        clang-16 \
+       libclang-rt-16-dev \
        clang \
        doxygen \
        libcurl4-openssl-dev \
@@ -35,7 +36,7 @@ FROM deps AS aflpp
 # Clone and build AFL++
 RUN set -ex \
     && cd /usr/local/src \
-    && git clone --depth 1 -b v4.10c https://github.com/AFLplusplus/AFLplusplus.git \
+    && git clone --depth 1 -b v4.30c https://github.com/AFLplusplus/AFLplusplus.git \
     && cd AFLplusplus \
     && make all \
     && make install \

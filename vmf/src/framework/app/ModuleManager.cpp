@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -96,7 +87,7 @@ bool ModuleManager::containsModule(std::string name)
  * @return Module* the pointer to the module
  * @throws RuntimeException if the module cannot be found
  */
-Module* ModuleManager::lookupModule(std::string name)
+Module* ModuleManager::getModule(std::string name)
 {
     Module* m = moduleList[name];
     if(nullptr == m)
@@ -108,12 +99,23 @@ Module* ModuleManager::lookupModule(std::string name)
     return m;
 }
 
+/**
+ * @brief Lookup module name by ID
+ *
+ * @param id the module's unique ID
+ * @return std::string the module's name
+ */
+std::string ModuleManager::getModuleName(int id)
+{
+    return ModuleFactory::getInstance().getModuleName(id);
+}
+
 
 /**
  * @brief Returns the root module
  * 
  * @return Module* the root module
- * @throws RuntimException if there is  module
+ * @throws RuntimException if there is no root module
  */
 Module* ModuleManager::getRootModule()
 {

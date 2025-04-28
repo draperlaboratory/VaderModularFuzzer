@@ -1,17 +1,8 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+# Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
 # <vmf@draper.com>
-#  
-# Effort sponsored by the U.S. Government under Other Transaction number
-# W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
-# Is authorized to reproduce and distribute reprints for Governmental purposes
-# notwithstanding any copyright notation thereon.
-#  
-# The views and conclusions contained herein are those of the authors and
-# should not be interpreted as necessarily representing the official policies
-# or endorsements, either expressed or implied, of the U.S. Government.
-#  
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 (only) as 
 # published by the Free Software Foundation.
@@ -30,20 +21,53 @@
 # required by gtest
 find_package(Threads REQUIRED)
 
+add_library(VmfTestLib STATIC
+    TestConfigInterface.cpp
+    ModuleTestHelper.cpp)
+target_include_directories(VmfTestLib PRIVATE
+    ${PROJECT_SOURCE_DIR}/include
+    ../../vmf/src/framework/app/
+    ./
+)
+target_link_libraries(VmfTestLib
+  PRIVATE
+  gtest 
+  gtest_main
+  VMFFramework
+  CoreModules
+  Threads::Threads
+  yaml-cpp
+)
+
 SET(TEST_SRCS
-  TestConfigInterface.cpp
-  ModuleTestHelper.cpp
-  TestAll.cpp
+  ../../vmf/src/framework/app/ConfigManager.cpp
+  ../../vmf/src/framework/app/ModuleManager.cpp
   TestConfigInterfaceTest.cpp
+  TestAll.cpp
+  ConfigManagerTest.cpp
   StorageRegistryTest.cpp
   StorageModuleTest.cpp
   StorageModuleTestFloat.cpp
   AFLMutatorTest.cpp
   GAInputGenTest.cpp
+  DictionaryMutatorTest.cpp
+  TrivialSeedInitializationTest.cpp
   OutputSchedulerTest.cpp
   MOPTTest.cpp
-  linux/AFLForkserverExecutorTest.cpp
 )
+
+if(WIN32)
+   list(APPEND TEST_SRCS
+      windows/FridaExecutorTest.cpp
+   )
+   #windows-specific unit tests
+else()
+   #linux-specific unit tests
+    list(APPEND TEST_SRCS
+          linux/AFLForkserverExecutorTest.cpp
+          linux/DictionaryInitializationTest.cpp
+	)
+endif()
 
 add_executable(VmfTest ${TEST_SRCS})
 
@@ -51,14 +75,24 @@ set_target_properties(VmfTest PROPERTIES LINKER_LANGUAGE CXX)
 
 target_include_directories(VmfTest PUBLIC
     ${PROJECT_SOURCE_DIR}/include
+    ../../vmf/src/framework/app/
+    ./
 )
 
+if(WIN32)
+   target_compile_definitions(VmfTest PRIVATE PLOG_IMPORT)
+endif()
+
 target_link_libraries(VmfTest
+  PRIVATE
+  VmfTestLib
   PUBLIC
   gtest 
-  gtest_main 
+  gtest_main
   VMFFramework
   CoreModules
-  Threads::Threads  
+  Threads::Threads
+  PRIVATE
+  yaml-cpp
 )
-gtest_discover_tests(VmfTest)
+gtest_discover_tests(VmfTest WORKING_DIRECTORY ${CMAKE_BINARY_DIR}  DISCOVERY_MODE PRE_TEST)

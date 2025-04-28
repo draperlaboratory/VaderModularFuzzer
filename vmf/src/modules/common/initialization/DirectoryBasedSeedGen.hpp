@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -35,9 +26,11 @@
 namespace vmf
 {
 /**
- * @brief Seed generator that will create an initial set of test cases from a directory of inputs
- *
- *
+ * @brief InitializationModule that will create an initial set of test cases from a directory of inputs.
+ * These test cases represent an initial set of seeds for use by the fuzzer.  Each input is written to a
+ * a TEST_CASE buffer.
+ * @image html CoreModuleDataModel_7.png width=800px
+ * @image latex CoreModuleDataModel_7.png width=6in
  */
 class DirectoryBasedSeedGen: public InitializationModule {
 public:

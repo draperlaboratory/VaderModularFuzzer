@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -37,7 +28,6 @@
 #include "OutputScheduler.hpp"
 #include "StorageModule.hpp"
 #include "RuntimeException.hpp"
-
 #include <vector>
 
 
@@ -49,8 +39,14 @@ namespace vmf
  * the run method.  Rather, it provides helper methods that can be used as the basis 
  * of implementing a controller.  These run methods assume that at least one module of
  * each type has been providing in the ConfigInterface.
+ * 
  * This controller supports any number of modules.  What modules are required and any
  * limitations on the number of supported modules should be determined in any subclasses.
+ * 
+ * This class useses CDMSCommandAndCorpusHandler to facilitate its corpus loading and management
+ * for distributed fuzzing.
+ * @image html CoreModuleDataModel_9.png width=800px
+ * @image latex CoreModuleDataModel_9.png width=6in
  */
 class ControllerModulePattern : public ControllerModule {
 public:

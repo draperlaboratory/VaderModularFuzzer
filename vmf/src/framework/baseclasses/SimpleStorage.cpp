@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -115,6 +106,7 @@ void SimpleStorage::configure(StorageRegistry* registry, StorageRegistry* metada
     tmpBufferHandles = registry->getKeyHandles(StorageRegistry::BUFFER_TEMP);
     metaKeyHandleMap[StorageRegistry::INT] = metadata->getKeyHandles(StorageRegistry::INT);
     metaKeyHandleMap[StorageRegistry::UINT] = metadata->getKeyHandles(StorageRegistry::UINT);
+    metaKeyHandleMap[StorageRegistry::U64] = metadata->getKeyHandles(StorageRegistry::U64);
     metaKeyHandleMap[StorageRegistry::FLOAT] = metadata->getKeyHandles(StorageRegistry::FLOAT);
     metaKeyHandleMap[StorageRegistry::BUFFER] = metadata->getKeyHandles(StorageRegistry::BUFFER);
     metaKeyHandleMap[StorageRegistry::BUFFER_TEMP] = metadata->getKeyHandles(StorageRegistry::BUFFER_TEMP);
@@ -315,7 +307,12 @@ void SimpleStorage::removeEntry(StorageEntry* e)
         throw RuntimeException("Local entries cannot be removed", RuntimeException::USAGE_ERROR);
     }
 
-    deleteList.push_back(e);
+    // Avoid adding duplicates to delete list
+    bool isOnDeleteList = containsEntry(deleteList, e);
+    if(!isOnDeleteList) {
+        deleteList.push_back(e);
+    }
+
 }
 
 /**
@@ -516,7 +513,7 @@ std::string SimpleStorage::metadataKeyHandleToString(int handle)
     int typeMask = StorageKeyHelper::getType(handle);
     int index = StorageKeyHelper::getIndex(handle);
     StorageRegistry::storageTypes typeEnum = StorageKeyHelper::typeToEnum(typeMask);
-    int numKeys = metaKeyHandleMap[typeEnum].size();
+    int numKeys = (int) metaKeyHandleMap[typeEnum].size();
     if(!((index >= 0) && (index < numKeys)))
     {
         throw RuntimeException( "Invalid key handle in call to SimpleStorage",RuntimeException::INDEX_OUT_OF_RANGE);

@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -44,7 +35,7 @@ TEST(MOPTTest, testNormalize)
     float probabilitySum = 0;
     for (int i = 0; i < 5; i++)
     {
-	probabilitySum += s -> getMutatorWeight(i);
+	probabilitySum += (float) s -> getMutatorWeight(i);
     }
     
     EXPECT_NEAR(probabilitySum, 1.0, 0.0001);
@@ -74,7 +65,7 @@ TEST(MOPTTest, testFitness)
     }
 
     s -> updateFitness();
-    float fitness = s -> getSwarmFitness();
+    float fitness = (float) s -> getSwarmFitness();
 
     // Validate that fitness is 5% (10/200 = 0.05)
     EXPECT_NEAR(fitness, 0.05, 0.0001);
@@ -128,7 +119,7 @@ TEST(MOPTTest, testPickBetterMutator)
     }
 
     // Lastly, we see how often it picked mutator 0
-    float selected0Percent = 100.0 * (float) selected0 / ((float) selected0 + selected1);
+    float selected0Percent = (float) 100.0 * (float) selected0 / ((float) selected0 + selected1);
 
     // We expect it was picked most of the time, at least lower bound of 55% to handle stochastic nature of sampling.
     // Typically it's at least 70% or so.

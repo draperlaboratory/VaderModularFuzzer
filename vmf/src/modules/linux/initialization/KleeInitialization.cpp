@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -80,6 +71,8 @@ void KleeInitialization::init(ConfigInterface& config)
         throw RuntimeException("Specified .bc file not found", RuntimeException::CONFIGURATION_ERROR);
     }
 
+    LOG_DEBUG << "Using LLVM BC file: " << bitcodeFP;
+
     //check that file name has expected .bc extension
     programPath = realpath(bitcodeFP.c_str(), NULL);
     std::string checkExtension = programPath.substr(programPath.length()-3);
@@ -90,14 +83,27 @@ void KleeInitialization::init(ConfigInterface& config)
     }
 
     // create working directory where klee will output files
-    std::string outputDir = realpath(config.getOutputDir().c_str(), NULL);
+    std::string outputDir = config.getOutputDir().c_str();
+    LOG_DEBUG << "Using test case output directory: " << outputDir;
+    try{
+        outputDir = realpath(outputDir.c_str(), NULL);
+    } catch (...) {
+        LOG_ERROR << "Failed to find output directory " << outputDir;
+        throw RuntimeException("Missing output directory", RuntimeException::OTHER);
+    }
+    
     workingDirectory = outputDir + "/klee_working_dir";
+    LOG_DEBUG << "Creating working directory: " << workingDirectory;
     VmfUtil::createDirectory(workingDirectory.c_str());
+
+    // initialize expected output directory
     kleeOutputDir = workingDirectory + "/klee-last";
+    LOG_DEBUG << "Expected Klee output directory: " << kleeOutputDir;
 
     // directory where binary files for test cases will go
     testCaseInputDir = outputDir + "/klee_gen_testcases";
     VmfUtil::createDirectory(testCaseInputDir.c_str());
+    LOG_DEBUG << "Creating test case binaries directory: " << testCaseInputDir;
 
     //Find the pre-compiled python script to process klee output
     std::string exePath = VmfUtil::getExecutablePath();
@@ -105,7 +111,7 @@ void KleeInitialization::init(ConfigInterface& config)
     char* path = realpath(kleeScriptPath.c_str(), NULL);
     if(nullptr == path)
     {
-        LOG_ERROR << "process_klee_output script not found";
+        LOG_ERROR << "process_klee_output script not found at " << kleeScriptPath;
         throw RuntimeException("Unable to find process_klee_output script", RuntimeException::OTHER);
     }
     kleeTool = path;
@@ -150,7 +156,7 @@ void KleeInitialization::run(StorageModule& storage)
     snprintf(buffer, sizeof(buffer), 
             "klee --output-dir='%s' -max-time=10 --simplify-sym-indices --libc=uclibc --posix-runtime %s A -sym-files 1 256", 
             kleeOutputDir.c_str(), programPath.c_str());
-    std::cout << "BUFFER: " << buffer << "\n" << std::flush;
+    LOG_DEBUG << "Klee command: " << buffer << "\n" << std::flush;
     if(system(buffer)!=0)
     {
         LOG_ERROR << "FAILED TO LAUNCH KLEE";
@@ -160,7 +166,8 @@ void KleeInitialization::run(StorageModule& storage)
     // CREATE BINARY FILES FROM KTEST FILES
     // main argv[1] = in_dir, argv[2] = out_dir 
     // where in_dir is where klee has put .ktest files and outdir is where binary testcase files are written to
-    snprintf(buffer, sizeof(buffer), "%s %s %s", kleeTool.c_str(), kleeOutputDir.c_str(), testCaseInputDir.c_str());
+    snprintf(buffer, sizeof(buffer), "python3 %s %s %s", kleeTool.c_str(), kleeOutputDir.c_str(), testCaseInputDir.c_str());
+    LOG_DEBUG << "Klee output processing command: " << buffer;
     if(system(buffer) != 0)
     {
         LOG_ERROR << "FAILED TO PROCESS KLEE OUTPUT";

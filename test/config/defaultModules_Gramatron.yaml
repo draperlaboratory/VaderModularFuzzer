@@ -1,4 +1,4 @@
-#vmfVariables.PDA_PATH must be defined to use this config
+#PDA_PATH must be defined to use this config
 vmfModules:
   storage: #a storage module must be specified
     className: SimpleStorage

@@ -1,0 +1,13 @@
+/build/
+/subprojects/capstone*
+/subprojects/elfutils*
+/subprojects/fadec*
+/subprojects/frida-gum/
+/subprojects/glib*
+/subprojects/gvdb*
+/subprojects/libdwarf*
+/subprojects/libffi*
+/subprojects/libunwind*
+/subprojects/packagecache/
+/subprojects/pcre*
+/subprojects/zlib*

@@ -20,7 +20,6 @@
 #include "StorageModule.hpp"
 #include "VmfUtil.hpp"
 #include "Logging.hpp"
-#include "sys/time.h"
 
 namespace vmf
 {

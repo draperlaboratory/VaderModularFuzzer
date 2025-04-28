@@ -27,13 +27,17 @@ namespace vmf
 {
 
 /**
- * @brief Generates new test cases from the configured PDA grammar
+ * @brief Generates new test cases from the configured PDA grammar.
  * 
- * This mutator uses the pushdown automata singleton class which is instatiated from the 
+ * This mutator uses the pushdown automata singleton class which is instantiated from the 
  * grammar defined in the config file to generate new test cases and add them into storage. 
  * This mutator should always be enabled to keep the fuzzer from getting stuck by not exploring 
  * some parts of the grammar.
  * 
+ * This mutator writes both the TEST_CASE and the TEST_CASE_AUT, the latter is used to enable
+ * subsequent grammar-aware mutations.
+ * @image html CoreModuleDataModel_8.png width=800px
+ * @image latex CoreModuleDataModel_8.png width=6in
  */
 class GramatronGenerateMutator: public MutatorModule
 {

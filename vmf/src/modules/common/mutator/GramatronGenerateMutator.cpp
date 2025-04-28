@@ -18,7 +18,6 @@
 #include "GramatronGenerateMutator.hpp"
 #include <random>
 #include <algorithm>
-#include <unistd.h>
 
 using namespace vmf;
 

@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -63,31 +54,32 @@
 #define CMP_MAP_H 32
 #define CMP_MAP_RTN_H (CMP_MAP_H / 2)
 
-#define CMP_TYPE_INS 1
-#define CMP_TYPE_RTN 2
+#define CMP_TYPE_INS 0
+#define CMP_TYPE_RTN 1
 
+/** Version information. This version of the data structure matches AFL 4.30c **/
+#define CMPLOG_MAJOR_VERSION 4
+#define CMPLOG_MINOR_VERSION 30
+
+namespace vmf
+{
 /**
  * @brief The cmp_header is used to maintain information about the comparison data stored at that index.
  * Each header corresponds to one possible compare instruction in the program and is used to store metadata 
  * about that comparison.
  */
+#pragma pack (push, 1)
 struct cmp_header {
   ///Maintains the count for how many comparisons at this index were logged.
-  unsigned hits : 24; 
-  ///Not used, always 0.
-  unsigned id : 24; 
+  unsigned hits : 6;
   ///Indicates the size in bytes of the comparisons stored in the log for this header. Value is size in bytes minus one.
-  unsigned shape : 5; 
-  ///Has one of two values: either CMP_TYPE_INS  (value 1, normal comparison instructions) or CMP_TYPE_RTN (value 2, function logging).
-  unsigned type : 2; 
-  ///Indicates the type of comparison that occurred
-  unsigned attribute : 4; 
-  ///Not used, always 0. 
-  unsigned overflow : 1; 
-  ///Not used, always 0.
-  unsigned reserved : 4; 
-
-} __attribute__((packed));
+  unsigned shape : 5;
+  ///Has one of two values: either CMP_TYPE_INS  (value 0, normal comparison instructions) or CMP_TYPE_RTN (value 1, function logging).
+  unsigned type : 1;
+  ///Indicates the type of comparison (equal, not equal, equal or less than) that occurred
+  unsigned attribute : 4;
+};
+#pragma pack (pop)
 
 /**
  * @brief The cmp_operands log stores the actual runtime values used in comparisons. 
@@ -97,31 +89,56 @@ struct cmp_header {
  * then v0 would be 17 and v1 would be 18 in the cmp_operands  log entry. Up to CMP_MAP_H 
  * can be stored at each index, after which the log section is treated as a circular buffer
  * and the early entries become overwritten.
+ *
+ * The additional fields for more lhs and rhs data are for wide comparisons which can happen
+ * on some platforms and with some compilers. 256 bit wide are coming to LLVM but not there
+ * at present.
  */
+#pragma pack (push, 1)
 struct cmp_operands {
-  ///The actual comparison data.
-  uint64_t v0; 
-  ///The actual comparison data.
-  uint64_t v1; 
-  ///Used for large comparisons only.
+  ///First 64 bits of left hand side comparison data
+  uint64_t v0;
+  ///Second 64 bits of left hand side comparison data (wide comparisons only)
   uint64_t v0_128;
-  ///Used for large comparisons only.
-  uint64_t v1_128; 
+  ///Third 64 bits of left hand side comparison data (very wide comparisons only)
+  uint64_t v0_256_0;
+  ///Fourth 64 bits of left hand side comparison data (very wide comparisons only)
+  uint64_t v0_256_1;
 
-} __attribute__((packed));
+  ///First 64 bits of right hand side comparison data
+  uint64_t v1;
+  ///Second 64 bits of right hand side comparison data (wide comparisons only)
+  uint64_t v1_128;
+  ///Third 64 bits of right hand side comparison data (very wide comparisons only)
+  uint64_t v1_256_0;
+  ///Fourth 64 bits of right hand side comparison data (very wide comparisons only)
+  uint64_t v1_256_1;
+
+  ///Unused
+  uint8_t unusued[8];
+};
+#pragma pack (pop)
 
 /**
  * @brief Used for function logs
  * Not yet supported.
  */
+#pragma pack (push, 1)
 struct cmpfn_operands {
+  ///Left side comparison data for function call instrumentation.
+  uint8_t v0[32];
+  ///Right side comparison data for function call instrumentation.
+  uint8_t v1[32];
 
-  uint8_t v0[31]; 
-  uint8_t v0_len; 
-  uint8_t v1[31]; 
-  uint8_t v1_len; 
+  ///Length of left side comparison data
+  uint8_t v0_len;
+  /// Length of right side of comparison data
+  uint8_t v1_len;
 
-} __attribute__((packed));
+  ///Unused
+  uint8_t unusued[8];
+};
+#pragma pack (pop)
 
 typedef struct cmp_operands cmp_map_list[CMP_MAP_H];
 
@@ -141,5 +158,5 @@ struct cmp_map {
   struct cmp_operands log[CMP_MAP_W][CMP_MAP_H]; 
 
 };
-
+}
 #endif

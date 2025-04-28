@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -30,6 +21,7 @@
 #include "SimpleStorage.hpp"
 #include <string>
 #include <cmath>
+#include <climits>
 #include "StorageKeyHelper.hpp"
 
 using namespace vmf;
@@ -45,7 +37,27 @@ class StorageModuleTest: public ::testing::Test
 {
 protected:
     StorageModuleTest()
-    {}
+    {
+        storage = nullptr;
+        registry = nullptr;
+        metadata = nullptr;
+        int_key = 0;
+        uint_key = 0;
+        float_key = 0;
+        buf_key = 0;
+        tmp_buf_key = 0;
+        test_tag = 0;
+        test_tag2 = 0;
+        test_tag3 = 0;
+
+        meta_int_key = 0;
+        meta_uint_key = 0;
+        meta_uint2_key = 0;
+        meta_uint3_key = 0;
+        meta_float_key = 0;
+        meta_tmp_buf_key = 0;
+        meta_buffer_key = 0;
+    }
 
     ~StorageModuleTest() override
     {}
@@ -66,6 +78,13 @@ protected:
         uint_key = registry->registerKey(
             "TEST_UINT",
             StorageRegistry::UINT,
+            StorageRegistry::READ_WRITE
+        );
+
+                // Setup: add a key to the registry.
+        u64_key = registry->registerKey(
+            "TEST_U64",
+            StorageRegistry::U64,
             StorageRegistry::READ_WRITE
         );
 
@@ -114,6 +133,11 @@ protected:
             StorageRegistry::UINT,
             StorageRegistry::READ_WRITE
         );
+        meta_u64_key = metadata->registerKey(
+            "META_U64",
+            StorageRegistry::U64,
+            StorageRegistry::READ_WRITE
+        );
         meta_float_key = metadata->registerKey(
             "META_FLOAT",
             StorageRegistry::FLOAT,
@@ -143,6 +167,7 @@ protected:
     StorageRegistry* metadata;
     int int_key;
     int uint_key;
+    int u64_key;
     int float_key;
     int buf_key;
     int tmp_buf_key;
@@ -154,6 +179,7 @@ protected:
     int meta_uint_key;
     int meta_uint2_key;
     int meta_uint3_key;
+    int meta_u64_key;
     int meta_float_key;
     int meta_tmp_buf_key;
     int meta_buffer_key;
@@ -369,7 +395,7 @@ TEST_F(StorageModuleTest, saveEntryFloatKey)
         {
             size = storage->getSavedEntries()->getSize();
             entry = storage->createNewEntry();
-            float tmp = i/10;
+            float tmp = (float) (i/10);
             entry->setValue(int_key, i);
             entry->setValue(float_key, tmp);
             storage->saveEntry(entry);
@@ -395,7 +421,7 @@ TEST_F(StorageModuleTest, saveEntryFloatKey)
         count++;
         int intVal = entry->getIntValue(int_key);
         float floatVal = entry->getFloatValue(float_key);
-        EXPECT_TRUE(almostEqual(floatVal, intVal/10));
+        EXPECT_TRUE(almostEqual(floatVal, (float)(intVal/10)));
     }
 
     EXPECT_EQ(count, 5) << "Wrong number of saved entries";
@@ -1169,12 +1195,19 @@ TEST_F(StorageModuleTest, MetadataTest)
     unsigned int y = metadata.getUIntValue(meta_uint_key);
     ASSERT_EQ(y, val) << "UINT VALUE NOT SET";
 
+    unsigned long long lval = ULLONG_MAX - 1; //large enough that if treated as signed, it would be negative
+    metadata.setValue(meta_u64_key, lval);
+    unsigned long long z = metadata.getU64Value(meta_u64_key);
+    ASSERT_EQ(z, lval) << "U64 VALUE NOT SET";
+
     //This should still be 45 with another copy of metadata
     StorageEntry& metadata2 = storage->getMetadata();
     x = metadata2.getIntValue(meta_int_key);
     y = metadata2.getUIntValue(meta_uint_key);
+    z = metadata2.getU64Value(meta_u64_key);
     ASSERT_EQ(x, 45) << "SET VALUE DOES NOT PERSIST";
     ASSERT_EQ(y, val) << "UINT VALUE DOES NOT PERSIST";
+    ASSERT_EQ(z, lval) << "U64 VALUE DOES NOT PERSIST";
 }
 
 TEST_F(StorageModuleTest, IncrementTest)
@@ -1269,6 +1302,22 @@ TEST_F(StorageModuleTest, UIntTest)
 
 }
 
+TEST_F(StorageModuleTest, U64Test)
+{
+    StorageEntry* entry = storage->createNewEntry();
+    unsigned long long x = ULLONG_MAX - 20;
+    entry->setValue(u64_key, x);
+
+    unsigned long long y = entry->getU64Value(u64_key);
+    ASSERT_EQ(x,y);
+
+    unsigned long long res = entry->incrementU64Value(u64_key);
+    unsigned long long val = entry->getU64Value(u64_key);
+
+    ASSERT_EQ(res, x + 1);
+    ASSERT_EQ(val, x + 1);
+}
+
 TEST_F(StorageModuleTest, TypeCheckTest)
 {
     StorageEntry* entry = storage->createNewEntry();
@@ -1287,6 +1336,16 @@ TEST_F(StorageModuleTest, TypeCheckTest)
     {
         int a = entry->getUIntValue(int_key);
         FAIL() << "Exception should have been thrown 2";
+    }
+    catch(RuntimeException e)
+    {
+        //Expected error
+    }
+
+    try
+    {
+        int ul = entry->getU64Value(uint_key);
+        FAIL() << "Exception should have been thrown (u64)";
     }
     catch(RuntimeException e)
     {
@@ -1522,16 +1581,19 @@ TEST_F(StorageModuleTest, metadataNameTest)
     std::string expectedUINTname = "META_UINT";
     std::string expectedUINT2name = "META_UINT_2";
     std::string expectedUINT3name = "META_UINT_3";
+    std::string expectedU64name = "META_U64";
     std::string expectedFLOATname = "META_FLOAT";
     std::string expectedBUFFERname = "META_BUFFER";
 
-    //One handle was registered for each type
+    //One handle was registered for each type (except uint, which has 3)
     std::vector<int> intHandles = storage->getListOfMetadataKeyHandles(StorageRegistry::INT);
     std::vector<int> uintHandles = storage->getListOfMetadataKeyHandles(StorageRegistry::UINT);
+    std::vector<int> u64Handles = storage->getListOfMetadataKeyHandles(StorageRegistry::U64);
     std::vector<int> floatHandles = storage->getListOfMetadataKeyHandles(StorageRegistry::FLOAT);
     std::vector<int> bufferHandles = storage->getListOfMetadataKeyHandles(StorageRegistry::BUFFER);
     ASSERT_EQ(intHandles.size(),1);
     ASSERT_EQ(uintHandles.size(),3);
+    ASSERT_EQ(u64Handles.size(),1);
     ASSERT_EQ(floatHandles.size(),1);
     ASSERT_EQ(bufferHandles.size(),1);
 
@@ -1540,6 +1602,7 @@ TEST_F(StorageModuleTest, metadataNameTest)
     ASSERT_EQ(expectedUINTname,storage->metadataKeyHandleToString(uintHandles[0]));
     ASSERT_EQ(expectedUINT2name,storage->metadataKeyHandleToString(uintHandles[1]));
     ASSERT_EQ(expectedUINT3name,storage->metadataKeyHandleToString(uintHandles[2]));
+    ASSERT_EQ(expectedU64name,storage->metadataKeyHandleToString(u64Handles[0]));
     ASSERT_EQ(expectedFLOATname,storage->metadataKeyHandleToString(floatHandles[0]));
     ASSERT_EQ(expectedBUFFERname,storage->metadataKeyHandleToString(bufferHandles[0]));
 }

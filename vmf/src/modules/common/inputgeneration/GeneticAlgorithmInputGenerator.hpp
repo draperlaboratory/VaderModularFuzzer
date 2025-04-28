@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -38,7 +29,13 @@ namespace vmf
  * @brief Input generator based on Genetic Algorithm based technique
  *
  * This input generator does a weighted random selection of which test
- * case to generato inputs from next.
+ * case to generate inputs from next, using the RAN_SUCCESSFULLY tag to select only 
+ * test cases with a normal execution pattern as the basis of mutation (unless the 
+ * enableMutationOfCrashes config option is set, in which case it will select from all test cases).  
+ * It uses its MutatorModule submodules to perform the actual mutations, which will output new
+ * TEST_CASE buffers.
+ * @image html CoreModuleDataModel_4.png width=800px
+ * @image latex CoreModuleDataModel_4.png width=6in
  */
 class GeneticAlgorithmInputGenerator: public InputGeneratorModule
 {
@@ -58,6 +55,7 @@ private:
     bool mutateCrashingCases; ///< Flag to control whether or not crashing test cases are mutated
     int normalTag; ///< Handle for test cases that ran normally (without crashing or hanging)
     int testCaseKey; ///< Handle for the buffer that contains the test case
+    int mutatorIdKey;
     std::vector<MutatorModule*> mutators; ///< The list of mutators being managed by this input generator
 };
 }

@@ -1,0 +1,41 @@
+vmfModules:
+  storage: #a storage module must be specified
+      className: SimpleStorage
+  controller: #a controller module must be specified
+      className: IterativeController
+      children:
+        - className: DirectoryBasedSeedGen
+        - className: GeneticAlgorithmInputGenerator
+        - className: AFLForkserverExecutor
+        - className: AFLFeedback
+        - className: SaveCorpusOutput
+        - className: ComputeStats
+        - className: StatsOutput
+        - className: DictionaryInitialization
+  GeneticAlgorithmInputGenerator:
+      children:
+        - className: AFLFlipBitMutator
+        - className: AFLFlip2BitMutator
+        - className: AFLFlip4BitMutator
+        - className: AFLFlipByteMutator
+        - className: AFLFlip2ByteMutator
+        - className: AFLFlip4ByteMutator
+        - className: AFLRandomByteAddSubMutator
+        - className: AFLRandomByteMutator
+        - className: AFLDeleteMutator
+        - className: AFLCloneMutator
+        - className: AFLSpliceMutator
+        - className: DictionaryMutator
+# Modules-specific parameters
+#(The SUT-specific portions of these all defined using YAML anchors)
+AFLForkserverExecutor:
+  sutArgv: *SUT_ARGV
+
+DictionaryInitialization:
+  sutArgv: *SUT_ARGV
+
+DictionaryMutator:
+  dictionaryPaths: []
+
+DirectoryBasedSeedGen:
+  inputDir: *INPUT_DIR

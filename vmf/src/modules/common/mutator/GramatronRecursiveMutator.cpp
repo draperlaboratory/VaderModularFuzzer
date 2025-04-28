@@ -24,7 +24,7 @@
 #include "GramatronRecursiveMutator.hpp"
 #include <random>
 #include <algorithm>
-#include <unistd.h>
+#include <vector>
 
 using namespace vmf;
 
@@ -60,7 +60,9 @@ void GramatronRecursiveMutator::init(ConfigInterface& config)
 GramatronRecursiveMutator::GramatronRecursiveMutator(std::string name) :
     MutatorModule(name)
 {
-
+    autRepKey = 0;
+    pda = nullptr;
+    rand = nullptr;
 }
 /**
  * @brief Destroy the GramatronRecursiveMutator::GramatronRecursiveMutator object
@@ -123,7 +125,7 @@ void GramatronRecursiveMutator::random(StorageEntry* newEntry, char* buffer, int
     Array* sliced;
 
     // Get offset at which to generate new input and slice it
-    int idx = rand -> randBelow(input->used);
+    int idx = rand -> randBelow((int)input->used);
     sliced = slice(input, idx);
 
     // Reset current state to that of the slice's last member
@@ -253,11 +255,13 @@ Array* GramatronRecursiveMutator::doMult(Array* input, UT_array** recur, int rec
  * @param secondIdx this will be set to the end of the recursive feature to pull out and mutate with
  */
 void GramatronRecursiveMutator::getTwoIndices(UT_array* recur, int recurlen, int* firstIdx, int* secondIdx) {
-    int ArrayRecurIndices[recurlen];
+    //int ArrayRecurIndices[recurlen];
+    std::vector <int> ArrayRecurIndices(recurlen);
     int offset = 0, *p;
     // Unroll into an array
     for (p=(int*)utarray_front(recur); p!= NULL; p=(int*)utarray_next(recur,p)) {
-        ArrayRecurIndices[offset] = *p;
+        //ArrayRecurIndices[offset] = *p;
+        ArrayRecurIndices.push_back(*p);
         offset += 1;
     }
 

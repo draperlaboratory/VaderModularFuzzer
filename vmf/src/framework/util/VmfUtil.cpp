@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -28,6 +19,7 @@
  * ===========================================================================*/
 #include "VmfUtil.hpp"
 #include "VmfRand.hpp"
+#include "OSAPI.hpp"
 #include <set>
 
 using namespace vmf;
@@ -99,13 +91,13 @@ int VmfUtil::createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, 
         {
             if (!fs::exists(file))
             {
-                LOG_WARNING << "Warning: " << file.path() << " doesn't exist. Skipping";
+                LOG_WARNING << "Warning: " << file.path().string() << " doesn't exist. Skipping";
                 continue;
             }
 
             if (!fs::is_regular_file(file))
             {
-                LOG_WARNING << "Warning: " << file.path() << " is not a regular file. Skipping.";
+                LOG_WARNING << "Warning: " << file.path().string() << " is not a regular file. Skipping.";
                 continue;
             }
 
@@ -113,7 +105,7 @@ int VmfUtil::createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, 
 
             if (static_cast<uintmax_t>(1) > filesize)
             {
-                LOG_WARNING << "Warning: " << file.path() << " has size 0. Skipping.";
+                LOG_WARNING << "Warning: " << file.path().string() << " has size 0. Skipping.";
                 continue;
             }
         }
@@ -124,7 +116,7 @@ int VmfUtil::createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, 
             throw RuntimeException("Unable to open input file", RuntimeException::UNEXPECTED_ERROR);
 
         }
-        files.insert(std::make_pair(file.path(), file));
+        files.insert(std::make_pair(file.path().string(), file));
     }
 
     // Iterate over sorted files
@@ -141,7 +133,7 @@ int VmfUtil::createNewTestCasesFromDir(StorageModule& storage, int testCaseKey, 
 
         // store file contents
         StorageEntry* newEntry = storage.createNewEntry();
-        char* buff = newEntry->allocateBuffer(testCaseKey, filesize);
+        char* buff = newEntry->allocateBuffer(testCaseKey, (int)filesize);
         inFile.read(buff, filesize);
         newTestCaseCount++;
 
@@ -165,7 +157,7 @@ void VmfUtil::writeBufferToFile(std::string baseDir, std::string fileName, const
 {
     std::string path = baseDir + "/" + fileName;
     std::ofstream outFile;
-    outFile.open (path.c_str());
+    outFile.open (path.c_str(), std::ios::binary);
     if(outFile.is_open())
     {
         outFile.write(buffer, size);
@@ -180,27 +172,7 @@ void VmfUtil::writeBufferToFile(std::string baseDir, std::string fileName, const
  */
 std::string VmfUtil::getExecutablePath()
 {
-    #if !defined(_WIN32)
-        char result[PATH_MAX];
-        const char *path = nullptr;
-
-        ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
-        if (count > 0) {
-            result[count] = 0;
-            path = dirname(result);
-        }
-        std::string val(path);
-        return val;
-
-    #else
-        //TODO(VADER-720): This does not work on windows
-        //TCHAR result[MAX_PATH];
-        //DWORD length = GetModuleFileName( NULL, result, MAX_PATH );
-        //PathCchRemoveFileSpec(result, MAX_PATH);
-        //std::string val(result);
-        std::string val = "./";
-        return val;
-    #endif
+    return OSAPI::instance().getExecutablePath();
 }
 
 /**
@@ -225,26 +197,33 @@ int VmfUtil::selectWeightedRandomValue(int min, int max)
 /**
  * @brief Helper method to retrieve the current time in microseconds
  * 
- * @return uint64_t the time (us)
+ * Note that the epoch of this time is unspecified, so it is appropriate for use
+ * in timing how long something takes, but it may not be easily mappable to current
+ * actual time.
+ * 
+ * @return uint64_t the timestamp (us)
  */
 uint64_t VmfUtil::getCurTime() 
 {
   auto time =
-    std::chrono::high_resolution_clock::now().time_since_epoch();
+      std::chrono::high_resolution_clock::now().time_since_epoch();
   auto now_us =
     std::chrono::duration_cast<std::chrono::microseconds>(time).count();
   return now_us;
 }
 
 /**
- * @brief Helper method to retrieve the curent time in seconds
+ * @brief Helper method to retrieve the current UTC time in seconds
+ * 
+ * Use this version of the method for a UTC timestamp.  getCurTime()
+ * is more appropriate for timing how long something takes to execute.
  * 
  * @return uint64_t the time (seconds)
  */
 uint64_t VmfUtil::getCurTimeSecs(void)
 {
   auto time =
-    std::chrono::high_resolution_clock::now().time_since_epoch();
+      std::chrono::system_clock::now().time_since_epoch();
   auto now_us =
     std::chrono::duration_cast<std::chrono::seconds>(time).count();
   return now_us;
@@ -265,78 +244,4 @@ size_t VmfUtil::hashBuffer(char * buff, int len)
         hash = hash ^ buff[i];
     }
     return hash;
-}
-
-/**
- * @brief Utility method to unzip the specified file using the command line unzip utility
- * 
- * This method does require an unzip utility to be installed.
- * 
- * @param zipFilePath the path to the zip file to unzip
- * @param outputDir the output directory to write to (the directory will be created if it does not exist)
- * @return true if unzip was successful, false otherwise
- */
-bool VmfUtil::commandLineUnzip(std::string zipFilePath, std::string outputDir)
-{
-    bool success = false;
-    //TODO(Windows Support): This is a linux only implementation
-    //Example usage:
-    // unzip -q ../ZIPAUTOGEN_TEST.zip -d ~/ziptest/out2
-
-    //Create the output directory if it doesn't exist
-    if(!directoryExists(outputDir))
-    {
-        createDirectory(outputDir.c_str());
-    }
-
-    //Unzip the file
-    std::string unzipCmd = "unzip -q " + zipFilePath + " -d " + outputDir;
-    if(system(unzipCmd.c_str())==0)
-    {
-        success = true;
-    }
-    else
-    {
-        LOG_ERROR << "Unable to unzip file using command;" << unzipCmd;
-    }
-    
-    return success;
-}
-
-/**
- * @brief Utility method to zip up all the files in a directory (using the command line zip utility)
- * 
- * This method does require an zip utility to be installed.  The foldername will not be included
- * in the resulting zip file.
- * 
- * @param zipFilePath the path to the output zipfile
- * @param inputDir the input directory to read the files from
- * @return true if zip was successful, false otherwise
- */
-bool VmfUtil::commandLineZip(std::string zipFilePath, std::string inputDir)
-{
-    bool success = false;
-    //TODO(Windows Support): This is a linux only implementation
-    //Example usage:
-    // zip -r -j -q myzip2.zip ~/testing/*
-
-    //Make sure the input directory exists
-    if(directoryExists(inputDir))
-    {
-        std::string zipCmd = "zip -r -j -q " + zipFilePath + " " + inputDir + "/*";
-        if(system(zipCmd.c_str())==0)
-        {
-            success = true;
-        }
-        else
-        {
-            LOG_ERROR << "Unable to unzip file using command;" << zipCmd;
-        }
-    }
-    else
-    {
-        LOG_ERROR << "Zip input directory not found; " << inputDir;
-    }
-
-    return success;
 }

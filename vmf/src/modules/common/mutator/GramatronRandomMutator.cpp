@@ -18,7 +18,6 @@
 #include "GramatronRandomMutator.hpp"
 #include <random>
 #include <algorithm>
-#include <unistd.h>
 
 using namespace vmf;
 
@@ -54,7 +53,9 @@ void GramatronRandomMutator::init(ConfigInterface& config)
 GramatronRandomMutator::GramatronRandomMutator(std::string name) :
     MutatorModule(name)
 {
-
+    autRepKey = 0;
+    pda = nullptr;
+    rand = nullptr;
 }
 /**
  * @brief Destroy the GramatronRandomMutator::GramatronRandomMutator object
@@ -117,7 +118,7 @@ void GramatronRandomMutator::random(StorageEntry* newEntry, char* buffer, int te
     Array* sliced;
 
     // Get offset at which to generate new input and slice it
-    int idx = rand -> randBelow(input->used);
+    int idx = rand -> randBelow((int)input->used);
     sliced = slice(input, idx);
 
     // Reset current state to that of the slice's last member

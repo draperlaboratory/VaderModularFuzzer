@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -110,10 +101,10 @@ void AFLFlip2BitMutator::registerStorageNeeds(StorageRegistry& registry)
  
 void AFLFlip2BitMutator::mutateTestCase(StorageModule& storage, StorageEntry* baseEntry, StorageEntry* newEntry, int testCaseKey)
 {
-
+    const int BITS_PER_BYTE = 8;
     if (rand == nullptr)
     {
-	throw RuntimeException("VmfRand was null, mutator was not initialized before use.");
+        throw RuntimeException("VmfRand was null, mutator was not initialized before use.");
     }
 
     int size = baseEntry->getBufferSize(testCaseKey);
@@ -124,16 +115,12 @@ void AFLFlip2BitMutator::mutateTestCase(StorageModule& storage, StorageEntry* ba
         throw RuntimeException("AFLFlip2BitMutator mutate called with zero sized buffer", RuntimeException::USAGE_ERROR);
     }
 
-    int bit = rand->randBelow((size * 8) - 1) + 1;
+    int bit = rand->randBelow((size * BITS_PER_BYTE) - 1);
     char* newBuff = newEntry->allocateBuffer(testCaseKey, size);
     memcpy((void*)newBuff, (void*)buffer, size);
 
-    if ((size << 3) - bit < 2) {
-        //Return without mutating -- the buffer is too small
-        return;    //Note: This is the libAFL implementation
-    }
     newBuff[bit >> 3] ^= (1 << ((bit - 1) % 8));
     bit++;
     newBuff[bit >> 3] ^= (1 << ((bit - 1) % 8));
-
 }
+

@@ -32,7 +32,7 @@ The following topics will be addressed in this document:
       + [Filtering Scenario Files](#filtering-scenario-files)
    + [Assign VMF Fuzzers to Run a Scenario](#assign-vmf-fuzzers-to-run-a-scenario)
       + [Scenario States](#scenario-states)
-   + [Viewing Fuzzing Results](#viewing-fuzzing-results)
+  f + [Viewing Fuzzing Results](#viewing-fuzzing-results)
    + [Viewing Fuzzing Metrics](#viewing-fuzzing-metrics)
    + [Stopping and Shutting Down](#stopping-and-shutting-down)
    + [Settings and Logs](#settings-and-logs)
@@ -95,13 +95,16 @@ cd vmf_install
 ./bin/vader -d test/config/serverconfig.yaml
 ```
 
+As a side note the communication with the server may be affected by proxy settings.  See [here](./configuration.md#vmfdistributedproxyurl) for details.  
+
 Each VMF fuzzer will need access to the System Under Test (SUT).  For the directions below, we assume that each VMF was started from within the vmf_install directory.
 
 Two convenience scripts are provided for starting large number of VMF fuzzers on a particular machine in distributed fuzzing mode:
 - `tmux_vmfs.sh`: Runs many VMFs using the tmux application (VMFs will not shut down when the terminal shuts down)
 - `run_many_vmfs.sh`: Runs many VMF without any third party applications (VMFs will shut down when the terminal shuts down)
+- `run_many_vmfs.ps1`: Runs many VMF without any third party applications (VMFs will shut down when the terminal shuts down) in powershell
 
-Both scripts take two parameters:
+the first two scripts take two parameters:
 - **-n:** the number of VMF fuzzers to run
 - **-f:** the configuration file the VMF should be run with
 
@@ -116,6 +119,13 @@ Use the following command for the non-tmux version, noting that shutting down yo
 cd vmf_install
 ./bin/run_many_vmfs.sh -n 10 -f test/config/serverconfig.yaml
 ```
+
+the final script takes the same two parameters by different names:
+```powershell
+cd vmf_install
+./bin/run_many_vmfs.ps1 -number 10 -filename test/config/serverconfig.yaml
+```
+
 
 # Using the CDMS UI
 Distributed Fuzzing in CDMS is organized around a `cluster`, where a `cluster` is a collection of VMF fuzzers that are fuzzing the same thing.  "The same thing", more specifically, means fuzzing the same entry point in a SUT, such that it would make sense to share interesting test cases amongst VMF fuzzers.
@@ -138,10 +148,12 @@ Your newly created cluster will appear in the upper left.
 ## Add a Scenario
 Each VMF fuzzer needs to be told how to configure itself for fuzzing your SUT.  This includes a list of VMF modules to use in constructing the fuzzer, any parameters associated with those modules (such as the path to your SUT), and any initial seed files.  This set of configuration information is called a `scenario`.
 
-Because configuration information often is repeated between scenarios, seeds and configuration files are associated with the whole cluster.  In the `Cluster Files` panel, uploading any seeds and configuration files that you will use in your scenarios.  Click `Choose Files` and then `Upload`.
+Because configuration information often is repeated between scenarios, seeds and configuration files are associated with the whole cluster.  In the `Cluster Files` panel, upload any seeds and configuration files that you will use in your scenarios.  Click `Choose Files` and then `Upload`.
+
+### Add a Scenario - Ubuntu
 
 For this example, upload all of the .yaml files that are located in the vmf install folder under [test/config/distributed](../test/config/distributed/), as well as the .bin files in [test/haystackSUT/test-input](../test/
-haystackSUT/test-input/).  After uploading, the files should be marked as "ON SERVER".
+haystackSUT/test-input).  After uploading, the files should be marked as "ON SERVER".
 
 ![UI Image](./img/UI_ChooseFiles.png)
 
@@ -150,7 +162,7 @@ haystackSUT/test-input/).  After uploading, the files should be marked as "ON SE
 Now go to the `Cluster Tasking` section and click on the `Add Scenario` button:
 ![UI Image](./img/UI_AddScenarioButton.png)
 
-This will display the `Create a Scenario` form.  Give your scenario a name and leave the scenario type as `fuzzing`.  Use the Ctrl and Shift keys to select `haystack.yaml` and `distributedBasicModules.yaml` in the left panel (labeled `Configuration Files`).  Similarly, select the 3 .bin files in the right panel (labeled `Seed list`).
+This will display the `Create a Scenario` form.  Give your scenario a name and leave the scenario type as `Fuzzer`.  Use the Ctrl key to select `haystack.yaml` and `distributedBasicModules.yaml` in the left panel (labeled `Configuration Files`).  Similarly, select the 3 .bin files in the right panel (labeled `Seed list`).
 
 *Note that Ctrl and Shift work just like they do in other common tools.  Hold down the Ctrl key while clicking on files in order to select multiple files.  Hold down the Shift key while clicking a file to select all of the files between the file you just clicked and the previously selected file.*
 
@@ -161,6 +173,15 @@ Click `Create` to create the scenario.  The scenario will now appear in the `Clu
 ![UI Image](./img/UI_NewScenario.png)
 
 If you would like, create a second scenario using `distributedDefaultModules.yaml` instead of `distributedBasicModules.yaml'.
+
+### Add a Scenario - Windows
+To execute distributed fuzzing on windows using the Frida executor you will need to upload the following files:
+
+* [`test/config/distributed/distributedBasicModulesWindows.yaml`](test/config/distributed/distributedBasicModulesWindows.yaml)
+* [`test/haystackSUT/haystack_libfuzzer.yaml`](test/haystackSUT/haystack_libfuzzer.yaml)
+
+These are configured to use the FridaRE executor.
+
 
 ### Filtering Scenario Files
 For a large number of files, it is more convenient to select multiple files at once.  The text field above the two panels can be used to filter the list of displayed files.  In the screenshot above, the string ".yaml" was used to display only the .yaml files in the `Configuration Files` list.  Similarly, ".bin" was used to filter the files in the `Seed List`.
@@ -296,9 +317,16 @@ VMF includes a sample configuration file `clusterCorpusMin.yaml` that can be use
 
 See [core_modules_readme.md](coremodules/core_modules_readme.md) for additional configuration parameters for these modules.
 
+### Corpus Minimization - Ubuntu
 To minimize the haystack corpus, create a new scenario using `clusterCorpusMin.yaml` and `haystack.yaml` as the `Configuration Files`.  **Select a type of `Minimizer` in the drop down `Type` menu.**  No seeds are needed for this scenario, because it will always retrieve the entire corpus.
 
 ![UI Image](./img/UI_CorpusMinScenario.png)
+
+### Corpus Minimization - Windows
+To minimize the haystack corpus, create a new scenario using `clusterCorpusMin.yaml` and `haystack_libfuzzer.yaml` as the `Configuration Files`.  **Select a type of `Minimizer` in the drop down `Type` menu.**  No seeds are needed for this scenario, because it will always retrieve the entire corpus.
+
+
+### Corpus Minimization - Continued
 
 Make sure you have at least one available VMF fuzzer (if you have used all of your VMF fuzzers, you can temporarily unassign a VMF from fuzzing by decreasing the capacity of one of your scenarios by 1).  Click the `Minimize` button to run the minimization scenario.
 

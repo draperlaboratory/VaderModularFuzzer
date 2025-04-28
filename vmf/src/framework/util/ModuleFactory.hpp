@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -51,6 +42,8 @@ public:
     ///Type specification for the module builder method
     using TModuleBuildMethod = Module* (*)(std::string name);
 
+    ///Returns a string containing the module instance name given an ID
+    std::string getModuleName(int id);
 
     void registerModule(std::string className, TModuleBuildMethod buildFunc);
     Module* buildModule(std::string className, std::string name);
@@ -58,9 +51,17 @@ public:
     // Returns a reference to the singleton instance of ModuleFactory
     static ModuleFactory &getInstance();
 
+    ~ModuleFactory();
+
 protected:
     ///A map of class names to builder methods
     std::map<std::string, TModuleBuildMethod> factoryMap;
+    ///A map of unique integer identifiers to module instancenames
+    std::map<int, std::string> idMap;
+
+private:
+    ///A monotonically incrementing integer to create unique IDs
+    int next_id = 0;
 };
 
 /**

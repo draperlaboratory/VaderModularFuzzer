@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -32,6 +23,7 @@
 #include "StorageEntryListener.hpp"
 #include "RuntimeException.hpp"
 #include <vector>
+#include <unordered_map>
 
 namespace vmf
 {
@@ -44,7 +36,7 @@ namespace vmf
 class StorageEntry
 {
 public:
-    StorageEntry(bool isMetadata, bool isLocal, StorageEntryListener* listener);
+   StorageEntry(bool isMetadata, bool isLocal, StorageEntryListener* listener);
     /**
      * @brief Not defined.  StorageEntry should never be copied.
      * All allocations/access for this object should be via the Storage Module.
@@ -55,51 +47,56 @@ public:
      * error because the copy constructor would be used instead:
      *   StorageEntry metdata = storage->getMetadata();
      */
-    StorageEntry (const StorageEntry&) = delete;
-    ~StorageEntry();
+   StorageEntry (const StorageEntry&) = delete;
+   ~StorageEntry();
 
-    static void init(StorageRegistry& registry);
-    static void initMetadata(StorageRegistry& metadata);
+   static void init(StorageRegistry& registry);
+   static void initMetadata(StorageRegistry& metadata);
 
-    unsigned long getID() const;
-    bool isLocalEntry() const;
+   unsigned long getID() const;
+   bool isLocalEntry() const;
 
-    bool operator == ( const StorageEntry& e );
-    bool sortByValueIsLessThan( const StorageEntry& e );
+   bool operator == ( const StorageEntry& e );
+   bool sortByValueIsLessThan( const StorageEntry& e );
 
-    void setValue(int key, int value);
-    void setValue(int key, unsigned int value);
-    void setValue(int key, float value);
-    int incrementIntValue(int key);
-    unsigned int incrementUIntValue(int key);
+   void setValue(int key, int value);
+   void setValue(int key, unsigned int value);
+   void setValue(int handle, unsigned long long value);
+   void setValue(int key, float value);
+   int incrementIntValue(int key);
+   unsigned int incrementUIntValue(int key);
+   unsigned long long incrementU64Value(int key);
 
-    int getIntValue(int key) const;
-    unsigned int getUIntValue(int key) const;
-    float getFloatValue(int key) const;
+   int getIntValue(int key) const;
+   unsigned int getUIntValue(int key) const;
+   unsigned long long getU64Value(int key) const;
+   float getFloatValue(int key) const;
 
-    char* allocateBuffer(int key, int size);
-    char* allocateAndCopyBuffer(int key, int size, char* srcBuffer);
-    char* allocateAndCopyBuffer(int key, StorageEntry* srcEntry);
-    void clearBuffer(int key);
-    bool hasBuffer(int key) const;
-    int getBufferSize(int key) const;
-    char* getBufferPointer(int key) const;
+   char* allocateBuffer(int key, int size);
+   char* allocateAndCopyBuffer(int key, int size, char* srcBuffer);
+   char* allocateAndCopyBuffer(int key, StorageEntry* srcEntry);
+   void clearBuffer(int key);
+   bool hasBuffer(int key) const;
+   int getBufferSize(int key) const;
+   char* getBufferPointer(int key) const;
 
-    void addTag(int tagId);
-    void removeTag(int tagId);
-    bool hasTag(int tagId);
-    std::vector<int> getTagList();
+   void addTag(int tagId);
+   void removeTag(int tagId);
+   bool hasTag(int tagId);
+   std::vector<int> getTagList();
 
 private:
     static int getHandleIndex(int handle, int expectedType, bool isMetadata, int entryMax, int metaMax);
     static int getBufferHandleIndex(int handle, int isMetadata, bool& isTmpBuffer);
-
+    static std::string getHandleName(int handle, bool isMetadata);
+    
     //Note: This is not a multi-threaded implementation
     static unsigned long uidCounter;
     static int pKey;
     static StorageRegistry::storageTypes pKeyType;
     static int maxInts;
     static int maxUInts;
+    static int maxU64s;
     static int maxFloats;
     static int maxBuffers;
     static int maxTempBuffers;
@@ -107,22 +104,29 @@ private:
     //default values
     static std::vector<int> intDefaults;
     static std::vector<unsigned int> uintDefaults;
+    static std::vector<unsigned long long> u64Defaults;
     static std::vector<float> floatDefaults;
     static std::vector<int> intMetadataDefaults;
     static std::vector<unsigned int> uintMetadataDefaults;
+    static std::vector<unsigned long long> u64MetadataDefaults;
     static std::vector<float> floatMetadataDefaults;
     //metadata specific parameters
     static int maxIntsMetadata;
     static int maxUIntsMetadata;
+    static int maxU64sMetadata;
     static int maxFloatsMetadata;
     static int maxBuffersMetadata;
     static int maxTempBuffersMetadata;
+    //Name look-up maps for error logging
+    static std::unordered_map<int,std::string> keyNameMap;
+    static std::unordered_map<int,std::string> metadataKeyNameMap;
 
     unsigned long uid;
     bool isMetadataEntry;
     bool isLocal;
     std::vector<int> intValues;
     std::vector<unsigned int> uintValues;
+    std::vector<unsigned long long> u64Values;
     std::vector<float> floatValues;
     std::vector<char*> bufferValues;
     std::vector<int> bufferSizes;///Size will equal UNALLOCATED_BUFFER if the buffer is not yet allocated

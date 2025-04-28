@@ -1,11 +1,12 @@
 # Getting Started
 
-This "Getting Started" document is a more in-depth version of VMF's basic usage instructions (see [/README.md#Usage](/README.md#Usage)). For more detail about VMF's design, see [docs/design.md](/docs/design.md).
+This "Getting Started" document is a more in-depth version of VMF's basic usage instructions (see [/README.md#Usage](../README.md#Usage)). For more detail about VMF's design, see [docs/design.md](./design.md).
 
   * [Running VMF Configurations](#running-vmf-configurations)
     + [Run example Haystack SUT with VMF](#run-example-haystack-sut-with-vmf)
     + [Splitting configuration into multiple files](#splitting-configuration-into-multiple-files)
     + [Run your own SUT with VMF](#run-your-own-sut-with-vmf)
+    + [AFL++ Persistent Mode](#afl-persistent-mode)
   * [Example VMF Configuration](#example-vmf-configuration)
     + [Initialization](#initialization)
     + [Main Fuzzing Loop](#main-fuzzing-loop)
@@ -17,9 +18,9 @@ This "Getting Started" document is a more in-depth version of VMF's basic usage 
 
 ## Running VMF Configurations
 
-The configuration files [basicModules.yaml](/test/config/basicModules.yaml) and [defaultModules.yaml](/test/config/defaultModules.yaml) are intended to be reusable across different SUTs, and can be run with either [haystack_file.yaml](../test/haystackSUT/haystack_file.yaml) or [haystack_stdin.yaml](../test/haystackSUT/haystack_stdin.yaml). 
+The configuration files [basicModules.yaml](../test/config/basicModules.yaml) and [defaultModules.yaml](../test/config/defaultModules.yaml) are intended to be reusable across different SUTs, and can be run with either [haystack_file.yaml](../test/haystackSUT/haystack_file.yaml) or [haystack_stdin.yaml](../test/haystackSUT/haystack_stdin.yaml). 
 
-[defaultModules.yaml](/test/config/defaultModules.yaml) or [basicModules.yaml](/test/config/basicModules.yaml) can be used to fuzz a SUT of your choosing as well by combining it with a new configuration file that contains the SUT specific parameters contained in the haystack specific .yaml files.
+[defaultModules.yaml](../test/config/defaultModules.yaml) or [basicModules.yaml](../test/config/basicModules.yaml) can be used to fuzz a SUT of your choosing as well by combining it with a new configuration file that contains the SUT specific parameters contained in the haystack specific .yaml files.
 
 See the sections below for more details:
 
@@ -50,7 +51,7 @@ Note that the VMF configuration files can also be arbitrarily configured to move
 
 For our simple test application, we include a pre-compiled version of our haystack SUT. But to run VMF with your own SUT, you must first compile the SUT with special instrumentation that allows the executor to observe the code coverage that it is obtaining with each test case.
 
-VMF ships with `vmf::AFLForkserverExecutor` as its default executor. To use this executor, the SUT/harness must be compatible with AFL's forkserver execution model. If you are unfamiliar with this execution model, see [the `#Fuzz-Harness` section in `Intro to Fuzzing`](/docs/intro_to_fuzzing.md#Fuzz-Harness). 
+VMF ships with `vmf::AFLForkserverExecutor` as its default executor. To use this executor, the SUT/harness must be compatible with AFL's forkserver execution model. If you are unfamiliar with this execution model, see [the `#Fuzz-Harness` section in `Intro to Fuzzing`](./fuzz_harnessing.md#Fuzz-Harness). 
 
 ***Note: VMF currently only supports SUTs that execute as native linux applications (bare-metal and virtualized environments are not supported in this release)***
 
@@ -71,6 +72,9 @@ echo core >/proc/sys/kernel/core_pattern
 cd /sys/devices/system/cpu
 echo performance | tee cpu*/cpufreq/scaling_governor
 ```
+
+### AFL++ Persistent Mode
+The AFLForkserver executor may also use AFL++ persistent mode style harnessing for faster execution.  However, it should be noted that this style of harnessing is only appropriate if the SUT does not maintain any state between calls or if the state can be reset between calls. See [docs/fuzz_harnessing.md](the fuzz harnessing documentation) for more information and examples.
 
 ## Example VMF Configuration
 VMF is a configuration driven fuzzer.  The VMF configuration file specifies which fuzzing modules to combine together for a fuzzing campaign.  The provided example configuration files are used to fuzz a simple System Under Test (SUT), the provided [/test/haystackSUT/haystack.c](../test/haystackSUT/haystack.c) program.
@@ -136,7 +140,7 @@ vmfModules:
 Rerun VMF with the modified configuration file, and you will observe the generation of additional initial test cases.
 
 ### Configuration Parameters
-There are a number of additional module specific configuration options that can be adjusted to change the behavior of the VMF modules.  See the more detailed module by module documentation in [docs/coremodules/core_modules_readme.md](/docs/coremodules/core_modules_readme.md) for additional parameters that can be adjusted.
+There are a number of additional module specific configuration options that can be adjusted to change the behavior of the VMF modules.  See the more detailed module by module documentation in [docs/coremodules/core_modules_readme.md](./coremodules/core_modules_readme.md) for additional parameters that can be adjusted.
 
 ### YAML Anchors in the VMF Config Files
 The VMF-provided example use YAML anchors to parameterize the SUT-specific parts of our configuration, but the use of YAML anchors is not required by VMF.  A YAML anchor is just like a variable with a key and value.

@@ -28,9 +28,12 @@
 namespace vmf
 {
 /**
- * @brief Seed generator that will create an initial set of test cases from a Pushdown Automata Representation of a Context Free Grammar
- *
- *
+ * @brief InitializationModule that will create an initial set of test cases from a 
+ * Pushdown Automata Representation of a Context Free Grammar.
+ * This module generates two output fields per test case, the TEST_CASE field and the
+ * TEST_CASE_AUT -- the latter is used by the Gramatron mutator modules.
+ * @image html CoreModuleDataModel_8.png width=800px
+ * @image latex CoreModuleDataModel_8.png width=6in
  */
 class GramatronBasedSeedGen: public InitializationModule {
 public:

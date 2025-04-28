@@ -1,17 +1,8 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+# Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
 # <vmf@draper.com>
-#  
-# Effort sponsored by the U.S. Government under Other Transaction number
-# W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
-# Is authorized to reproduce and distribute reprints for Governmental purposes
-# notwithstanding any copyright notation thereon.
-#  
-# The views and conclusions contained herein are those of the authors and
-# should not be interpreted as necessarily representing the official policies
-# or endorsements, either expressed or implied, of the U.S. Government.
-#  
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 (only) as 
 # published by the Free Software Foundation.
@@ -34,11 +25,21 @@ add_executable(vader
     Plugins.cpp
     VmfApplication.cpp
 )
+
+if(WIN32)
+   target_compile_definitions(vader PRIVATE PLOG_IMPORT)
+endif()
+
+set(VADER_PRIVATE_LINKLIST
+  plog
+)
+
 target_link_libraries(vader 
     PUBLIC 
-        VMFFramework 
+        VMFFramework
         yaml-cpp
-        ${CMAKE_DL_LIBS}
+    PRIVATE
+	${VADER_PRIVATE_LINKLIST}
 )
 set_vmf_compile_options(vader)
 set_target_properties(vader PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})

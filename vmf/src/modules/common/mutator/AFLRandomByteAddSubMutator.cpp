@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -111,7 +102,7 @@ void AFLRandomByteAddSubMutator::mutateTestCase(StorageModule& storage, StorageE
 {
     if (rand == nullptr)
     {
-	throw RuntimeException("VmfRand was null, mutator was not initialized before use.");
+        throw RuntimeException("VmfRand was null, mutator was not initialized before use.");
     }
 
     int size = baseEntry->getBufferSize(testCaseKey);
@@ -125,6 +116,7 @@ void AFLRandomByteAddSubMutator::mutateTestCase(StorageModule& storage, StorageE
     int byte = rand->randBelow(size);
     char* newBuff = newEntry->allocateBuffer(testCaseKey, size);
     memcpy((void*)newBuff, (void*)buffer, size);
-    newBuff[byte] -= 1 + (uint8_t)rand->randBelow(ARITH_MAX);
-    newBuff[byte] += 1 + (uint8_t)rand->randBelow(ARITH_MAX);
+    uint8_t initial_rand = (uint8_t)rand->randBelow(ARITH_MAX);
+    newBuff[byte] -= 1 + initial_rand;
+    newBuff[byte] += 1 + (uint8_t)rand->randBelowExcept(ARITH_MAX, initial_rand);
 }

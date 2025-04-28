@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -28,6 +19,7 @@
  * ===========================================================================*/
 #include "ConfigInterface.hpp"
 
+/*
 const std::string vmf::ConfigInterface::ROOT_MODULE_KEY = "controller";
 const std::string vmf::ConfigInterface::STORAGE_MODULE_KEY = "storage";
 const std::string vmf::ConfigInterface::VMF_FRAMEWORK_KEY = "vmfFramework";
@@ -35,3 +27,6 @@ const std::string vmf::ConfigInterface::VMF_VARIABLES_KEY = "vmfVariables";
 const std::string vmf::ConfigInterface::VMF_CLASS_SET_KEY = "vmfClassSet";
 const std::string vmf::ConfigInterface::VMF_MODULES_KEY = "vmfModules";
 const std::string vmf::ConfigInterface::VMF_DISTRIBUTED_KEY = "vmfDistributed";
+*/
+
+

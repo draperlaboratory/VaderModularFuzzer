@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -29,6 +20,7 @@
 #pragma once
 
 #include "ConfigInterface.hpp"
+#include "RuntimeException.hpp"
 #include <iostream>
 #include <string>
 
@@ -101,6 +93,31 @@ public:
         return myType;
     }
 
+    /**
+     * @brief Sets a unique identifier each module instance
+     *
+     * @param id unique ID to identify module instance
+     * @throws RuntimeException if this method is called more than once per module instance
+     */
+    void setID(int id)
+    {
+        if (hasId)
+            throw RuntimeException("This module already has an ID", RuntimeException::UNEXPECTED_ERROR);
+
+        myId = id;
+        hasId = true;
+    }
+
+    /**
+     * @brief Creates and returns a new unique identifier
+     *
+     * @return int the module's unique ID
+     */
+    int getID()
+    {
+        return myId;
+    }
+
 protected:
 
     /**
@@ -112,10 +129,13 @@ protected:
     Module(std::string name, ModuleTypeEnum type){
          myName = name;
          myType = type;
+         hasId = false;
     };
 
 private:
     std::string myName;
     ModuleTypeEnum myType;
+    int myId;
+    bool hasId;
 };
 }

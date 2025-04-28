@@ -36,3 +36,13 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 _deps
+
+# GDB
+.gdbinit
+
+# Dev Container
+.devcontainer.json
+
+# Helper scripts
+*.sh
+*.ps1

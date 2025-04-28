@@ -94,7 +94,7 @@ New core modules should be placed in the appropriate subdirectory of [vmf/src/mo
 
 If the module needs any supporting classes, those should be named with a name that is similar to the module and they should be placed alongside the module classes that need them.
 
-Add the .cpp filename(s) to [vmf/src/modules/CMakelists.txt](../vmf/src/modules/CMakelists.txt).  If any new third party libraries are needed to support your module, they will need to be added to the overall build system (see [docs/build_system.md](/docs/build_system.md)).
+Add the .cpp filename(s) to [vmf/src/modules/CMakelists.txt](../vmf/src/modules/CMakeLists.txt).  If any new third party libraries are needed to support your module, they will need to be added to the overall build system (see [docs/build_system.md](./build_system.md)).
 
 ### Developing a New Extension Pack
 To develop a module as part of a new extension pack, look at the example structure in `vmf_install\samples\modules`.  This provides an example makefile for modules that are developed as add ones to VMF.  Such modules will be built as a shared library that can be added onto VMF, simply by installing the build library into 'vmf_install\plugins'.
@@ -181,7 +181,7 @@ You may add your own new keys or tags as well.
 
 
 ## Adding the Module to the ModuleFactory
-All  modules will need to register their module with the [ModuleFactory](../vmf/src/framework/app/ModuleFactory.cpp).  To do this simply add a call to the REGISTER_MODULE macro at the top of the new modules .cpp file.  The name provided to the macro *must* match the class name.
+All  modules will need to register their module with the [ModuleFactory](../vmf/src/framework/util/ModuleFactory.cpp).  To do this simply add a call to the REGISTER_MODULE macro at the top of the new modules .cpp file.  The name provided to the macro *must* match the class name.
 
 ```c++
 /*
@@ -403,7 +403,7 @@ In general, it is expected that this method must:
      * save any other values of interest for the test case, including tagging the entry if relevant
      * determine if the test case is interesting enough to save in long term storage (and save the entry if it is)
 
-See [Using Storage](#using-storage) for more information on each of these storage interactions.  A commented code snippet from an example implementation of FeedbackModule is provided in [design.md](docs/design.md/#executor-and-feedback-modules)
+See [Using Storage](#using-storage) for more information on each of these storage interactions.  A commented code snippet from an example implementation of FeedbackModule is provided in [design.md](./design.md#executor-and-feedback-modules)
 
 ## InitializationModule
 Initialization modules are run once, prior to the main fuzzing loop.  The only Initialization module specific method is run.  This method should perform any designated initialization steps (for example, seed generation).  It is important to note that this module is only called once by the controller, upfront, before other modules are called upon to run.
@@ -416,7 +416,7 @@ Input generators create new inputs that will be run by the Executor.  Often Inpu
 ### AddNewTestCases()
 This method creates one or more new test cases in storage.  Any method may be used to do this.  Mutation based InputGenerators typically call upon Mutator submodules to assist with this task, with each Mutator being capable of creating one or more test case based on a base test case that is selected by the InputGenerator.  But it is also possible to create InputGenerators that create test cases with non-mutation-based strategies.
 
-For more information on how to create new test cases, see [Using Storage](#using-storage).  Additionally, a code snippet from a sample input generator is provided in [design.md](docs/design.md/#input-generation-modules).  Note that this example does not use Mutator submodules, and hence it creates the new test cases directly, rather than having its mutator submodules perform this task.
+For more information on how to create new test cases, see [Using Storage](#using-storage).  Additionally, a code snippet from a sample input generator is provided in [design.md](./design.md#input-generation-modules).  Note that this example does not use Mutator submodules, and hence it creates the new test cases directly, rather than having its mutator submodules perform this task.
 
 ### ExamineTestCaseResults()     
 This is an optional method of InputGeneration.  InputGenerators that need to look at the results of their test case runs prior to generating new test cases should implement this method.  It is distinct from addNewTestCases in that the storage new list has not yet been cleared when this method is called, which makes it very easy to look at only the test cases that just executed.  See [Using Storage](#using-storage) for more information on the new list.
@@ -460,7 +460,7 @@ MyModule:
     MyParam3: 4
 ```
 
-Next, you need to update your module code to read in the configuration option.  This should go in the init method of your module, which will be passed a ConfigInterface object.  Simply call the appropriate getXXXParam method on the ConfigInterface object.  See [ConfigInterface.hpp](../vmf/src/framework/app/ConfigInterface.hpp) for a complete list of supported data types.
+Next, you need to update your module code to read in the configuration option.  This should go in the init method of your module, which will be passed a ConfigInterface object.  Simply call the appropriate getXXXParam method on the ConfigInterface object.  See [ConfigInterface.hpp](../vmf/src/framework/util/ConfigInterface.hpp) for a complete list of supported data types.
 
 You must always include the call to getModuleName() which will identify your module instance for the purposes of
 retrieving it's configuration information.

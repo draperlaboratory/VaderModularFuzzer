@@ -16,20 +16,19 @@ no incompatibly licensed tools are being included.
 
 | Project                                                       | Version   | License |
 | ------------------------------------------------------------- | --------- | ------- |
+| [curl](https://github.com/curl/curl)| 8.9.1 | [Custom](https://github.com/curl/curl/blob/master/LICENSES/curl.txt)|
 | [googletest](https://github.com/google/googletest)  | release-1.8.0-2963-8d51dc50  | [BSD Clause 3 New or Revised](https://github.com/google/googletest/blob/main/LICENSE) |
 | [json11](https://github.com/dropbox/json11)         | head-2df9473f                | [MIT](https://github.com/dropbox/json11/blob/master/LICENSE.txt) |
 | [Klee ktest](https://github.com/klee/klee/) | 1.0 | [University of Illinois/NCSA Open Source License](https://github.com/klee/klee/blob/master/LICENSE.TXT) |
 | [plog](https://github.com/SergiusTheBest/plog)      | 1.1.9-d60df3a1               | [MIT](https://github.com/SergiusTheBest/plog/blob/master/LICENSE) |
 | [restclient-cpp](https://github.com/mrtazz/restclient-cpp) | 0.5.2-c4683b21        | [MIT](https://github.com/mrtazz/restclient-cpp/blob/master/LICENSE) |
+| [wingetopt](https://github.com/alex85k/wingetopt)| 1.00 | [ISD](https://github.com/alex85k/wingetopt/blob/master/LICENSE) |
 | [uthash](http://troydhanson.github.io/uthash/) |   2.1.0          | [BSD Revised](http://troydhanson.github.io/uthash/license.html)
 | [yaml-cpp](https://github.com/jbeder/yaml-cpp)      | yaml-cpp-0.7.0-31-987a6042   | [MIT](https://github.com/jbeder/yaml-cpp/blob/master/LICENSE) |
-| [ziplib](https://bitbucket.org/wbenny/ziplib)   | 0.01 | [zlib](https://bitbucket.org/wbenny/ziplib/src/master/Licence.txt) |
 
 ## Installed Packages
 
 A classic example of this is the `ln` Linux tool for making links to files, or the `stdio.h` C header for enabling printing to `STDOUT` and reading from `STDIN`.
-
-***Note: VMF is compatible with compiler instrumentation from AFL++ 4.10c or earlier, due to an update in the forkserver interface that was introduced in 4.20c.  VMF will be updated in a future release to fix this compatibility issue.***
 
 Enumeration of these installations is for record keeping only:
 
@@ -63,7 +62,7 @@ These packages need to be installed in order to build and run VMF.
 
 `klee` must be installed and in your `$PATH` order to use the `KleeInitialization` 
 module, which generates an initial corpus/seeds using symbolic execution. The KLEE 
-team maintains [instructions to build KLEE from source](http://klee.github.io/build-llvm11/); 
+team maintains [instructions to build KLEE from source](http://klee-se.org/) (see section 'Building from source (with LLVM xx)'); 
 however, we have found that specific versions of requirements such as LLVM may be mutually 
 exclusive or difficult to manage in parallel with versions that are commonly available. As 
 a result, we suggest [running KLEE in Docker](http://klee.github.io/docker/) with VMF 

@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -44,7 +35,19 @@ class StorageModuleTestFloat: public ::testing::Test
 {
 protected:
     StorageModuleTestFloat()
-    {}
+    {
+        storage = nullptr;
+        registry = nullptr;
+        metadata = nullptr;
+        int_key = 0;
+        float_key = 0;
+        buf_key = 0;
+        test_tag = 0;
+        test_tag2 = 0;
+
+        meta_int_key = 0;
+        meta_float_key = 0;
+    }
 
     ~StorageModuleTestFloat() override
     {}
@@ -119,7 +122,7 @@ protected:
         for (int i = 1; i < N+1; i++)
         {
             entry = storage->createNewEntry();
-            float f = 0.1 + i;
+            float f = 0.1F + i;
             entry->setValue(float_key, f);
             EXPECT_EQ(storage->getNewEntries()->getSize(), ++size) << "Size was not as expected";
         }
@@ -246,7 +249,7 @@ TEST_F(StorageModuleTestFloat, saveEntryFloatKey)
         for (int i = 1; i < 6; i++)
         {
             entry = storage->createNewEntry();
-            float f = 0.1 + i;
+            float f = 0.1F + i;
             entry->setValue(float_key, f);
             storage->saveEntry(entry);
             EXPECT_EQ(storage->getSavedEntries()->getSize(), ++size) << "Size was not as expected";
@@ -268,7 +271,7 @@ TEST_F(StorageModuleTestFloat, saveEntryFloatKey)
         {
             size = storage->getSavedEntries()->getSize();
             entry = storage->createNewEntry();
-            float f = 0.1 + i;
+            float f = 0.1F + i;
             entry->setValue(float_key, f);
             storage->saveEntry(entry);
             EXPECT_EQ(storage->getSavedEntries()->getSize(), size + 1) << "Size was not as expected (decreasing values)";
@@ -290,7 +293,7 @@ TEST_F(StorageModuleTestFloat, saveEntryFloatKey)
         count--;
         entry = allEntries->getNext();
         float val = entry->getFloatValue(float_key);
-        EXPECT_TRUE(almostEqual(val, count + 0.1)) << "Float value was not as expected: got " << val << ", expected " << count + 0.1;
+        EXPECT_TRUE(almostEqual(val, count + 0.1F)) << "Float value was not as expected: got " << val << ", expected " << count + 0.1;
     }
     
     EXPECT_EQ(count, 1) << "Wrong number of saved entries";
@@ -300,7 +303,7 @@ TEST_F(StorageModuleTestFloat, saveEntryFloatKey)
     {
         size = storage->getSavedEntries()->getSize();
         entry = storage->createNewEntry();
-        float f = 0.1 + i;
+        float f = 0.1F + i;
         entry->setValue(float_key, f);
         storage->saveEntry(entry);
         EXPECT_EQ(storage->getSavedEntries()->getSize(), size + 1) << "Size was not as expected";
@@ -324,7 +327,7 @@ TEST_F(StorageModuleTestFloat, saveEntryBufferKey)
     {
         size = storage->getSavedEntries()->getSize();
         entry = storage->createNewEntry();
-        float f = 0.1 + i;
+        float f = 0.1F + i;
         entry->setValue(float_key, f);
         buf = entry->allocateBuffer(buf_key, 10);
         buf[9] = i;
@@ -439,7 +442,7 @@ TEST_F(StorageModuleTestFloat, removeEntry)
     {
         entry = storage->createNewEntry();
         entries.push_back(entry);
-        float f = 0.1 + i;
+        float f = 0.1F + i;
         entry->setValue(float_key, f);
         storage->saveEntry(entry);
     }
@@ -514,7 +517,7 @@ TEST_F(StorageModuleTestFloat, removeWithoutClear)
     {
         entry = storage->createNewEntry();
         entries.push_back(entry);
-        float f = 0.1 + i;
+        float f = 0.1F + i;
         entry->setValue(float_key, f);
         entry->setValue(int_key, i);
         storage->saveEntry(entry);
@@ -687,7 +690,7 @@ TEST_F(StorageModuleTestFloat, untagEntry)
     {
         entry = storage->createNewEntry();
         entries.push_back(entry);
-        float f = 0.1 + i;
+        float f = 0.1F + i;
         entry->setValue(float_key, f);
         storage->saveEntry(entry);
         if(i % 2 == 0)
@@ -868,7 +871,7 @@ TEST_F(StorageModuleTestFloat, updatePrimaryKey)
     for (int i = 1; i <= 50; i++)
     {
         StorageEntry* entry = storage->createNewEntry();
-        float f = rand() / 100;
+        float f = (float)(rand() / 100);
         entry->setValue(float_key, f);
         storage->saveEntry(entry);
     }
@@ -920,7 +923,7 @@ TEST_F(StorageModuleTestFloat, updatePrimaryKey)
 TEST_F(StorageModuleTestFloat, MetadataTest)
 {
     StorageEntry& metadata = storage->getMetadata();
-    float f = 12.34;
+    float f = 12.34F;
 
     metadata.setValue(meta_float_key, f);
     float x = metadata.getFloatValue(meta_float_key);

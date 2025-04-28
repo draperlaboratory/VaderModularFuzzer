@@ -1,7 +1,13 @@
 FROM quay.io/centos/centos:stream8 AS deps
 
+# https://serverfault.com/questions/1161816/mirrorlist-centos-org-no-longer-resolve
+RUN sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/CentOS-*.repo && \
+    sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/CentOS-*.repo && \
+    sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/CentOS-*.repo
+
+
 # General dependencies
-RUN  dnf install --assumeyes \
+RUN dnf install --assumeyes \
        ca-certificates \
        libcurl-minimal \
        gdb \
@@ -9,7 +15,7 @@ RUN  dnf install --assumeyes \
        gnupg
 
 # Development dependencies
-RUN  dnf install --assumeyes  \
+RUN dnf install --assumeyes  \
         clang \
         libcurl-devel \
         llvm \
@@ -43,13 +49,13 @@ RUN dnf install --assumeyes \
 # Clone and build AFL++
 RUN set -ex \
     && cd /usr/local/src \
-    && git clone --depth 1 -b v4.10c https://github.com/AFLplusplus/AFLplusplus.git \
+    && git clone --depth 1 -b v4.30c https://github.com/AFLplusplus/AFLplusplus.git \
     && cd AFLplusplus \
     && make all \
     && make install \
     && set +ex
 
-FROM aflpp as vmf
+FROM aflpp AS vmf
 
 # Clone, build, install VMF
 RUN set -ex \

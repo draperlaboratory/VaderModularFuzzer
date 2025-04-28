@@ -27,11 +27,15 @@
 namespace vmf
 {
 /**
- * @brief Generates new test case by picking a recursive feature and expanding it up to RECUR_THRESHOLD times
+ * @brief Generates new test case by picking a recursive feature and expanding it up to RECUR_THRESHOLD times.
  * 
  * This mutator picks a random test case and attempts to find recursive features of the test case 
  * to expand out. If no recursive features are found, it will do a random walk mutation instead.
  * 
+ * This mutator writes both the TEST_CASE and the TEST_CASE_AUT, the latter is used to enable
+ * subsequent grammar-aware mutations.
+ * @image html CoreModuleDataModel_8.png width=800px
+ * @image latex CoreModuleDataModel_8.png width=6in
  */
 class GramatronRecursiveMutator: public MutatorModule
 {

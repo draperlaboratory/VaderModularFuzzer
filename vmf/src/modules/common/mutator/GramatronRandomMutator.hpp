@@ -31,6 +31,11 @@ namespace vmf
  * 
  * This mutator pulls interesting test cases from storage and picks a random place in the 
  * automata walk representation of the test case to regenerate the end of the walk from.
+ * 
+ * This mutator writes both the TEST_CASE and the TEST_CASE_AUT, the latter is used to enable
+ * subsequent grammar-aware mutations.
+ * @image html CoreModuleDataModel_8.png width=800px
+ * @image latex CoreModuleDataModel_8.png width=6in
  */
 class GramatronRandomMutator: public MutatorModule
 {

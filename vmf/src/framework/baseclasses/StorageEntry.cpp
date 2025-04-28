@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -35,21 +26,28 @@ int StorageEntry::pKey;
 StorageRegistry::storageTypes StorageEntry::pKeyType = StorageRegistry::BUFFER;
 int StorageEntry::maxInts = 0;
 int StorageEntry::maxUInts = 0;
+int StorageEntry::maxU64s = 0;
 int StorageEntry::maxFloats = 0;
 int StorageEntry::maxBuffers = 0;
 int StorageEntry::maxTempBuffers = 0;
 int StorageEntry::maxTags = 0;
 int StorageEntry::maxIntsMetadata = 0;
 int StorageEntry::maxUIntsMetadata = 0;
+int StorageEntry::maxU64sMetadata = 0;
 int StorageEntry::maxFloatsMetadata = 0;
 int StorageEntry::maxBuffersMetadata = 0;
 int StorageEntry::maxTempBuffersMetadata = 0;
 std::vector<int> StorageEntry::intDefaults = {};
 std::vector<unsigned int> StorageEntry::uintDefaults = {};
+std::vector<unsigned long long> StorageEntry::u64Defaults = {};
 std::vector<float> StorageEntry::floatDefaults = {};
 std::vector<int> StorageEntry::intMetadataDefaults = {};
 std::vector<unsigned int> StorageEntry::uintMetadataDefaults = {};
+std::vector<unsigned long long> StorageEntry::u64MetadataDefaults = {};
 std::vector<float> StorageEntry::floatMetadataDefaults = {};
+std::unordered_map<int,std::string> StorageEntry::keyNameMap = {};
+std::unordered_map<int,std::string> StorageEntry::metadataKeyNameMap = {};
+
 
 /**
  * @brief Initialize the storage entry
@@ -61,6 +59,7 @@ void StorageEntry::init(StorageRegistry& registry)
 {
     maxInts = registry.getNumKeys(StorageRegistry::INT);
     maxUInts = registry.getNumKeys(StorageRegistry::UINT);
+    maxU64s = registry.getNumKeys(StorageRegistry::U64);
     maxFloats = registry.getNumKeys(StorageRegistry::FLOAT);
     maxBuffers = registry.getNumKeys(StorageRegistry::BUFFER);
     maxTempBuffers = registry.getNumKeys(StorageRegistry::BUFFER_TEMP);
@@ -68,10 +67,13 @@ void StorageEntry::init(StorageRegistry& registry)
 
     intDefaults = registry.getIntKeyDefaults();
     uintDefaults = registry.getUIntKeyDefaults();
+    u64Defaults = registry.getU64KeyDefaults();
     floatDefaults = registry.getFloatKeyDefaults();
 
     pKey = registry.getSortByKey();
     pKeyType = registry.getSortByType();
+
+    keyNameMap = registry.getKeyNameMap();
 }
 /**
  * @brief Initialize the metadata storage entry
@@ -83,13 +85,17 @@ void StorageEntry::initMetadata(StorageRegistry& metadata)
 {
     maxIntsMetadata = metadata.getNumKeys(StorageRegistry::INT);
     maxUIntsMetadata = metadata.getNumKeys(StorageRegistry::UINT);
+    maxU64sMetadata = metadata.getNumKeys(StorageRegistry::U64);
     maxFloatsMetadata = metadata.getNumKeys(StorageRegistry::FLOAT);
     maxBuffersMetadata = metadata.getNumKeys(StorageRegistry::BUFFER);
     maxTempBuffersMetadata = metadata.getNumKeys(StorageRegistry::BUFFER_TEMP);
 
     intMetadataDefaults = metadata.getIntKeyDefaults();
     uintMetadataDefaults = metadata.getUIntKeyDefaults();
+    u64MetadataDefaults = metadata.getU64KeyDefaults();
     floatMetadataDefaults = metadata.getFloatKeyDefaults();
+
+    metadataKeyNameMap = metadata.getKeyNameMap();
 }
 
 /**
@@ -109,6 +115,7 @@ StorageEntry::StorageEntry(bool isMetadata, bool isLocal, StorageEntryListener* 
     this->isLocal = isLocal;
     int numInts = maxInts;
     int numUInts = maxUInts;
+    int numU64s = maxU64s;
     int numFloats = maxFloats;
     int numBuffs = maxBuffers;
     int numTempBuffs = maxTempBuffers;
@@ -117,6 +124,7 @@ StorageEntry::StorageEntry(bool isMetadata, bool isLocal, StorageEntryListener* 
     {
         numInts = maxIntsMetadata;
         numUInts = maxUIntsMetadata;
+        numU64s = maxU64sMetadata;
         numFloats = maxFloatsMetadata;
         numBuffs = maxBuffersMetadata;
         numTempBuffs = maxTempBuffersMetadata;
@@ -153,6 +161,21 @@ StorageEntry::StorageEntry(bool isMetadata, bool isLocal, StorageEntryListener* 
 
     }
 
+    //Initialize u64 values to the specified default
+    u64Values.reserve(numU64s);
+    for(int i=0; i<numU64s; i++)
+    {
+        if(!isMetadata)
+        {
+            u64Values.push_back(u64Defaults[i]);
+        }
+        else
+        {
+            u64Values.push_back(u64MetadataDefaults[i]);
+        }
+
+    }
+
     //Initialize float values to the specified default
     floatValues.reserve(numFloats);
     for(int i=0; i<numFloats; i++)
@@ -174,7 +197,7 @@ StorageEntry::StorageEntry(bool isMetadata, bool isLocal, StorageEntryListener* 
     for(int i=0; i<numBuffs; i++)
     {
         bufferSizes.push_back(UNALLOCATED_BUFFER);
-        bufferValues.push_back(0);
+        bufferValues.push_back(nullptr);
     }
 
     tmpBufferValues.reserve(numTempBuffs);
@@ -184,7 +207,7 @@ StorageEntry::StorageEntry(bool isMetadata, bool isLocal, StorageEntryListener* 
     for(int i=0; i<numTempBuffs; i++)
     {
         tmpBufferSizes.push_back(UNALLOCATED_BUFFER);
-        tmpBufferValues.push_back(0);
+        tmpBufferValues.push_back(nullptr);
     }
 
 
@@ -291,6 +314,10 @@ bool StorageEntry::sortByValueIsLessThan( const StorageEntry& e )
         {
             return (getUIntValue(pKey) < e.getUIntValue(pKey));
         }
+        else if(StorageRegistry::U64 == pKeyType)
+        {
+            return (getU64Value(pKey) < e.getU64Value(pKey));
+        }
         else if(StorageRegistry::FLOAT == pKeyType)
         {
             return (getFloatValue(pKey) < e.getFloatValue(pKey));
@@ -324,8 +351,10 @@ int StorageEntry::getHandleIndex(int handle, int expectedType, bool isMetadata, 
     int typeMask = StorageKeyHelper::getType(handle);
     if(expectedType != typeMask)
     {
-        LOG_ERROR << "Expected key of type " << StorageKeyHelper::typeToString(expectedType) << 
-                     ", found key of type " << StorageKeyHelper::typeToString(typeMask);
+        LOG_ERROR << "Key type was not correct when accessing storage -- was the wrong accessor method used?";
+        LOG_ERROR << "This was for key name " << getHandleName(handle, isMetadata) << ", handle=" << handle;
+        LOG_ERROR << "Expected a key of type " << StorageKeyHelper::typeToString(expectedType) << 
+                     ", found a key of type " << StorageKeyHelper::typeToString(typeMask);
         throw RuntimeException("Attempt to access storage with a key of the wrong type", RuntimeException::USAGE_ERROR);
     }
 
@@ -338,6 +367,8 @@ int StorageEntry::getHandleIndex(int handle, int expectedType, bool isMetadata, 
 
     if(!((index >= 0) && (index < max)))
     {
+        LOG_ERROR << "Key was invalid or corrupt when accessing storage -- was the wrong key used?";
+        LOG_ERROR << "This was for key name " << getHandleName(handle, isMetadata) << ", handle=" << handle;
         LOG_ERROR << "Out of range key of type " << StorageKeyHelper::typeToString(typeMask);
         throw RuntimeException("Attempt to access storage with an invalid key",
                                RuntimeException::INDEX_OUT_OF_RANGE);
@@ -376,6 +407,7 @@ int StorageEntry::getBufferHandleIndex(int handle, int isMetadata, bool& typeIsT
     }
     else
     {
+        LOG_ERROR << "Wrong type of key was provided, key name " << getHandleName(handle, isMetadata) << ", handle=" << handle;
         LOG_ERROR << "Expected BUFFER or BUFFER_TEMP key type, but found key of type " << StorageKeyHelper::typeToString(typeMask);
         throw RuntimeException("Attempt to access storage with a key of the wrong type", RuntimeException::USAGE_ERROR);
     }
@@ -390,11 +422,45 @@ int StorageEntry::getBufferHandleIndex(int handle, int isMetadata, bool& typeIsT
 
     if(!((index >= 0) && (index < max)))
     {
+        LOG_ERROR << "Key was invalid or corrupt when accessing storage buffer -- was the wrong key used?";
+        LOG_ERROR << "This was for key name " << getHandleName(handle, isMetadata) << ", handle=" << handle;
         LOG_ERROR << "Out of range key of type " << StorageKeyHelper::typeToString(typeMask);
         throw RuntimeException("Attempt to access storage with an invalid key",
                                RuntimeException::INDEX_OUT_OF_RANGE);
     }
     return index;
+}
+
+/**
+ * @brief Helper method to get the name associated with a handle
+ * 
+ * @param handle the handle to lookup
+ * @param isMetadata whether or not this is a metadata handle
+ * @return std::string the name associated with the handle, or "UNKNOWN_KEY" or "UNKNOWN_METADATA_KEY"
+ * if it's not found (the latter for metadata keys)
+ */
+std::string StorageEntry::getHandleName(int handle, bool isMetadata)
+{
+    std::string keyName;
+
+    if(isMetadata)
+    {
+        std::unordered_map<int,std::string>::const_iterator found = metadataKeyNameMap.find(handle);
+        if ( found == metadataKeyNameMap.end() )
+            keyName = "UNKNOWN_METADATA_KEY";
+        else
+            keyName = found->second;
+    }
+    else
+    {
+        std::unordered_map<int,std::string>::const_iterator found = keyNameMap.find(handle);
+        if ( found == keyNameMap.end() )
+            keyName = "UNKNOWN_KEY";
+        else
+            keyName = found->second;
+    }
+
+    return keyName;
 }
 
 /**
@@ -435,6 +501,28 @@ void StorageEntry::setValue(int handle, unsigned int value)
     if(!isMetadataEntry && !isLocal)
     {
         if((StorageRegistry::UINT == pKeyType) && (handle == pKey))
+        {
+            listener->notifyPrimaryKeyUpdated(this);
+        }
+    }
+}
+
+/**
+ * @brief Sets an unsigned long long value.  Throws an exception if the handle is invalid.
+ *
+ * @param handle the handle to the key
+ * @param value the value to set
+ */
+void StorageEntry::setValue(int handle, unsigned long long value)
+{
+    int key = getHandleIndex(handle, StorageKeyHelper::U64_TYPE_MASK, isMetadataEntry, maxU64s, maxU64sMetadata);
+    u64Values[key] = value;
+
+    //Notify storage if the primary key has been modified
+    //(for entries that are neither local, nor metadata only)
+    if(!isMetadataEntry && !isLocal)
+    {
+        if((StorageRegistry::U64 == pKeyType) && (handle == pKey))
         {
             listener->notifyPrimaryKeyUpdated(this);
         }
@@ -500,6 +588,35 @@ unsigned int StorageEntry::incrementUIntValue(int handle)
 }
 
 /**
+ * @brief Increments an unsigned long long value.  Throws an exception if the handle is invalid.
+ * 
+ * This is a convenience method for metadata that is used as a counter, as the value
+ * can be incremented by 1 in a single call.
+ * 
+ * @param handle the handle to the key
+ * @returns the update value (after incrementing by 1)
+ */
+unsigned long long StorageEntry::incrementU64Value(int handle)
+{
+    int key = getHandleIndex(handle, StorageKeyHelper::U64_TYPE_MASK, isMetadataEntry, maxU64s, maxU64sMetadata);
+    u64Values[key]++;
+
+    //It seems unlikely that this method would ever be called on the primary
+    //key, but this is included for completeness, just in case
+    //Notify storage if the primary key has been modified
+    //(for entries that are neither local, nor metadata only)
+    if(!isMetadataEntry && !isLocal)
+    {
+        if((StorageRegistry::U64 == pKeyType) && (handle == pKey))
+        {
+            listener->notifyPrimaryKeyUpdated(this);
+        }
+    }
+
+    return u64Values[key];
+}
+
+/**
  * @brief Sets a float value.  Throws an exception if the handle is invalid.
  *
  * @param handle the handle to the key
@@ -544,6 +661,18 @@ unsigned int StorageEntry::getUIntValue(int handle) const
 {
     int key = getHandleIndex(handle, StorageKeyHelper::UINT_TYPE_MASK, isMetadataEntry, maxUInts, maxUIntsMetadata);
     return uintValues[key];
+}
+
+/**
+ * @brief Gets an unsigned long long value.  Throws an exception if the key is invalid.
+ *
+ * @param handle the handle to the key
+ * @return the unsigned long long value associated with the key
+ */
+unsigned long long StorageEntry::getU64Value(int handle) const
+{
+    int key = getHandleIndex(handle, StorageKeyHelper::U64_TYPE_MASK, isMetadataEntry, maxU64s, maxU64sMetadata);
+    return u64Values[key];
 }
 
 /**

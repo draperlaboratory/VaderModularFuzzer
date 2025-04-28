@@ -1,0 +1,35 @@
+#CorpusMinimization is not included in the distributed version of default modules
+vmfModules:
+  storage:
+    className: SimpleStorage
+  controller:
+    className: IterativeController
+    children:
+      - className: ServerSeedInitialization
+      - className: MOPTInputGenerator
+      - className: FridaExecutor
+      - className: AFLFavoredFeedback
+      - className: ComputeStats
+      - className: StatsOutput
+      - className: ServerCorpusOutput
+  MOPTInputGenerator:
+    children:
+      - className: AFLFlipBitMutator
+      - className: AFLFlip2BitMutator
+      - className: AFLFlip4BitMutator
+      - className: AFLFlipByteMutator
+      - className: AFLFlip2ByteMutator
+      - className: AFLFlip4ByteMutator
+      - className: AFLRandomByteAddSubMutator
+      - className: AFLRandomByteMutator
+      - className: AFLDeleteMutator
+      - className: AFLCloneMutator
+      - className: AFLSpliceMutator
+
+# Modules-specific parameters
+#(The SUT-specific portions of these all defined using YAML anchors)
+FridaExecutor:
+  sutArgv: *SUT_ARGV
+
+StatsOutput:
+  sendToServer: true

@@ -1,0 +1,16 @@
+# Combine this config file with defaultModules.yaml to fuzz the haystack_AFL_persist SUT
+# This should be run from vmf_install (all paths are relative to the vmf_install directory)
+
+# VMF Variable parameters
+# Such as SUT args and input directory path
+
+vmfVariables:
+  - &SUT_ARGV ["test/haystackSUT/haystack_AFL_persist", "@@"]
+  - &INPUT_DIR test/haystackSUT/test-input/
+
+# VMF Framework parameters (this section is optional)
+# Such as logging path, logging level, plugin path
+
+vmfFramework:
+  outputBaseDir: output
+  logLevel : 1 #0=DEBUG, 1=INFO, 2=WARNING, 3=ERROR

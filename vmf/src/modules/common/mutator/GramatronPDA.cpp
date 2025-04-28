@@ -72,7 +72,7 @@ PDA* PDA::CreateInstance(const std::string &path) {
             trigger* trigger_ptr;
             int offset;
 
-            trigger_len = ci->second.array_items().size();
+            trigger_len = (int) ci->second.array_items().size();
 
             // Get the correct offset into the pda to store state information
             state_ptr = pda_->state_ptr_;

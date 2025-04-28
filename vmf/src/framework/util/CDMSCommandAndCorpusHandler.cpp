@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -30,6 +21,7 @@
 #include "Logging.hpp"
 #include "CDMSClient.hpp"
 #include "VmfUtil.hpp"
+#include "OSAPI.hpp"
 #include <vector>
 #include <filesystem>
 
@@ -49,6 +41,17 @@ CDMSCommandAndCorpusHandler& CDMSCommandAndCorpusHandler::getInstance() {
 CDMSCommandAndCorpusHandler::CDMSCommandAndCorpusHandler()
 {
     myState = IDLE;
+    currentFileIndex = 0;
+    fileNameKey = -1;
+    initialCorpusSyncComplete = false;
+
+    //These should be initialized in init/config
+    batchSize = 0;
+    corpusInitialUpdateMins = 0;
+    corpusUpdateRateMins = 0;
+    serverTestCaseTag = 0;
+    testCaseKey = 0;
+
 }
 
 CDMSCommandAndCorpusHandler::~CDMSCommandAndCorpusHandler()
@@ -269,7 +272,7 @@ bool CDMSCommandAndCorpusHandler::loadWholeCorpus(StorageModule& storage, std::s
 int CDMSCommandAndCorpusHandler::unzipJsonZipFiles(json11::Json json)
 {
     auto fileList    = json["files"].array_items();
-    int  size        = fileList.size();
+    int  size        = (int) fileList.size();
     int  count       = 0;
 
     CDMSClient* client = CDMSClient::getInstance();
@@ -287,10 +290,10 @@ int CDMSCommandAndCorpusHandler::unzipJsonZipFiles(json11::Json json)
 
         const char*     contentBuff = contents.data();
 
-        VmfUtil::writeBufferToFile(workingDir, tmpFile, contentBuff, contents.length());
+        VmfUtil::writeBufferToFile(workingDir, tmpFile, contentBuff, (int) contents.length());
 
         //Now unzip to the output directory
-        VmfUtil::commandLineUnzip(zipFilePath, zipOutPath);
+        OSAPI::instance().commandLineUnzip(zipFilePath, zipOutPath);
 
         //And load the list of files to read into a vector
         for (const auto& file : fs::directory_iterator(zipOutPath))
@@ -330,11 +333,12 @@ int CDMSCommandAndCorpusHandler::unzipJsonZipFiles(json11::Json json)
  */
 bool CDMSCommandAndCorpusHandler::loadTestCasesUpToBatchSize(StorageModule& storage)
 {
-    bool hasMoreTestCases = true;
-    if(filesToRead.size() > 0)
+    bool hasMoreTestCases = false;
+    //This can be 0, if the server sends a zip file with no test cases in it
+    if(filesToRead.size() > 0) 
     {
         //Read up the batchSize or the remaining number of files, whichever is smaller
-        int filesRemaining = filesToRead.size() - currentFileIndex;
+        int filesRemaining = (int) filesToRead.size() - currentFileIndex;
         int max = batchSize;
         if(filesRemaining < max)
         {
@@ -345,10 +349,9 @@ bool CDMSCommandAndCorpusHandler::loadTestCasesUpToBatchSize(StorageModule& stor
         for(int i=currentFileIndex; i<max; i++)
         {
             std::filesystem::directory_entry file = filesToRead[i];
-            uintmax_t filesize = static_cast<uintmax_t>(0);
 
             // open and read file into buffer
-            filesize = fs::file_size(file);
+            int filesize = (int) fs::file_size(file);
             std::ifstream inFile;
             inFile.open(file.path(), std::ifstream::binary);
 
@@ -361,25 +364,21 @@ bool CDMSCommandAndCorpusHandler::loadTestCasesUpToBatchSize(StorageModule& stor
             //Only add the filenameKey if it was set
             if(-1 != fileNameKey)
             {
-                std::string name = file.path().filename();
-                char* nameBuff = newEntry->allocateBuffer(fileNameKey, name.length());
+                std::string name = file.path().filename().string();
+                char* nameBuff = newEntry->allocateBuffer(fileNameKey, (int) name.length());
                 name.copy(nameBuff,name.length());
             }
             
         }
         currentFileIndex += max;
         LOG_DEBUG << "Loaded " << max << " new test cases from the server";
+    }
 
-        if(!hasMoreTestCases)
-        {
-            clearInternalVariables();
-        }
-    }
-    else
+    if (!hasMoreTestCases)
     {
-        //This should not be possible
-        throw RuntimeException("Attempt to load more test cases when their are none", RuntimeException::UNEXPECTED_ERROR);
+        clearInternalVariables();
     }
+
     return hasMoreTestCases;
 }
 

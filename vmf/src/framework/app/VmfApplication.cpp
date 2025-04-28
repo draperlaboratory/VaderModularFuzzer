@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -33,17 +24,11 @@
 #include "Logging.hpp"
 #include "VmfUtil.hpp"
 #include "VmfRand.hpp"
+#include "OSAPI.hpp"
 #include <fstream>  
 #include <thread> //for sleep
 #include <random> //for random sleep time
 #include <limits.h>
-
-#if !defined(_WIN32)
-#include <unistd.h>
-#else
-#include "getopt.h"
-#define HOST_NAME_MAX 255
-#endif
 
 using namespace vmf;
 
@@ -53,7 +38,8 @@ using namespace vmf;
  */
 VmfApplication::VmfApplication()
 {
-
+    //These will be overwritten when config is read
+    taskingSleepTime = std::chrono::milliseconds(0);
 }
 
 
@@ -161,8 +147,7 @@ bool VmfApplication::serverInit()
     bool valid = false;
     std::string name;
     std::string outputDir;
-    int pid = ::getpid();
-    char buff[HOST_NAME_MAX];
+    int pid = OSAPI::instance().getProcessID();
  
     //1. Load initial server config
     //This will only contain the configuration parameters needed to establish a connection with the server
@@ -182,20 +167,19 @@ bool VmfApplication::serverInit()
     //4. Read in server parameters from config file. Initialize the CDMSClient.
     CDMSClient* client = CDMSClient::getInstance();
 
-    name = this->myConfig->getStringParam(ConfigInterface::VMF_DISTRIBUTED_KEY,"clientName","VMF_instance");
-    int sleepTime = this->myConfig->getIntParam(ConfigInterface::VMF_DISTRIBUTED_KEY, "taskingPollRate", 10000); //10s
+    name = this->myConfig->getStringParam(myConfig->VMF_DISTRIBUTED_KEY,"clientName","VMF_instance");
+    int sleepTime = this->myConfig->getIntParam(myConfig->VMF_DISTRIBUTED_KEY, "taskingPollRate", 10000); //10s
     taskingSleepTime = std::chrono::milliseconds(sleepTime);
 
     //This allows the insertion of an initial random delay of up to the specified sleep time.
     //This prevents all the VMFs from polling for tasking synchronously.
     //Set to -1 to disable this initial delay completely
-    int taskingInitialRandomDelayMax = this->myConfig->getIntParam(ConfigInterface::VMF_DISTRIBUTED_KEY,"taskingInitialRandomDelayMax", -1); //disabled
+    int taskingInitialRandomDelayMax = this->myConfig->getIntParam(myConfig->VMF_DISTRIBUTED_KEY,"taskingInitialRandomDelayMax", -1); //disabled
     
-    gethostname(buff, HOST_NAME_MAX);
- 
     //5. Initialize interface to CDMS server
-    LOG_INFO << "Initializing CDMS Client.  pid=" << pid << ", hostname=" << buff << ", name=" << name;
-    client->init( *(this->myConfig), pid, name, std::string(buff));
+    std::string hostname = OSAPI::instance().getHostname();
+    LOG_INFO << "Initializing CDMS Client.  pid=" << pid << ", hostname=" << hostname << ", name=" << name;
+    client->init(*(this->myConfig), pid, name, hostname);
 
     //6. Register with server
     bool registered = CDMSClient::getInstance()->sendRegistration(false);
@@ -347,7 +331,7 @@ void VmfApplication::loadAndInitModules()
     }
 
     //Check for seed specification
-    int seed = myConfig->getIntParam(ConfigInterface::VMF_FRAMEWORK_KEY, "seed", 0);
+    int seed = myConfig->getIntParam(myConfig->VMF_FRAMEWORK_KEY, "seed", 0);
     if (seed != 0)
     {
         LOG_INFO << "VMF using seeded RNG, seed = " << seed;
@@ -402,16 +386,17 @@ void VmfApplication::clearCurrentModules()
 std::string VmfApplication::createOutputDir()
 {
     //Create output directory
-    std::string outputBaseDir = myConfig->getStringParam(ConfigManager::VMF_FRAMEWORK_KEY,"outputBaseDir","output");
+    std::string outputBaseDir = myConfig->getStringParam(myConfig->VMF_FRAMEWORK_KEY,"outputBaseDir","output");
 
-    time_t      t   = time(0);
-    struct tm * now = localtime( & t );
+    time_t t = time(0);
+    struct std::tm * now = std::localtime( &t );
     char timestamp[16];
     strftime(timestamp, sizeof(timestamp), "/%m%d_%H%M%S", now);
+
     std::string outputPath = outputBaseDir + timestamp;
     if(distributedMode)
     {
-        int pid = ::getpid();
+        int pid = OSAPI::instance().getProcessID();
         std::string pidDir = "vmf_" + std::to_string(pid);
         outputPath += "/" + pidDir;
     }
@@ -454,9 +439,9 @@ void VmfApplication::loadPlugins()
     }
 
     //Load any additional specified plugins
-    if(myConfig->isParam(ConfigManager::VMF_FRAMEWORK_KEY,"additionalPluginsDir"))
+    if(myConfig->isParam(myConfig->VMF_FRAMEWORK_KEY,"additionalPluginsDir"))
     {
-        std::vector<std::string> pluginsDirs = myConfig->getStringVectorParam(ConfigManager::VMF_FRAMEWORK_KEY,"additionalPluginsDir");
+        std::vector<std::string> pluginsDirs = myConfig->getStringVectorParam(myConfig->VMF_FRAMEWORK_KEY,"additionalPluginsDir");
         for(std::string dir: pluginsDirs)
         {
             myPluginLoader.loadAll(dir);
@@ -491,13 +476,13 @@ bool VmfApplication::parseConfigParams(int argc, char** argv)
     //Parse argc/argv
     for(;;)
     {
-        switch(getopt(argc, argv, "c:d:h")) //The colon indicates parameters with arguments
+        switch(OSAPI::instance().getOption(argc, argv, "c:d:h")) //The colon indicates parameters with arguments
         {
             case 'c':
-                configFiles.push_back(optarg);
+                configFiles.push_back(OSAPI::instance().getOptionArg());
                 continue;
             case 'd':
-                configFiles.push_back(optarg);
+                configFiles.push_back(OSAPI::instance().getOptionArg());
                 distributedMode = true;
                 continue;
             case 'h':

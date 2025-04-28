@@ -10,7 +10,7 @@ To build the module templates, go to the moduleTemplate directory and follow thi
 ```bash
 mkdir build
 cd build
-cmake -DVMF_INSTALL=<root of the VMF install> ..
+cmake -DCMAKE_INSTALL_PREFIX=<root of the VMF install> ..
 make
 ```
 

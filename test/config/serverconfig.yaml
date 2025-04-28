@@ -2,6 +2,7 @@
 # vmfFramework.logLevel is also optional, but is commented in for better demonstration purposes
 vmfDistributed:
   serverURL: http://127.0.0.1:8080
+#  proxyURL: http://proxyurl:port
 # clientName: VMF_instance
 # retryTimeout: 30000 #Number of milliseconds between retries, in case of network error.
 # retryCount: 10 #Number of time to retry if a network error occurs.

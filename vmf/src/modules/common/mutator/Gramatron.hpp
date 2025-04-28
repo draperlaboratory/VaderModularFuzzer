@@ -30,7 +30,6 @@
 #include "fstream"
 #include "sstream"
 #include "utarray.h"
-#include "unistd.h"
 
 namespace vmf
 {
@@ -116,7 +115,6 @@ void concatPrefixFeature(Array* prefix, Array* feature);
 Array* spliceGF(Array* orig, Array* toSplice, int idx);
 
 char* unparse_walk(Array*);
-void write_input(Array* input, char* fn);
 Array* read_input(pdaState* pda, char* buffer);
 
 }

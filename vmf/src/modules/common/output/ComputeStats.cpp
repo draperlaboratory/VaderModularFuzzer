@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -52,14 +43,6 @@ Module* ComputeStats::build(std::string name)
 void ComputeStats::init(ConfigInterface& config)
 {
     outputRate = config.getIntParam(getModuleName(),"statsRateInSeconds", 1);
-    timeLastComputedStats = time(0);
-    timeLastInterestingTestCaseFound = time(0);
-    prevTestCaseTotal = 0;
-    total_time = 0;
-    uniqueTotal = 0;
-    currentTotal = 0;
-    totalCrashes = 0;
-    totalHangs = 0;
 }
 
 /**
@@ -71,6 +54,32 @@ ComputeStats::ComputeStats(std::string name) :
     OutputModule(name)
 {
     outputRate = 0;
+    timeLastComputedStats = time(0);
+    timeLastInterestingTestCaseFound = time(0);
+    prevTestCaseTotal = 0;
+    total_time = 0;
+    uniqueTotal = 0;
+    uniqueCrashes = 0;
+    uniqueHangs = 0;
+    currentTotal = 0;
+    totalCrashes = 0;
+    totalHangs = 0;
+    casePerSec = 0;
+    latestCasePerSec = 0;
+    timeSinceLastFound = 0;
+    
+    //These are initialized in init
+    hungTag = 0;
+    crashedTag = 0;
+    totalTCMetadataKey = 0;
+    crashedTotalMetadata = 0;
+    hungTotalMetadata = 0;
+    uniqueTCMetadataKey = 0;
+    uniqueCrashedMetadataKey = 0;
+    uniqueHungMetadataKey = 0;
+    latestExecPerSecMetadataKey = 0;
+    averageExecPerSecMetadataKey = 0;
+    secondsSinceLastUniqueMetadataKey = 0;
 }
 
 ComputeStats::~ComputeStats()
@@ -87,7 +96,7 @@ void ComputeStats::registerStorageNeeds(StorageRegistry& registry)
 void ComputeStats::registerMetadataNeeds(StorageRegistry& registry)
 {
     //outputs
-    totalTCMetadataKey = registry.registerKey("TOTAL_TEST_CASES", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);
+    totalTCMetadataKey = registry.registerKey("TOTAL_TEST_CASES", StorageRegistry::U64, StorageRegistry::WRITE_ONLY);
     crashedTotalMetadata = registry.registerKey("TOTAL_CRASHED_CASES", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);
     hungTotalMetadata = registry.registerKey("TOTAL_HUNG_CASES", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);
     uniqueTCMetadataKey = registry.registerKey("UNIQUE_TEST_CASES", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);
@@ -142,8 +151,8 @@ void ComputeStats::run(StorageModule& storage)
 
         //Exec/s must be computed 
         total_time += elapsed;
-        casePerSec = currentTotal / total_time;
-        latestCasePerSec = (currentTotal - prevTestCaseTotal)/elapsed;
+        casePerSec = (float) (currentTotal / total_time);
+        latestCasePerSec = (float) ((currentTotal - prevTestCaseTotal)/elapsed);
         prevTestCaseTotal = currentTotal;
 
         //Finally, write the data to metadata

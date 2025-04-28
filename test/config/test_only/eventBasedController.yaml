@@ -51,3 +51,5 @@ NewCoverageController:
 CorpusMinExecutor:
   sutArgv: *SUT_ARGV
   alwaysWriteTraceBits: true
+DirectoryBasedSeedGen:
+  inputDir: *INPUT_DIR

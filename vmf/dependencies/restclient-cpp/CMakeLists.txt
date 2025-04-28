@@ -10,9 +10,9 @@ set(PROJECT_VENDOR "${restclient-cpp_VENDOR}")
 
 # VMF
 # message(STATUS "Configured for: ${CMAKE_BUILD_TYPE}")
-add_custom_target(BeginMessage ALL
-    ${CMAKE_COMMAND} -E cmake_echo_color --white "Compiling for: $<CONFIG>"
-    COMMENT "Compile Info" )
+#add_custom_target(BeginMessage ALL
+#    ${CMAKE_COMMAND} -E cmake_echo_color --white "Compiling for: $<CONFIG>"
+#    COMMENT "Compile Info" )
 
 set(CMAKE_DEBUG_POSTFIX d)
 

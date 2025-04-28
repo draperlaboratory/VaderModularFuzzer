@@ -1,17 +1,8 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+# Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
 # <vmf@draper.com>
-#  
-# Effort sponsored by the U.S. Government under Other Transaction number
-# W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
-# Is authorized to reproduce and distribute reprints for Governmental purposes
-# notwithstanding any copyright notation thereon.
-#  
-# The views and conclusions contained herein are those of the authors and
-# should not be interpreted as necessarily representing the official policies
-# or endorsements, either expressed or implied, of the U.S. Government.
-#  
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 (only) as 
 # published by the Free Software Foundation.
@@ -35,7 +26,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 #Clang or g++ are supported
-set(CMAKE_CXX_COMPILER g++)
+#set(CMAKE_CXX_COMPILER g++)
 #set(CMAKE_CXX_COMPILER clang++)
 
 # This is not an option that we want to enable.  Think twice about re-enabling it.
@@ -56,11 +47,26 @@ set(CMAKE_CXX_COMPILER g++)
 
 # produce compile_commands.json for clangd support
 set(CMAKE_EXPORT_COMPILE_COMMANDS True)
-
 #############################################################
-project(VMF VERSION 4.1.0
+project(VMF VERSION 5.0.0
     LANGUAGES CXX )
 #############################################################
+
+# Export all symbols for windows
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
+# Control output paths (mostly to help build and install on windows)
+set(VMF_BUILD_OUTPUT_DIR "${CMAKE_BINARY_DIR}/build_artifacts/")
+set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${VMF_BUILD_OUTPUT_DIR} )
+set( CMAKE_LIBRARY_OUTPUT_DIRECTORY ${VMF_BUILD_OUTPUT_DIR} )
+set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${VMF_BUILD_OUTPUT_DIR} )
+# For multi-config builds (e.g. msvc)
+foreach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
+    string( TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG )
+    set( CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${VMF_BUILD_OUTPUT_DIR} )
+    set( CMAKE_LIBRARY_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${VMF_BUILD_OUTPUT_DIR} )
+    set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${VMF_BUILD_OUTPUT_DIR} )
+endforeach( OUTPUTCONFIG CMAKE_CONFIGURATION_TYPES )
 
 # Bring in VMF project wide variables and utility functions
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/vmf/cmake)
@@ -97,6 +103,9 @@ INSTALL(DIRECTORY test DESTINATION
   PATTERN "*.cpp" EXCLUDE
   PATTERN "*.txt" EXCLUDE
   PATTERN "haystack" EXCLUDE
+  PATTERN "haystack_AFL_persist" EXCLUDE
+  PATTERN "haystack_AFL_deferred" EXCLUDE
+  PATTERN "haystack_AFL_shmem" EXCLUDE
   PATTERN "magicbytes" EXCLUDE
   PATTERN "magicbytes_cmplog" EXCLUDE    
   PATTERN "setup_jerryscript" EXCLUDE
@@ -114,6 +123,25 @@ INSTALL(DIRECTORY data DESTINATION
 file (COPY test/haystackSUT/haystack
 DESTINATION ${CMAKE_INSTALL_PREFIX}/test/haystackSUT
 USE_SOURCE_PERMISSIONS)
+
+#install haystack_AFL_persist example executable
+file (COPY test/haystackSUT/haystack_AFL_persist
+DESTINATION ${CMAKE_INSTALL_PREFIX}/test/haystackSUT
+USE_SOURCE_PERMISSIONS)
+
+#install haystack_AFL_deferred example executable
+file (COPY test/haystackSUT/haystack_AFL_deferred
+DESTINATION ${CMAKE_INSTALL_PREFIX}/test/haystackSUT
+USE_SOURCE_PERMISSIONS)
+
+#install haystack_AFL_shmem example executable
+file (COPY test/haystackSUT/haystack_AFL_shmem
+DESTINATION ${CMAKE_INSTALL_PREFIX}/test/haystackSUT
+USE_SOURCE_PERMISSIONS)
+
+#file (COPY test/haystackSUT/haystack_libfuzzer
+#DESTINATION ${CMAKE_INSTALL_PREFIX}/test/haystackSUT
+#USE_SOURCE_PERMISSIONS)
 
 #install magicbytes executable
 file (COPY test/magicBytesSUT/magicbytes

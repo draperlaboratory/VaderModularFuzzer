@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -88,12 +79,11 @@ void StatsOutput::registerStorageNeeds(StorageRegistry& registry)
 
 void StatsOutput::registerMetadataNeeds(StorageRegistry& registry)
 {
-    totalTCCountMetadataKey = registry.registerKey("TOTAL_TEST_CASES", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+    totalTCCountMetadataKey = registry.registerKey("TOTAL_TEST_CASES", StorageRegistry::U64, StorageRegistry::READ_ONLY);
     totalCrashedCountMetadataKey = registry.registerKey("TOTAL_CRASHED_CASES", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
     totalHungCountMetadataKey = registry.registerKey("TOTAL_HUNG_CASES", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
     
     totalBytesCoveredMetadataKey = registry.registerKey("TOTAL_BYTES_COVERED", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
-    mapSizeMetadataKey = registry.registerKey("MAP_SIZE", StorageRegistry::UINT, StorageRegistry::READ_ONLY);        
     secondsSinceLastUniqueMetadataKey = registry.registerKey("SECONDS_SINCE_LAST_UNIQUE_FINDING", StorageRegistry::FLOAT, StorageRegistry::READ_ONLY);
 
     uniqueTCCountMetadataKey = registry.registerKey("UNIQUE_TEST_CASES", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
@@ -119,18 +109,17 @@ void StatsOutput::run(StorageModule& storage)
     StorageEntry& metadata = storage.getMetadata();
     
     //Get stats from metadata
-    int currentTotal = metadata.getUIntValue(totalTCCountMetadataKey);
+    unsigned long long currentTotal = metadata.getU64Value(totalTCCountMetadataKey);
     int crashes = metadata.getUIntValue(totalCrashedCountMetadataKey);
     int hangs = metadata.getUIntValue(totalHungCountMetadataKey);
     int bytesCovered = metadata.getUIntValue(totalBytesCoveredMetadataKey);
-    int mapSize = metadata.getUIntValue(mapSizeMetadataKey);
     int uniqueTotal = metadata.getUIntValue(uniqueTCCountMetadataKey);
     int uniqueCrashes = metadata.getUIntValue(uniqueCrashedCountMetadataKey);
     int uniqueHangs = metadata.getUIntValue(uniqueHungCountMetadataKey);
-    int latestCasePerSec = metadata.getFloatValue(latestExecPerSecMetadataKey);
-    int casePerSec  = metadata.getFloatValue(averageExecPerSecMetadataKey);
-    int timeSinceLastFound = metadata.getFloatValue(secondsSinceLastUniqueMetadataKey);
-    int mapPercentFull = (float) 100.0 * bytesCovered / mapSize;
+
+    float latestCasePerSec = metadata.getFloatValue(latestExecPerSecMetadataKey);
+    float casePerSec  = metadata.getFloatValue(averageExecPerSecMetadataKey);
+    float timeSinceLastFound = metadata.getFloatValue(secondsSinceLastUniqueMetadataKey);
     //Output the data
     if(!writeToServer)
     {
@@ -141,8 +130,7 @@ void StatsOutput::run(StorageModule& storage)
         LOG_INFO << "TIME SINCE LAST FINDING: " << timeSinceLastFound << " seconds";
         LOG_INFO << "TOTAL EXECUTIONS: " << currentTotal;
         LOG_INFO << "UNIQUE HANGS: " << uniqueHangs << " (" << hangs << " TOTAL)";
-        LOG_INFO << "COVERED TUPLES: " << bytesCovered << " / " << mapSize << " (" << \
-        std::fixed << std::setprecision(2) << mapPercentFull << "%)";
+        LOG_INFO << "COVERED TUPLES: " << bytesCovered;
         LOG_INFO << "---------------------------------";
     }
     else
@@ -155,18 +143,17 @@ void StatsOutput::run(StorageModule& storage)
             {"uid",     CDMSClient::getInstance()->getUniqueId()},
             {"metrics", Json::array 
                 {
+                //TODO(VADER-1443): int is not a large enough data type for many of these values
                 Json::object { {"key","uniqueInterestingTestCases"},{"value", (int)uniqueTotal} },
                 Json::object { {"key","uniqueCrashes"}, {"value", (int)uniqueCrashes} },
                 Json::object { {"key","latestExecPerSec"}, {"value", latestCasePerSec} },
                 Json::object { {"key","timeSinceLastFound"}, {"value", timeSinceLastFound} },
-                Json::object { {"key","totalExecutions"}, {"value",(int)currentTotal} },  
+                Json::object { {"key","totalExecutions"}, {"value",(int)currentTotal} },
                 Json::object { {"key","totalUniqueHangs"}, {"value", (int)uniqueHangs} },
                 Json::object { {"key","avgExecPerSec"}, {"value", casePerSec} },
                 Json::object { {"key","totalCrashes"}, {"value",(int)crashes} },
                 Json::object { {"key","totalHangs"}, {"value", (int)hangs} },
-                Json::object { {"key","coveredTuples"}, {"value", (int)bytesCovered} },
-                Json::object { {"key","mapSize"}, {"value", (int)mapSize} },
-                Json::object { {"key","mapPercentFull"}, {"value", mapPercentFull} }
+                Json::object { {"key","coveredTuples"}, {"value", (int)bytesCovered} }
                 }
             } 
         };

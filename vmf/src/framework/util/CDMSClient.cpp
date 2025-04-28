@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -26,31 +17,19 @@
  *  
  * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
  * ===========================================================================*/
-
 #include "CDMSClient.hpp"
 #include "json11.hpp"
 #include "RuntimeException.hpp"
 #include "Logging.hpp"
+#include "UDPMulticastAPI.hpp"
 #include "restclient-cpp/restclient.h"
 #include "restclient-cpp/connection.h"
 #include "VmfUtil.hpp"
+#include "OSAPI.hpp"
 #include <filesystem>
 #include <fstream> // for filestream
 #include <chrono>
 #include <thread>
-
-#ifdef _WIN32
-    #include <Winsock2.h> // before Windows.h, else Winsock 1 conflict
-    #include <Ws2tcpip.h> // needed for ip_mreq definition for multicast
-    #include <Windows.h>
-#else
-    #include <sys/types.h>
-    #include <sys/socket.h>
-    #include <netinet/in.h>
-    #include <arpa/inet.h>
-    #include <time.h>
-#endif
-
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,17 +42,10 @@ using namespace vmf;
  */
 CDMSClient::CDMSClient()
 {
-#ifdef _WIN32
-    //
-    // Initialize Windows Socket API with given VERSION.
-    //
-    WSADATA wsaData;
-    if (WSAStartup(0x0101, &wsaData)) 
-    {
-        perror("WSAStartup");
-        return;
-    }
-#endif
+    conn = NULL;
+    udpSocket = NULL;
+    //These should be initialized in iit
+    retryTime = std::chrono::milliseconds(0);
 }
 
 /**
@@ -82,9 +54,11 @@ CDMSClient::CDMSClient()
  */
 CDMSClient::~CDMSClient()
 {
-    #ifdef _WIN32
-    WSACleanup();
-    #endif
+    RestClient::disable();
+    if (NULL != conn)
+    {
+        delete conn;
+    }
 }
 
 /**
@@ -120,28 +94,35 @@ void CDMSClient::init(ConfigInterface& config, int pid, std::string name, std::s
     }
 
     //Get webserver parameters
-    std::string serverURL = config.getStringParam(ConfigInterface::VMF_DISTRIBUTED_KEY,"serverURL");
+    serverURL = config.getStringParam(config.VMF_DISTRIBUTED_KEY,"serverURL");
+    proxyURL = config.getStringParam(config.VMF_DISTRIBUTED_KEY, "proxyURL", "");
 
     //Get timeout parameters   
-    int rt = config.getIntParam(ConfigInterface::VMF_DISTRIBUTED_KEY,"retryTimeout",30000); //30s
+    int rt = config.getIntParam(config.VMF_DISTRIBUTED_KEY,"retryTimeout",30000); //30s
     retryTime = std::chrono::milliseconds(rt);
-    retryCount = config.getIntParam(ConfigInterface::VMF_DISTRIBUTED_KEY,"retryCount",10); //10 tries
+    retryCount = config.getIntParam(config.VMF_DISTRIBUTED_KEY,"retryCount",10); //10 tries
 
     // Build all the Restful paths
 
     LOG_INFO << "Using server URL: " << serverURL;
+    conn = new RestClient::Connection(serverURL);
+    if ("" != proxyURL)
+    {
+        LOG_INFO << "Using proxy URL: " + proxyURL;
+        conn->SetProxy(proxyURL);
+    }
 
-    registerURL      = serverURL + "/CDMS/registration/register/";
-    statusURL        = serverURL + "/CDMS/registration/status/";
-    configFileURL    = serverURL + "/CDMS/registration/file/";
-    taskingURL       = serverURL + "/CDMS/registration/tasking/";
-    seedsURL         = serverURL + "/CDMS/corpus/seeds/";
-    corpusFileURL    = serverURL + "/CDMS/corpus/file/";
-    storeTestcaseURL = serverURL + "/CDMS/corpus/store/";
-    corpusUpdateURL  = serverURL + "/CDMS/corpus/retrieve/";
-    corpusSyncURL    = serverURL + "/CDMS/corpus/sync/";
-    corpusPauseURL   = serverURL + "/CDMS/corpus/pause/";
-    kpiURL           = serverURL + "/CDMS/kpi/update/";
+    registerURL      =  "/CDMS/registration/register/";
+    statusURL        =  "/CDMS/registration/status/";
+    configFileURL    =  "/CDMS/registration/file/";
+    taskingURL       =  "/CDMS/registration/tasking/";
+    seedsURL         =  "/CDMS/corpus/seeds/";
+    corpusFileURL    =  "/CDMS/corpus/file/";
+    storeTestcaseURL =  "/CDMS/corpus/store/";
+    corpusUpdateURL  =  "/CDMS/corpus/retrieve/";
+    corpusSyncURL    =  "/CDMS/corpus/sync/";
+    corpusPauseURL   =  "/CDMS/corpus/pause/";
+    kpiURL           =  "/CDMS/kpi/update/";
 
     buildSocket();
 
@@ -158,76 +139,10 @@ void CDMSClient::init(ConfigInterface& config, int pid, std::string name, std::s
  */
 void CDMSClient::buildSocket()
 {
-    //Based on https://gist.github.com/hostilefork/f7cae3dc33e7416f2dd25a402857b6c6
-
     std::string addrString = "237.255.255.255"; 
-    const char* group = addrString.c_str();
     int port = 8888;
-
-    // create what looks like an ordinary UDP socket
-    //
-    fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd < 0) {
-        throw RuntimeException("Error creating socket", RuntimeException::OTHER);
-    }
-
-    // allow multiple sockets to use the same PORT number
-    //
-    unsigned int yes = 1;
-    if (
-        setsockopt(
-            fd, SOL_SOCKET, SO_REUSEADDR, (char*) &yes, sizeof(yes)
-        ) < 0
-    ){
-       throw RuntimeException("Error reusing socket address", RuntimeException::OTHER);
-    }
-
-    // set up destination address
-    //
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(INADDR_ANY); // differs from sender
-    addr.sin_port = htons(port);
-
-    // bind to receive address
-    //
-    if (bind(fd, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
-        throw RuntimeException("Error binding socket", RuntimeException::OTHER);
-    }
-
-    // use setsockopt() to request that the kernel join a multicast group
-    //
-    
-    mreq.imr_multiaddr.s_addr = inet_addr(group);
-    mreq.imr_interface.s_addr = htonl(INADDR_ANY);
-    if (
-        setsockopt(
-            fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*) &mreq, sizeof(mreq)
-        ) < 0
-    ){
-        throw RuntimeException("Error setting socket options", RuntimeException::OTHER);
-    }
-
-#ifdef _WIN32
-
-    unsigned long nonBlocking = 1;
-
-    int status = ::ioctlsocket(fd, FIONBIO, &nonBlocking);
-
-    if (status < 0)
-    {
-        throw RuntimeException("Error setting socket to non-blocking", RuntimeException::OTHER);
-    }
-
-#else
-    //Set to non-blocking mode
-    int status = fcntl( fd, F_SETFL, O_NONBLOCK | O_NDELAY );
-    if(status < 0)
-    {
-        throw RuntimeException("Error setting socket to non-blocking", RuntimeException::OTHER);
-    }
-
-#endif
+    udpSocket = UDPMulticastAPI::instance();
+    udpSocket->buildSocket(addrString,port);
 }
 
 /**
@@ -242,44 +157,8 @@ void CDMSClient::buildSocket()
  */
 int CDMSClient::readMulticast(char* msgbuf, int size)
 {
-    int addrlen = sizeof(addr);
-    int nbytes = recvfrom(
-        fd,
-        msgbuf,
-        size,
-        0,
-        (struct sockaddr *) &addr,
-        (socklen_t*)&addrlen
-    );
-
-    if (nbytes < 0) 
-    {
-#ifdef _WIN32
-
-        if (WSAGetLastError() != WSAEWOULDBLOCK)
-        {
-            throw RuntimeException("Error reading from socket", RuntimeException::OTHER);
-        }
-        else
-        {
-            nbytes = 0;
-        }
-#else
-
-        if (EWOULDBLOCK != errno )
-        {
-            throw RuntimeException("Error reading from socket", RuntimeException::OTHER);
-        }
-        else
-        {
-            nbytes = 0;
-        }
-#endif
-
-    }
-
+    int nbytes = udpSocket->readData(msgbuf, size);
     msgbuf[nbytes] = '\0';
-
     return nbytes;
 }
 
@@ -294,17 +173,15 @@ std::string CDMSClient::doGet(std::string url)
 {
     bool done = false;
     RestClient::Response r;
-    char err[512] = "CMDS Connection failed"; //Typically overwritten below
     int count = 0;
 
     while((!done)&&(count < retryCount))
     {
         count++;
-        r = RestClient::get(url);
+        r = conn->get(url);
         if(200 != r.code)
         {
-            sprintf(err, "Get from Server Failed Code = %d (%s)", r.code, url.c_str());
-            LOG_ERROR << err;
+            LOG_ERROR << "Get from Server Failed Code = " << r.code << ";(" << url << ")";
             LOG_ERROR << "Failed Message Body:" << r.body;
             std::this_thread::sleep_for(retryTime);
         }
@@ -316,7 +193,7 @@ std::string CDMSClient::doGet(std::string url)
 
     if (!done)
     {
-        throw RuntimeException(err, RuntimeException::SERVER_ERROR);
+        throw RuntimeException("HTTP Get From Server Failed", RuntimeException::SERVER_ERROR);
     }
 
     return r.body;
@@ -336,17 +213,16 @@ std::string CDMSClient::doPost(std::string url, std::string json)
 {
     bool done = false;
     std::string response = "CMDS Connection failed";  //Typically overwritten below
-    char err[512];
+    conn->AppendHeader("Content-Type", "application/json");
     int count = 0;
 
     while((!done)&&(count < retryCount))
     {
         count++;
-        RestClient::Response r = RestClient::post(url, "application/json", json);
+        RestClient::Response r = conn->post(url, json);
         if(200 != r.code)
         {
-            sprintf(err, "Posting to Server Failed Code = %d; (%s)", r.code, url.c_str());
-            LOG_ERROR << err;
+            LOG_ERROR << "Posting to Server Failed Code = " << r.code << ";(" << url << ")";
             LOG_ERROR << "Failed Message Body:" << r.body;
             std::this_thread::sleep_for(retryTime);
         }
@@ -359,7 +235,7 @@ std::string CDMSClient::doPost(std::string url, std::string json)
 
     if (!done)
     {
-        throw RuntimeException(err, RuntimeException::SERVER_ERROR);
+        throw RuntimeException("HTTP Post to Server Failed", RuntimeException::SERVER_ERROR);
     }
 
     return response;
@@ -379,19 +255,18 @@ std::string CDMSClient::doPost(std::string url, std::string json)
 std::string CDMSClient::doBinaryPost(std::string url, char* buff, int size)
 {
     std::string data(buff, size);
-    std::string response = "";
+    std::string response = "CMDS Connection failed";  //Typically overwritten below
+    conn->AppendHeader("Content-Type", "application/binary");
     bool done = false;
-    char err[512] = "CMDS Connection failed";  //Typically overwritten below
     int count = 0;
 
     while((!done)&&(count < retryCount))
     {
         count++;
-        RestClient::Response r = RestClient::post(url, "application/binary", data);
+        RestClient::Response r = conn->post(url, data);
         if(200 != r.code)
         {
-            sprintf(err, "Posting to Server Failed Code = %d; (%s)", r.code, url.c_str());
-            LOG_ERROR << err;
+            LOG_ERROR << "Posting to Server Failed Code = " << r.code << ";(" << url << ")";
             LOG_ERROR << "Failed Message Body:" << r.body;
             std::this_thread::sleep_for(retryTime);
         }
@@ -404,7 +279,7 @@ std::string CDMSClient::doBinaryPost(std::string url, char* buff, int size)
 
     if (!done)
     {
-        throw RuntimeException(err, RuntimeException::SERVER_ERROR);
+        throw RuntimeException("HTTP Binary Post to Server Failed", RuntimeException::SERVER_ERROR);
     }
 
     return response;
@@ -429,24 +304,17 @@ std::string CDMSClient::doBinaryPost(std::string url, char* buff, int size, std:
     bool done = false;
     int count = 0;
     std::string data(buff, size);
-    char err[512] = "CMDS Connection failed"; //Typically overwritten below
-    std::string response = "";
+    std::string response = "CMDS Connection failed";  //Typically overwritten below
+    conn->AppendHeader("Content-Type", "application/binary");
 
     while((!done)&&(count < retryCount))
     {
         count++;
-        RestClient::Connection* conn = new RestClient::Connection(url);
-        RestClient::HeaderFields headers;
-
-        conn->SetHeaders(headers);
-        conn->AppendHeader("Content-Type", "application/binary");
-        conn->AppendHeader(key, value);
-        RestClient::Response r = conn->post("/post", data);
+        RestClient::Response r = conn->post(url, data);
         if(200 != r.code)
         {
-            sprintf(err, "Posting to Server Failed Code = %d; (%s)", r.code, url.c_str());
+            LOG_ERROR << "Posting to Server Failed Code = " << r.code << ";(" << url << ")";
             LOG_ERROR << "Failed Message Body:" << r.body;
-            LOG_ERROR << err;
             std::this_thread::sleep_for(retryTime);
         }
         else
@@ -454,12 +322,11 @@ std::string CDMSClient::doBinaryPost(std::string url, char* buff, int size, std:
             done = true;
             response = r.body;
         }
-        delete conn;
     }
 
     if (!done)
     {
-        throw RuntimeException(err, RuntimeException::SERVER_ERROR);
+        throw RuntimeException("HTTP Binary Post to Server Failed", RuntimeException::SERVER_ERROR);
     }
 
     return response;
@@ -772,7 +639,7 @@ std::vector<int> CDMSClient::getCommands()
 void CDMSClient::sendTestCase(char* buff, int size, std::string tags)
 {
     LOG_DEBUG << "Sending individual interesting test case to server";
-    std::string fullURL  = storeTestcaseURL + std::to_string(clusterid) + "/" + std::to_string(scenarioid) + "/" + std::to_string(uid) + +"/" + std::to_string(size);
+    std::string fullURL  = storeTestcaseURL + std::to_string(clusterid) + "/" + std::to_string(scenarioid) + "/" + std::to_string(uid) + +"/" + std::to_string(size) + "/FILE";
     std::string response = this->doBinaryPost(fullURL, buff, size, "tags", tags);
 }
 
@@ -815,23 +682,25 @@ void CDMSClient::sendTestCases(std::unique_ptr<Iterator>& entriesToSend, std::ve
     }
 
     //Now zip up the directory
-    bool success = VmfUtil::commandLineZip(zipFilename, zipTempDir);
+    bool success = OSAPI::instance().commandLineZip(zipFilename, zipTempDir);
     if(success)
     {
         // open and read file into buffer
         std::ifstream inFile;
         uintmax_t filesize = static_cast<uintmax_t>(0);
         filesize = std::filesystem::file_size(zipFilename);
-        char zipbuff[filesize];
+        std::string zipbuff;
+        zipbuff.resize(filesize);
 
         inFile.open(zipFilename, std::ifstream::binary);
-        inFile.read(zipbuff, filesize);
+        inFile.read(&zipbuff[0], filesize);
+
 
         LOG_INFO << "Sending to server zip file of size;" << filesize << "; Number of interesting test cases;" << i;
 
         std::string fullURL  = storeTestcaseURL + std::to_string(clusterid) + "/" + std::to_string(scenarioid) + "/" 
                             + std::to_string(uid) + +"/" + std::to_string(filesize) + "/ZIP";
-        std::string response = this->doBinaryPost(fullURL, zipbuff, filesize);
+        std::string response = this->doBinaryPost(fullURL, &zipbuff[0], (int) filesize);
     }
 
     //Now cleanup temp files
@@ -988,7 +857,7 @@ std::string CDMSClient::formatTagList(std::vector<std::string> tags)
 {
     std::string tagList = "";
 
-    int numTags = tags.size();
+    int numTags = (int)tags.size();
     for(int i=0; i<numTags; i++)
     {
         //Add the next tag name

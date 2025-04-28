@@ -33,6 +33,10 @@ namespace vmf
  * in each test case to append the front of one test case to the tail of the other to make a new 
  * interesting test case to put into mutateTestCase.
  * 
+ * This mutator writes both the TEST_CASE and the TEST_CASE_AUT, the latter is used to enable
+ * subsequent grammar-aware mutations.
+ * @image html CoreModuleDataModel_8.png width=800px
+ * @image latex CoreModuleDataModel_8.png width=6in
  */
 class GramatronSpliceMutator: public MutatorModule
 {

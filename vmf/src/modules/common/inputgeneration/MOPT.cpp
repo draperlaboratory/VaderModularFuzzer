@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -49,11 +40,12 @@ MOPT::MOPT(std::vector<MutatorModule*>* _mutators, int _numSwarms, int _pilotPer
 {
 
     mutators = _mutators;
-    numMutators = mutators -> size();
+    numMutators = (int) mutators -> size();
     numSwarms = _numSwarms;
     pilotPeriod = _pilotPeriod;
     corePeriod = _corePeriod;
     currentSwarm = 0;
+    w_now = 0;
     currentMode = PILOT_MODE;
     swarms = new std::vector<MOPTSwarm*>();
     for (unsigned int i = 0; i < numSwarms; i++)
@@ -165,7 +157,7 @@ void MOPT::ranTestCases(int numTestCases, bool allowPrint)
             // If all swarms have a fitness of 0, then pick a swarm randomly.
             // This can happen late in fuzzing when new testcases become rare.
             if (bestFitness == 0)
-                currentSwarm = rand -> randBelow(numSwarms);
+                currentSwarm = rand -> randBelow((int)numSwarms);
 
             if (allowPrint)
             {

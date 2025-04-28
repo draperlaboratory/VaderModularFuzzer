@@ -24,7 +24,6 @@
 #include "GramatronSpliceMutator.hpp"
 #include <random>
 #include <algorithm>
-#include <unistd.h>
 
 using namespace vmf;
 
@@ -60,7 +59,10 @@ void GramatronSpliceMutator::init(ConfigInterface& config)
 GramatronSpliceMutator::GramatronSpliceMutator(std::string name) :
     MutatorModule(name)
 {
-
+    autRepKey = 0;
+    pda = nullptr;
+    rand = nullptr;
+    normalTag = 0;
 }
 /**
  * @brief Destroy the GramatronSpliceMutator::GramatronSpliceMutator object
@@ -220,7 +222,7 @@ Array* GramatronSpliceMutator::performSpliceOne(Array* originput, IdxMap_new* st
             int* splice_idx = (int *)utarray_eltptr(stateptr, (unsigned int)(rand->randBelow(length)));
 
             ip.orig_idx = *splice_idx;
-            ip.splice_idx = x;
+            ip.splice_idx = (int)x;
             utarray_push_back(pairs, &ip);
         }
     }

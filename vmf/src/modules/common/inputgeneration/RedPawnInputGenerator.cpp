@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -120,7 +111,7 @@ void RedPawnInputGenerator::init(ConfigInterface& config)
         arithmeticTransforms.push_back(new XORTransform());
 
     // Require at least 1 transform
-    int transformsUsed = arithmeticTransforms.size() + encodingTransforms.size();
+    int transformsUsed = (int) (arithmeticTransforms.size() + encodingTransforms.size());
     if (transformsUsed < 1)
     {
         throw RuntimeException("RedPawnInputGenerator was configured with no transforms. Enable at least 1 transform.", RuntimeException::CONFIGURATION_ERROR);
@@ -150,6 +141,30 @@ RedPawnInputGenerator::RedPawnInputGenerator(std::string name) :
 {
     colorized_testcase = nullptr;
     base_testcase = nullptr;
+    currTestCaseID = 0;
+    size = 0;
+    testCasesGenerated = 0;
+    testCasesGeneratedTotal = 0;
+    testCasesAdded = 0;
+    testCasesAddedTotal = 0;
+    testCasesAddedByLastSeed = 0;
+    timeStartedTestCase = 0;
+    currTestCaseID = 0;
+    testCasesInQueue = 0;
+
+    //These should be initialized during registration
+    cmpLogMapKey = 0;
+    execTimeKey = 0;
+    testCaseKey = 0;
+    traceBitsKey = 0;
+    redPawnNewCoverageTag = 0;
+    newCoverageTag = 0;
+    ranNormallyTag = 0;
+    cmplog_executor = nullptr;
+    regular_executor = nullptr;
+    rand = nullptr;
+    skipStaticLogEntries = false;
+    currentMode = StartNewTestCase;
 }
 
 
@@ -174,13 +189,14 @@ void RedPawnInputGenerator::registerStorageNeeds(StorageRegistry& registry)
     // Read
     newCoverageTag = registry.registerTag("HAS_NEW_COVERAGE", StorageRegistry::READ_ONLY);
     ranNormallyTag = registry.registerTag("RAN_SUCCESSFULLY", StorageRegistry::READ_ONLY);    
-    testCaseKey = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_ONLY);
+    testCaseKey = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_WRITE);
     traceBitsKey = registry.registerKey("AFL_TRACE_BITS", StorageRegistry::BUFFER_TEMP, StorageRegistry::READ_ONLY);
     execTimeKey = registry.registerKey("EXEC_TIME_US", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
     cmpLogMapKey = registry.registerKey("CMPLOG_MAP_BITS", StorageRegistry::BUFFER_TEMP, StorageRegistry::READ_ONLY);
 
     // Write
     redPawnNewCoverageTag = registry.registerTag("REDPAWN_NEW_COVERAGE", StorageRegistry::READ_WRITE);
+    mutatorIdKey = registry.registerIntKey("MUTATOR_ID", StorageRegistry::WRITE_ONLY, 1);
 }
 
 
@@ -504,6 +520,7 @@ bool RedPawnInputGenerator::generateRedPawnCandidates(StorageModule& storage)
         // We don't yet support compare sizes > 64 bits, and we can't perform analysis if testcase is smaller than compare size
         if (compare_size > 8 || compare_size > size)
         {
+            currentLogIndex++;
             continue;
         }
 
@@ -741,6 +758,9 @@ void RedPawnInputGenerator::addCandidatesToStorage(StorageModule& storage)
         char * buff = newEntry -> getBufferPointer(testCaseKey);
         memcpy(buff, rp_testcase, size);
         free(rp_testcase);
+        /* RedPawn doesn't use mutators -- set input-gen ID as the mutator ID */
+        newEntry->setValue(mutatorIdKey, getID());
+
     }
 
     candidates.clear();
@@ -1009,7 +1029,7 @@ bool RedPawnInputGenerator::colorize(StorageModule& storage, StorageEntry * base
             bytes_changed++;
     }
 
-    float percentChanged = bytes_changed / (float) size * 100.0;
+    float percentChanged = (float)( bytes_changed / (float) size * 100.0);
     LOG_DEBUG << "Bytes changed: " << bytes_changed << " (" << percentChanged << "%)";
 
     // LOG_INFO << "Number taint regions: " << taintRegions.size();
@@ -1041,7 +1061,7 @@ void RedPawnInputGenerator::printStats()
 
         // How long we've been working from the same seed
         time_t now = time(0);
-        int secondsSpent = difftime(now, timeStartedTestCase);
+        int secondsSpent = (int) difftime(now, timeStartedTestCase);
         LOG_INFO << "Seconds spent on this testcase: " << secondsSpent;
 
         // Testcases generated

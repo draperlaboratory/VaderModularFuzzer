@@ -9,3 +9,5 @@ vmfModules:
     - className: AFLFeedback
     - className: ComputeStats
     - className: StatsOutput
+DirectoryBasedSeedGen:
+  inputDir: *INPUT_DIR

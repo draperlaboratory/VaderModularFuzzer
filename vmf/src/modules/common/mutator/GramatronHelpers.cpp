@@ -47,15 +47,22 @@ Array* vmf::gen_input(PDA *pda_s, Array* input, int curr_state) {
         // Retrieving the state from the pda depending on if this is a new input or a random walk from an old input
         state_ptr = pda_s->state_ptr() + curr_state;
 
-        // Get a random trigger based on the number of triggers/transition functions out of the automata current state
-        randval = rand->randBelow(state_ptr->trigger_len);
-        trigger_ptr = (state_ptr->ptr) + randval;
+        // prevents division by zero errors from malformed grammars
+        if(state_ptr->trigger_len) {
+            
+            randval = rand->randBelow(state_ptr->trigger_len);
+            trigger_ptr = (state_ptr->ptr) + randval;
 
-        // Insert into the dynamic array (essentially the PDA walk)
-        insertArray(input, curr_state, trigger_ptr->term, trigger_ptr->term_len, randval);
+            // Insert into the dynamic array (essentially the PDA walk)
+            insertArray(input, curr_state, trigger_ptr->term, trigger_ptr->term_len, randval);
 
-        //update current state to the destination automata state of the chosen transition function
-        curr_state = trigger_ptr->dest;
+            //update current state to the destination automata state of the chosen transition function
+            curr_state = trigger_ptr->dest;
+
+        } else {
+            LOG_ERROR << "Grammar contains a non-final automata state which has no transition triggers ( State: " << curr_state << " )";
+            break;
+        }
     }
 
     //return PDA representation (pointer to first PDA state of states and transition functions traversed)
@@ -80,7 +87,7 @@ void vmf::createNewTestCasesFromPDA(StorageModule& storage, int testCaseKey, int
         //generate new input
         Array *input = gen_input(pda_s,NULL, 0);
 
-        size = input->inputlen;
+        size = (int) input->inputlen;
 
         if (0 == size) {
             LOG_INFO << "Warning: ignoring input file of size 0.";
@@ -102,11 +109,11 @@ void vmf::createNewTestCasesFromPDA(StorageModule& storage, int testCaseKey, int
  * @param autRepKey key to automata representation buffer for test case
  */
 void vmf::storeTestCase(StorageEntry* newEntry, Array* input, int testCaseKey, int autRepKey){
-    int size = input->inputlen;
+    int size = (int) input->inputlen;
 
     char* buff = newEntry->allocateBuffer(testCaseKey, size);
 
-    int aut_size = input->size*sizeof(terminal) + 3*sizeof(size_t);
+    int aut_size = (int) (input->size*sizeof(terminal) + 3*sizeof(size_t));
     char* aut_buff = newEntry->allocateBuffer(autRepKey,aut_size);
 
 

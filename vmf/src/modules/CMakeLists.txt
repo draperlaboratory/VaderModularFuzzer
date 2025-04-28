@@ -1,17 +1,8 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+# Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
 # <vmf@draper.com>
-#  
-# Effort sponsored by the U.S. Government under Other Transaction number
-# W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
-# Is authorized to reproduce and distribute reprints for Governmental purposes
-# notwithstanding any copyright notation thereon.
-#  
-# The views and conclusions contained herein are those of the authors and
-# should not be interpreted as necessarily representing the official policies
-# or endorsements, either expressed or implied, of the U.S. Government.
-#  
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 (only) as 
 # published by the Free Software Foundation.
@@ -27,22 +18,37 @@
 # @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
 #===============================================================================
 # Create Core Modules Library
-add_library(CoreModules SHARED
-    linux/feedback/AFLFeedback.cpp
-    linux/feedback/AFLFavoredFeedback.cpp
-    linux/executor/AFLForkserverExecutor.cpp
-    linux/executor/AFLCoverageUtil.cpp
-    linux/initialization/KleeInitialization.cpp
-    linux/initialization/StringsInitialization.cpp
-    linux/output/CorpusMinimization.cpp
+set(CoreModules_SOURCES )
+
+if(WIN32)
+   add_subdirectory(windows/executor/rt)
+   list(APPEND CoreModules_SOURCES
+        windows/executor/FridaExecutor.cpp
+        #windows/executor/TBD.cpp
+   )
+else()
+    list(APPEND CoreModules_SOURCES
+        linux/executor/AFLForkserverExecutor.cpp
+        linux/initialization/KleeInitialization.cpp
+        linux/initialization/StringsInitialization.cpp
+        linux/initialization/DictionaryInitialization.cpp
+    )
+endif()
+
+
+list(APPEND CoreModules_SOURCES
     common/controller/AnalysisController.cpp
     common/controller/RunOnceController.cpp
     common/controller/IterativeController.cpp
     common/controller/NewCoverageController.cpp
+    common/feedback/AFLCoverageUtil.cpp
+    common/feedback/AFLFeedback.cpp
+    common/feedback/AFLFavoredFeedback.cpp
     common/initialization/DirectoryBasedSeedGen.cpp
     common/initialization/GramatronBasedSeedGen.cpp
     common/initialization/ServerCorpusInitialization.cpp
     common/initialization/ServerSeedInitialization.cpp
+    common/initialization/TrivialSeedInitialization.cpp
     common/inputgeneration/GeneticAlgorithmInputGenerator.cpp
     common/inputgeneration/MOPTInputGenerator.cpp    
     common/inputgeneration/MOPT.cpp
@@ -67,7 +73,9 @@ add_library(CoreModules SHARED
     common/mutator/AFLDeleteMutator.cpp
     common/mutator/AFLCloneMutator.cpp
     common/mutator/AFLSpliceMutator.cpp
+    common/mutator/DictionaryMutator.cpp
     common/output/ComputeStats.cpp
+    common/output/CorpusMinimization.cpp
     common/output/CSVMetadataOutput.cpp
     common/output/LoggerMetadataOutput.cpp
     common/output/SaveCorpusOutput.cpp
@@ -75,6 +83,12 @@ add_library(CoreModules SHARED
     common/output/ServerCorpusOutput.cpp
     common/output/StatsOutput.cpp
 )
+
+add_library(CoreModules SHARED ${CoreModules_SOURCES})
+
+if(WIN32)
+   target_compile_definitions(CoreModules PRIVATE PLOG_IMPORT)
+endif()
 
 #These are the dependencies for the VMF CoreModules
 target_link_libraries(CoreModules
@@ -84,26 +98,44 @@ target_link_libraries(CoreModules
     uthash
 )
 
-target_include_directories(CoreModules PUBLIC
+set(CoreModules_INCLUDES )
+
+list(APPEND CoreModules_INCLUDES
   ${CMAKE_CURRENT_LIST_DIR}/util
   ${CMAKE_CURRENT_LIST_DIR}/common/controller
+  ${CMAKE_CURRENT_LIST_DIR}/common/executor
+  ${CMAKE_CURRENT_LIST_DIR}/common/feedback
   ${CMAKE_CURRENT_LIST_DIR}/common/initialization
   ${CMAKE_CURRENT_LIST_DIR}/common/inputgeneration
   ${CMAKE_CURRENT_LIST_DIR}/common/mutator
   ${CMAKE_CURRENT_LIST_DIR}/common/output
-  ${CMAKE_CURRENT_LIST_DIR}/linux/executor
-  ${CMAKE_CURRENT_LIST_DIR}/linux/feedback
-  ${CMAKE_CURRENT_LIST_DIR}/linux/initialization
-  ${CMAKE_CURRENT_LIST_DIR}/linux/mutator
-  ${CMAKE_CURRENT_LIST_DIR}/linux/output
 )
+
+if(WIN32)
+   list(APPEND CoreModules_INCLUDES
+    ${CMAKE_CURRENT_LIST_DIR}/windows/controller
+    ${CMAKE_CURRENT_LIST_DIR}/windows/executor
+    ${CMAKE_CURRENT_LIST_DIR}/windows/feedback
+    ${CMAKE_CURRENT_LIST_DIR}/windows/initialization
+    ${CMAKE_CURRENT_LIST_DIR}/windows/inputgeneration
+    ${CMAKE_CURRENT_LIST_DIR}/windows/mutator
+    ${CMAKE_CURRENT_LIST_DIR}/windows/output
+    )
+else()
+  list(APPEND CoreModules_INCLUDES
+    ${CMAKE_CURRENT_LIST_DIR}/linux/controller
+    ${CMAKE_CURRENT_LIST_DIR}/linux/executor
+    ${CMAKE_CURRENT_LIST_DIR}/linux/feedback
+    ${CMAKE_CURRENT_LIST_DIR}/linux/initialization
+    ${CMAKE_CURRENT_LIST_DIR}/linux/inputgeneration
+    ${CMAKE_CURRENT_LIST_DIR}/linux/mutator
+    ${CMAKE_CURRENT_LIST_DIR}/linux/output
+  )
+endif()
+
+target_include_directories(CoreModules PUBLIC ${CoreModules_INCLUDES})
 
 set_vmf_compile_options(CoreModules)
 
 install(TARGETS CoreModules DESTINATION "${CMAKE_INSTALL_PREFIX}/plugins")
 
-#For developers, copy plugins in build/plugins
-add_custom_command(TARGET CoreModules PRE_BUILD 
-  COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/plugins)
-add_custom_command(TARGET CoreModules POST_BUILD 
-   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/vmf/src/modules/*.so ${CMAKE_BINARY_DIR}/plugins/)

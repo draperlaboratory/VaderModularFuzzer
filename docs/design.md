@@ -52,7 +52,7 @@ The IterativeController is organized into a series of functions that break up th
 ![Design Diagram](./img/FinalDesign_3.png)
 
 ## Configuration Files
-VMF uses a configuration file to determine which modules will execute, but the control-flow aspect of their execution is managed entirely by the controller module.  A brief example is provided below.  See [writing_new_modules.md](/docs/writing_new_modules.md) for more information on the structure of the VMF configuration files.
+VMF uses a configuration file to determine which modules will execute, but the control-flow aspect of their execution is managed entirely by the controller module.  A brief example is provided below.  See [writing_new_modules.md](./writing_new_modules.md) for more information on the structure of the VMF configuration files.
 
 ![Design Diagram](./img/FinalDesign_7.png)
 
@@ -172,7 +172,7 @@ A more detailed explanation of the Storage Module is provided below.  This compo
 - A set of tags associated with these entries
 - A set of metadata fields (for global data)
 
-Importantly the exact contents of the storage entry is configurable at initialize by the set of modules that VMF has been configured to use.  Each module has a registration step that informs storage of it's data needs.  See [writing_new_modules.md](/docs/writing_new_modules.md) for more information on configuring storage.
+Importantly the exact contents of the storage entry is configurable at initialize by the set of modules that VMF has been configured to use.  Each module has a registration step that informs storage of it's data needs.  See [writing_new_modules.md](./writing_new_modules.md) for more information on configuring storage.
 
 Each modules reads and writes values on the storage entry, using the following methods:
 ![Design Diagram](./img/DataFlow_5.png)

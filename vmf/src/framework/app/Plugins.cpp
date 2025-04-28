@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -26,10 +17,8 @@
  *  
  * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
  * ===========================================================================*/
-
-#include <dlfcn.h>
 #include <filesystem>
-
+#include "OSAPI.hpp"
 #include "Logging.hpp"
 #include "RuntimeException.hpp"
 #include "Plugins.hpp"
@@ -39,22 +28,15 @@ using namespace vmf;
 SharedLibrary::SharedLibrary(std::string pathToLibrary)
 {
     LOG_INFO << "loading shared library " << pathToLibrary;
-    handle = dlopen(pathToLibrary.c_str(), RTLD_LAZY);
-    if (!handle)
-    {
-	std::string msg = "unable to load shared library " + pathToLibrary;
-	msg += ": ";
-	msg += dlerror();
-	LOG_ERROR << msg;
-	throw RuntimeException(msg.c_str());
-    }
+    //An exception will be throw if this load fails
+    handle = OSAPI::instance().openDLL(pathToLibrary);
     libraryName = pathToLibrary;
 }
 
 SharedLibrary::~SharedLibrary()
 {
     LOG_INFO << "unloading shared library " << libraryName;
-    dlclose(handle);
+    OSAPI::instance().closeDLL(handle);
 }
 
 void PluginLoader::loadAll(std::string pluginDirectory)
@@ -66,9 +48,9 @@ void PluginLoader::loadAll(std::string pluginDirectory)
 	if (stdfs::is_regular_file(f))
 	{
 	    auto ext = f.path().extension();
-	    if (ext == ".so")
+	    if ((ext == ".so") || (ext == ".dll"))
 	    {
-		loadSpecific(f.path());
+		    loadSpecific(f.path().string());
 	    }
 	}
     }

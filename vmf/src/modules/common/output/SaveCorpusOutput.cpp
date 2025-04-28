@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -62,7 +53,7 @@ void SaveCorpusOutput::init(ConfigInterface& config)
 
     std::vector<std::string> defaultTags = {"CRASHED","HUNG"};
     tagNames = config.getStringVectorParam(getModuleName(),"tagsToSave", defaultTags);
-    numTags = tagNames.size();
+    numTags = (int) tagNames.size();
 
     //Tag based directories are created based on the tags of interest
     for(int i=0; i<numTags; i++)
@@ -77,6 +68,12 @@ void SaveCorpusOutput::init(ConfigInterface& config)
     //Unique is always created
     fdirUnique = fdir + "/unique";
     VmfUtil::createDirectory(fdirUnique.c_str());
+
+    //Output mutator IDs used to generate each test case
+    recordTestMetadata = config.getBoolParam(getModuleName(), "recordTestMetadata", false);
+
+    //Save reference to config
+    this->config = &config;
 }
 
 /**
@@ -115,6 +112,7 @@ void SaveCorpusOutput::registerStorageNeeds(StorageRegistry& registry)
         tagHandles.push_back(handle);
     }
     testCaseKey = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_ONLY);
+    mutatorIdKey = registry.registerKey("MUTATOR_ID", StorageRegistry::INT, StorageRegistry::READ_ONLY);
 }
 
 /**
@@ -127,7 +125,7 @@ void SaveCorpusOutput::registerStorageNeeds(StorageRegistry& registry)
 void SaveCorpusOutput::run(StorageModule& storage)
 {
     //Save any tagged new entries
-    int numHandles = tagHandles.size();
+    int numHandles = (int) tagHandles.size();
 
     std::unique_ptr<Iterator> interestingEntries = storage.getNewEntriesThatWillBeSaved();
     while(interestingEntries->hasNext())
@@ -163,9 +161,25 @@ void SaveCorpusOutput::outputTestCase(StorageEntry* entry, std::string dir)
     char* buffer = entry->getBufferPointer(testCaseKey);
     unsigned long id = entry->getID();
 
+    // Output test case buffer
     // create a file name with id
     std::string filename = std::to_string(id);
     VmfUtil::writeBufferToFile(dir, filename, buffer, size);
+
+    // Output test case metadata
+    /* Create a separate file for test case metadata */
+    if (recordTestMetadata) {
+        std::string metadata = "";
+        filename = std::to_string(id) + "_metadata";
+
+        /* Get mutator information */
+        int mutator_id = entry->getIntValue(mutatorIdKey);
+        metadata += "Mutator: " + config->getModuleName(mutator_id) + "\n";
+
+        VmfUtil::writeBufferToFile(dir, filename, metadata.c_str(), metadata.size());
+    }
+
+
 }
 
 

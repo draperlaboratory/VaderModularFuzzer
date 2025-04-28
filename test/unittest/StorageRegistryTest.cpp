@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -62,7 +53,7 @@ TEST(StorageRegistryTest, StorageKeyHelperTest)
 
     GTEST_COUT << "TEST_INT Handle is:" << int_key << "\n";
     int type = StorageKeyHelper::getType(int_key);
-    ASSERT_EQ(type, 1) << "Type not as expected, got: " << type; //INT_TYPE_MASK is 1
+    ASSERT_EQ(type, 1) << "Type not as expected, got: " << type; //INT_TYPE mask is 1
 
     int index2 = StorageKeyHelper::getIndex(int_key);
     ASSERT_EQ(index2, 0) << "Index not as expected, got: " << index2; //In the current implementation, the first value is registered at index 0
@@ -70,7 +61,7 @@ TEST(StorageRegistryTest, StorageKeyHelperTest)
     int float_key = registry->registerKey("TEST_FLOAT", StorageRegistry::FLOAT, StorageRegistry::READ_WRITE);
     GTEST_COUT << "TEST_FLOAT Handle is:" << float_key << "\n";
     type = StorageKeyHelper::getType(float_key);
-    ASSERT_EQ(type, 3) << "Float type not as expected, got: " << type; //FLOAT_TYPE_MASK is 2
+    ASSERT_EQ(type, 4) << "Float type not as expected, got: " << type; //FLOAT_TYPE_MASK is 4
 
     index2 = StorageKeyHelper::getIndex(float_key);
     ASSERT_EQ(index2, 0) << "Float Index not as expected, got: " << index2; //In the current implementation, the first value is registered at index 0
@@ -121,7 +112,7 @@ TEST(StorageRegistryTest, testDefaults)
 
     ASSERT_EQ(2,registry->getNumKeys(StorageRegistry::UINT));
 
-    GTEST_COUT << "Registering fkoat keys\n";
+    GTEST_COUT << "Registering float keys\n";
     //Default values for this key is 2.0
     int float_key = registry->registerFloatKey( 
         "TEST_FLOAT",
@@ -137,6 +128,23 @@ TEST(StorageRegistryTest, testDefaults)
     );
 
     ASSERT_EQ(2,registry->getNumKeys(StorageRegistry::FLOAT));
+
+    GTEST_COUT << "Registering u64 keys\n";
+    //Default values for this key is 100000000000
+    int u64_key = registry->registerU64Key( 
+        "TEST_U64",
+        StorageRegistry::READ_WRITE,
+        100000000000
+    );
+
+    //This has no default
+    int u64_key_no_default = registry->registerKey(
+        "TEST_U64_NO_DEF",
+        StorageRegistry::U64,
+        StorageRegistry::READ_WRITE
+    );
+
+    ASSERT_EQ(2,registry->getNumKeys(StorageRegistry::U64));
   
     GTEST_COUT << "Checking int key defaults\n";
     std::vector<int> intDefs = registry->getIntKeyDefaults();
@@ -159,6 +167,14 @@ TEST(StorageRegistryTest, testDefaults)
     ASSERT_EQ(floatDefs[float_key_index],2.0);
     ASSERT_EQ(floatDefs[float_key_no_default_index],0);
 
+    GTEST_COUT << "Checking u64 key defaults\n";
+    std::vector<unsigned long long> u64Defs = registry->getU64KeyDefaults();
+    int u64_key_index = StorageKeyHelper::getIndex(u64_key);
+    int u64_key_no_default_index = StorageKeyHelper::getIndex(u64_key_no_default);
+    ASSERT_EQ(u64Defs[u64_key_index],100000000000);
+    ASSERT_EQ(u64Defs[u64_key_no_default_index],0);
+
+
     GTEST_COUT << "Validating storage registration\n";
     StorageRegistry* metadata = new StorageRegistry();
         
@@ -173,9 +189,11 @@ TEST(StorageRegistryTest, testDefaults)
         ASSERT_EQ(entry->getIntValue(int_key), 5);
         ASSERT_EQ(entry->getUIntValue(uint_key), 3000000000);
         ASSERT_EQ(entry->getFloatValue(float_key), 2.0);
+        ASSERT_EQ(entry->getU64Value(u64_key), 100000000000);
         ASSERT_EQ(entry->getIntValue(int_key_no_default), 0);
         ASSERT_EQ(entry->getUIntValue(uint_key_no_default), 0);
         ASSERT_EQ(entry->getFloatValue(float_key_no_default), 0.0);
+        ASSERT_EQ(entry->getU64Value(u64_key_no_default), 0);
     }
     catch(RuntimeException e)
     {
@@ -194,7 +212,7 @@ TEST(StorageRegistryTest, testDefaultOnSecondRegistration)
 
     StorageRegistry* registry = new StorageRegistry("TEST_INT", StorageRegistry::INT, StorageRegistry::ASCENDING);
 
-    float myFloat = 3.14; //This has to be a reused value to specify actual equality
+    float myFloat = 3.14F; //This has to be a reused value to specify actual equality
 
     GTEST_COUT << "Registering values\n";
 
@@ -227,6 +245,20 @@ TEST(StorageRegistryTest, testDefaultOnSecondRegistration)
     );
 
     //This has no default
+    int u64_key_no_default = registry->registerKey(
+        "TEST_U64",
+        StorageRegistry::U64,
+        StorageRegistry::READ_WRITE
+    );
+
+    //Now set one on a subsequent registration
+    int u64_key = registry->registerU64Key(
+        "TEST_U64",
+        StorageRegistry::READ_WRITE,
+        1000000
+    );
+
+    //This has no default
     int float_key_no_default = registry->registerKey(
         "TEST_FLOAT",
         StorageRegistry::FLOAT,
@@ -255,6 +287,13 @@ TEST(StorageRegistryTest, testDefaultOnSecondRegistration)
     );
 
     //This has no default
+    int u64_key_2 = registry->registerKey(
+        "TEST_U64_2",
+        StorageRegistry::U64,
+        StorageRegistry::READ_WRITE
+    );
+
+    //This has no default
     int float_key_2 = registry->registerKey(
         "TEST_FLOAT_2",
         StorageRegistry::FLOAT,
@@ -274,6 +313,12 @@ TEST(StorageRegistryTest, testDefaultOnSecondRegistration)
     int uint_key_2_index = StorageKeyHelper::getIndex(uint_key_2);
     ASSERT_EQ(uintDefs[uint_key_index],1000);
     ASSERT_EQ(uintDefs[uint_key_2_index],0);
+
+    std::vector<unsigned long long> u64Defs = registry->getU64KeyDefaults();
+    int u64_key_index = StorageKeyHelper::getIndex(u64_key);
+    int u64_key_2_index = StorageKeyHelper::getIndex(u64_key_2);
+    ASSERT_EQ(u64Defs[u64_key_index],1000000);
+    ASSERT_EQ(u64Defs[u64_key_2_index],0);
 
     std::vector<float> floatDefs = registry->getFloatKeyDefaults();
     int float_key_index = StorageKeyHelper::getIndex(float_key);
@@ -312,6 +357,18 @@ TEST(StorageRegistryTest, testDefaultOnSecondRegistration)
         StorageRegistry::READ_WRITE
     );
 
+    int meta_u64 = metadata->registerU64Key(
+        "TEST_U64_META",
+        StorageRegistry::READ_WRITE,
+        999999
+    );
+
+    int meta_u64_2 = metadata->registerKey(
+        "TEST_U64_META2",
+        StorageRegistry::U64,
+        StorageRegistry::READ_WRITE
+    );
+
     GTEST_COUT << "Manually checking metadata defaults\n";
   
     std::vector<int> intMetaDefs = metadata->getIntKeyDefaults();
@@ -325,6 +382,12 @@ TEST(StorageRegistryTest, testDefaultOnSecondRegistration)
     int meta_uint_2_index = StorageKeyHelper::getIndex(meta_uint_2);
     ASSERT_EQ(uintMetaDefs[meta_uint_index],456);
     ASSERT_EQ(uintMetaDefs[meta_uint_2_index],0);
+
+    std::vector<unsigned long long> u64MetaDefs = metadata->getU64KeyDefaults();
+    int meta_u64_index = StorageKeyHelper::getIndex(meta_u64);
+    int meta_u64_2_index = StorageKeyHelper::getIndex(meta_u64_2);
+    ASSERT_EQ(u64MetaDefs[meta_u64_index],999999);
+    ASSERT_EQ(u64MetaDefs[meta_u64_2_index],0);
         
     GTEST_COUT << "Initializating storage\n";
 
@@ -339,6 +402,8 @@ TEST(StorageRegistryTest, testDefaultOnSecondRegistration)
     ASSERT_EQ(entry->getIntValue(int_key_2), 0);
     ASSERT_EQ(entry->getUIntValue(uint_key), 1000);
     ASSERT_EQ(entry->getUIntValue(uint_key_2), 0);
+    ASSERT_EQ(entry->getU64Value(u64_key), 1000000);
+    ASSERT_EQ(entry->getU64Value(u64_key_2), 0);
     ASSERT_EQ(entry->getFloatValue(float_key), myFloat);
     ASSERT_TRUE(entry->getFloatValue(float_key_2) < 0.0001);
     ASSERT_TRUE(entry->getFloatValue(float_key_2) > -0.0001);
@@ -350,6 +415,8 @@ TEST(StorageRegistryTest, testDefaultOnSecondRegistration)
     ASSERT_EQ(meta.getIntValue(meta_int_2),0);
     ASSERT_EQ(meta.getUIntValue(meta_uint),456);
     ASSERT_EQ(meta.getUIntValue(meta_uint_2),0);
+    ASSERT_EQ(meta.getU64Value(meta_u64),999999);
+    ASSERT_EQ(meta.getU64Value(meta_u64_2),0);
     
     delete storage;
     delete registry;
@@ -400,6 +467,25 @@ TEST(StorageRegistryTest, testErrorHandling)
     }
 
     //Set a default
+    int u64_key = registry->registerU64Key(
+        "TEST_U64",
+        StorageRegistry::READ_WRITE,
+        1000000
+    );
+
+    //Now set a different default
+    try{
+        int u64_key2 = registry->registerU64Key(
+            "TEST_U64",
+            StorageRegistry::READ_WRITE,
+            5000000
+        );
+        FAIL() << "Exception expected when second u64 default value was set";
+    } catch (RuntimeException e){
+        //This error should happen
+    }
+
+    //Set a default
     int float_key = registry->registerFloatKey( 
         "TEST_FLOAT",
         StorageRegistry::READ_WRITE,
@@ -443,6 +529,12 @@ TEST(StorageRegistryTest, registerForAllKeys)
         StorageRegistry::WRITE_ONLY
     );
 
+    int u64_key = registry->registerKey(
+        "TEST_U64",
+        StorageRegistry::U64,
+        StorageRegistry::WRITE_ONLY
+    );
+
     int buffer_key = registry->registerKey(
         "TEST_BUFFER",
         StorageRegistry::BUFFER,
@@ -455,16 +547,19 @@ TEST(StorageRegistryTest, registerForAllKeys)
 
     std::vector<int> intHandles = registry->getKeyHandles(StorageRegistry::INT);
     std::vector<int> uintHandles = registry->getKeyHandles(StorageRegistry::UINT);
+    std::vector<int> u64Handles = registry->getKeyHandles(StorageRegistry::U64);
     std::vector<int> floatHandles = registry->getKeyHandles(StorageRegistry::FLOAT);
     std::vector<int> bufferHandles = registry->getKeyHandles(StorageRegistry::BUFFER);
 
     ASSERT_EQ(intHandles.size(),1);
     ASSERT_EQ(uintHandles.size(),1);
+    ASSERT_EQ(u64Handles.size(),1);
     ASSERT_EQ(floatHandles.size(),1);
     ASSERT_EQ(bufferHandles.size(),1);
 
     ASSERT_EQ(intHandles[0],int_key);
     ASSERT_EQ(uintHandles[0],uint_key);
+    ASSERT_EQ(u64Handles[0],u64_key);
     ASSERT_EQ(floatHandles[0],float_key);
     ASSERT_EQ(bufferHandles[0],buffer_key);
 }

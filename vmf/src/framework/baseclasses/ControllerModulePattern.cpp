@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -42,6 +33,14 @@ void ControllerModulePattern::init(ConfigInterface& config)
 {
     runTimeMinutes = config.getIntParam(getModuleName(),"runTimeInMinutes", 0);
     keepAllSeeds = config.getBoolParam(getModuleName(),"keepAllSeeds", true);
+    if(keepAllSeeds)
+    {
+        LOG_INFO << "Controller configured to keep all seeds";
+    }
+    else
+    {
+        LOG_INFO << "Controller configured to only keep seeds that are interesting";
+    }
 
     //All the specified submodules are read in.  It is up to the subclass to determine
     //if this number of modules is supported by the controller.

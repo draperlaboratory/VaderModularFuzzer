@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -40,6 +31,7 @@
 #include <sys/wait.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/mman.h>
 
 #include "AFLFeedback.hpp"
 #include "AFLForkserverExecutor.hpp"
@@ -51,6 +43,8 @@
 
 using namespace vmf;
 REGISTER_MODULE(AFLForkserverExecutor);
+
+int AFLForkserverExecutor::calibrated_timeout = 0;
 
 /**
  * @brief Builder method
@@ -103,14 +97,25 @@ AFLForkserverExecutor::~AFLForkserverExecutor() {
 
 void AFLForkserverExecutor::init(ConfigInterface& config) {
     loadConfig(config);
-    verifyCorePattern();
+    detectBinarySignatures();
+    /* Use SUT debug info to read map size and AFL instrumentation version */
+    parseSUTDebugInfo();
+    validateVersionCompatibility();
 
-    /* Pick map size to use based on both auto detected size and manual configuration */
-    unsigned int auto_map_size = getSUTMapSize();
+    bool useCoreDumpCheck = config.getBoolParam(getModuleName(),"enableCoreDumpCheck", true);
+    if(useCoreDumpCheck)
+    {
+        verifyCorePattern();
+    }
+    else
+    {
+        setenv("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES", "1", OVERWRITE);
+    }
+
     if (map_size == 0) {
         /* If no configured size, use autodetection if it worked and DEFAULT_MAP_SIZE otherwise*/
-        if (auto_map_size != 0) {
-            map_size = auto_map_size;
+        if (map_size_from_debug_info != 0) {
+            map_size = map_size_from_debug_info;
             LOG_INFO << "Map size autodetection succeeded. Using size " << map_size << ".";
         } else {
             map_size = DEFAULT_MAP_SIZE;
@@ -118,8 +123,8 @@ void AFLForkserverExecutor::init(ConfigInterface& config) {
         }
     } else {
         /* If configured a size, issue warning if different from auto detected size */
-        if (map_size != auto_map_size && auto_map_size != 0) {
-            LOG_WARNING << "Using manually configured map size of " << map_size << " but autodetection found size " << auto_map_size;
+        if (map_size != map_size_from_debug_info && map_size_from_debug_info != 0) {
+            LOG_WARNING << "Using manually configured map size of " << map_size << " but autodetection found size " << map_size_from_debug_info;
         } else {
             LOG_INFO << "Using map size of " << map_size;
         }
@@ -153,14 +158,12 @@ void AFLForkserverExecutor::checkTimeout(StorageModule &storage) {
     /* We're done if we're already calibrated */
     if (calibrated) return;
 
-    /* Check if another executor recorded their timeout as metadata */
-    StorageEntry& metadata = storage.getMetadata();
-    int timeout = metadata.getUIntValue(calib_timeout_key);
-    if (!timeout)
+    /* Check if another executor recorded their timeout (by setting the static variable to a non-zero value)*/
+    if (!calibrated_timeout)
         throw RuntimeException("Couldn't find a timeout value",
                                RuntimeException::UNEXPECTED_ERROR);
     /* Update the internal timeouts using the found value */
-    setTimeouts(timeout);
+    setTimeouts(calibrated_timeout);
     /* Remember that we're calibrated */
     calibrated = true;
 }
@@ -286,20 +289,37 @@ int AFLForkserverExecutor::checkedWrite(int fd, uint8_t* buf, int size) {
 }
 
 bool AFLForkserverExecutor::deliverTestCase(uint8_t *buffer, int size) {
-    /* Set seek to the beginning of the file */
-    lseek(sut_test_write, 0, SEEK_SET);
-    /* Write the test case to the file */
-    int res = checkedWrite(sut_test_write, buffer, size);
-    
-    /* Trim the buffer in case the last test case was larger */
-    if (ftruncate(sut_test_write, size) != 0)
-        throw RuntimeException(
-            "Forkserver failed to resize file forbuffer test case delivery",
-            RuntimeException::UNEXPECTED_ERROR);
-    /* Reset seek to the beginning of the file after write */
-    lseek(sut_test_write, 0, SEEK_SET);
 
-    return (res == size);
+    if (sut_shm_test)
+    {
+        /* The shared memory buffer has a fixed maximum size of 1MB.
+           Copy only up to that amount of data into the buffer */
+        int copy_amount = size;
+        if (copy_amount > SHARED_MEM_MAX_SIZE)
+            copy_amount = SHARED_MEM_MAX_SIZE;
+
+        /* Record amount of data copied into first 4 bytes of shared memory region */
+        *shm_testcase_len = copy_amount;
+
+        /* In shared memory mode, we copy testcase into buffer instead of writing to pipe */
+        memcpy(shared_mem_testcase_buff, buffer, copy_amount);
+        return true;
+    } else {
+
+        /* Set seek to the beginning of the file */
+        lseek(sut_test_write, 0, SEEK_SET);
+        /* Write the test case to the file */
+        int res = checkedWrite(sut_test_write, buffer, size);
+
+        /* Trim the buffer in case the last test case was larger */
+        if (ftruncate(sut_test_write, size) != 0)
+            throw RuntimeException(
+                "Forkserver failed to resize file forbuffer test case delivery",
+                RuntimeException::UNEXPECTED_ERROR);
+        /* Reset seek to the beginning of the file after write */
+        lseek(sut_test_write, 0, SEEK_SET);
+        return (res == size);
+    }
 }
 bool AFLForkserverExecutor::requestProcess(void) {
     /* Write 4-byte on the timeout status of the last run to the
@@ -506,6 +526,7 @@ void AFLForkserverExecutor::loadConfig(ConfigInterface &config) {
         }
     }
 
+    enable_afl_debug = config.getBoolParam(getModuleName(), "enableAFLDebug", false);
     /* Configure stdout/err debug logs */
     std::string stdout_file = "stdout";
     std::string stderr_file = "stderr";
@@ -570,6 +591,59 @@ void AFLForkserverExecutor::loadConfig(ConfigInterface &config) {
 
 }
 
+void AFLForkserverExecutor::detectBinarySignatures() {
+
+    /* Open the SUT binary for reading */
+    int fd = open(sut_argv[0].c_str(), O_RDONLY);
+    if (fd < 0)
+    {
+        throw RuntimeException("Unable to open binary for reading",
+                               RuntimeException::UNEXPECTED_ERROR);
+    }
+
+    /* Get the file size of the SUT */
+    struct stat st;
+    stat(sut_argv[0].c_str(), &st);
+    int file_size = st.st_size;
+
+    /* Map SUT into memory */
+    char* f_data = (char *) mmap(0, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (f_data == MAP_FAILED)
+    {
+        throw RuntimeException("Unable to mmap binary",
+                               RuntimeException::UNEXPECTED_ERROR);
+    }
+
+    /* Check for accidental use of shell script instead of binary */
+    if (file_size > 1 && f_data[0] == '#' &&  f_data[1] == '!')
+    {
+        throw RuntimeException("The target SUT file looks like a shell script. Sometimes build systems "
+
+                               "create shell script wrappers around the actual target binary. Please "
+                               "reconfigure the SUT path to the executable binary, not a wrapper.",
+                               RuntimeException::UNEXPECTED_ERROR);
+    }
+
+    /* Scan SUT binary for signatures */
+    if (memmem(f_data, file_size, PERSIST_SIG, strlen(PERSIST_SIG)))
+    {
+        LOG_INFO << "Persistent signature found in binary, using persistent mode.";
+        is_persistent_mode_binary = true;
+        is_shared_mem_binary = true;
+    }
+
+    /* Scan SUT binary for signatures */
+    if (memmem(f_data, file_size, DEFER_SIG, strlen(DEFER_SIG)))
+    {
+        LOG_INFO << "Deferred init signature found in binary, using deferred initialization.";
+        is_deferred_init_binary = true;
+    }
+
+    /* Cleanup */
+    munmap(f_data, file_size);
+    close(fd);
+}
+
 bool AFLForkserverExecutor::startForkserver() {
     if (!initFuzzerSUTIO()) {
         LOG_ERROR << "Failed to initialize Fuzzer/SUT IO: " << strerror(errno);
@@ -598,7 +672,7 @@ bool AFLForkserverExecutor::startForkserver() {
     forkserver_pid = child_pid;
     initFuzzerIO();
     /* Verify that we can communicate with the SUT's shim */
-    if (checkSUT() != AFL_STATUS_OK) return false;
+    if (handshakeFS() != AFL_STATUS_OK) return false;
 
     LOG_DEBUG << "Launched " << getModuleName() << " forkserver with pid [" << forkserver_pid << "]";
 
@@ -633,18 +707,235 @@ bool AFLForkserverExecutor::initCoverageMaps(void) {
         if (cmplog_bits == reinterpret_cast<void*>(-1)) return false;
     }
 
+    /* Shared mem testcase delivery */
+    if (is_shared_mem_binary)
+    {
+        shm_testcase_id = shmget(IPC_PRIVATE, SHARED_MEM_REGION_SIZE, IPC_CREAT | IPC_EXCL | 0600);
+        if (shm_testcase_id < 0) return false;
+
+        /* Attach to shared mem region */
+        uint8_t * shared_testcase_mem_region = static_cast<uint8_t*>(shmat(shm_testcase_id, NULL, 0));
+        if (shared_mem_testcase_buff == reinterpret_cast<void*>(-1)) return false;
+
+        /* The first 32 bits are used to communicate a size */
+        shm_testcase_len = reinterpret_cast<uint32_t *>(shared_testcase_mem_region);
+        /* The rest is used to hold data */
+        shared_mem_testcase_buff = shared_testcase_mem_region + sizeof(uint32_t);
+        LOG_INFO << "Successfully created testcase shmem " << shm_testcase_id;
+    }
+
     return true;
 }
 
-int AFLForkserverExecutor::checkSUT(void) {
+int AFLForkserverExecutor::processFSVersion(int msg) {
+    if ((msg & ~(FS_VERSION_MASK)) == FS_VERSION_PREFIX) {
+        /* Extract version bits from msg */
+        int version = msg & FS_VERSION_MASK;
+        if (version > 0) {
+            LOG_INFO << "Received (>4.20c) AFL handshake protocol version: 0x"
+                     << std::hex << version;
+            return version;
+        }
+        /* A non-positive version number is in error */
+        throw RuntimeException("Got unexpected forkserver version",
+                               RuntimeException::UNEXPECTED_ERROR);
+    } else {
+        LOG_INFO << "Detected legacy (<4.20c) AFL handshake";
+        return 0;
+    }
+}
+
+void AFLForkserverExecutor::shrinkMapSize(unsigned int new_size) {
+    if (map_size > new_size) {
+        LOG_INFO << "Switching to forkserver-requested coverage map size of: " << new_size;
+        map_size = new_size;
+    } else if (map_size < new_size) {
+        LOG_ERROR << "Forkserver is using a map size larger than the shared memory region.";
+        LOG_ERROR << "Restart VMF with " << getModuleName()
+                  << " configured with a map size of " << new_size;
+        throw RuntimeException("Forkserver and executor disagreed on coverage map size",
+                               RuntimeException::UNEXPECTED_ERROR);
+    }
+}
+
+void AFLForkserverExecutor::receiveMapSize(void) {
+    unsigned int msg;
+    int read_length;
+    /* Receive map size as 4-byte message over status pipe */
+    read_length = readStatus(reinterpret_cast<int*>(&msg), NOBLOCK_LONG_TIMEOUT);
+    if (read_length != 4) {
+        LOG_ERROR << "Unexpected " << read_length << "-byte (not 4-byte) map size message";
+        throw RuntimeException("Unexpected FS map size message",
+                               RuntimeException::UNEXPECTED_ERROR);
+    }
+    LOG_DEBUG << "Received forkserver coverage map size message: 0x" << std::hex << msg;
+    /* 
+       Attempt to shrink the coverage map if possible. If the message
+       contains a map size larger than the current executor
+       configuration, the executor must be reconfigured and restarted.
+    */
+    shrinkMapSize(msg);
+}
+
+void AFLForkserverExecutor::enableSHMTestDeliv(void) {
+    LOG_INFO << "Forkserver requested shared-memory testcase delivery";
+    sut_shm_test = true;
+}
+
+void AFLForkserverExecutor::receiveAutoDict(void) {
+    LOG_INFO << "Forkserver requested delivery of link-time generated autodict";
+    /* Receive the dictionary size */
+    int size;
+    if (readStatus(&size, NOBLOCK_LONG_TIMEOUT) != 4) 
+        throw RuntimeException("Failed to receive autodict size during FS handshake",
+                               RuntimeException::UNEXPECTED_ERROR);
+
+    LOG_DEBUG << "Receiving " << size << "-byte autodict...";
+
+    /* Verify dictionary size */
+    if (size < 2 || size > 0xffffff)
+        throw RuntimeException("Received invalid autodict size during FS handshake",
+                               RuntimeException::UNEXPECTED_ERROR);
+    
+    /* Allocate space for the dictionary */
+    char *dict = new char[size];
+    /* Receive the full dictionary */
+    int offset = 0;
+    int read_length = 0;
+    while (offset < size) {
+        read_length = readStatus(reinterpret_cast<int*>(dict+offset), 
+                                 NOBLOCK_LONG_TIMEOUT, size-offset);
+        if (read_length > 0) 
+            offset += read_length;
+        else
+            throw RuntimeException("Failed to read autodict contents during FS handshake",
+                                   RuntimeException::UNEXPECTED_ERROR);
+    }
+    LOG_DEBUG << "Received " << size << "-byte autodict";
+    /* Populate storage with dictionary entries */
+    delete[] dict;  // Write this to file instead
+}
+
+void AFLForkserverExecutor::enableSnapshot(void) {
+    LOG_WARNING << "Forkserver requested unsupported snapshot feature -- ignoring it.";
+}
+
+void AFLForkserverExecutor::processMapSizeMsg(int msg) {
+    unsigned int recv_mapsize =
+        static_cast<unsigned int>(((msg & FS_OPT_MAPSIZE_VALUE_L) >> 1) + 1);
+    /* 
+       Attempt to shrink the coverage map if possible. If the message
+       contains a map size larger than the current executor
+       configuration, the executor must be reconfigured and restarted.
+    */
+    shrinkMapSize(recv_mapsize);
+}
+
+void AFLForkserverExecutor::processFSOptions(int msg) {
+    /* WARNING: The order of options processed matters for correct FS handhaking */
+    /* Extract options from forkserver message */
+    int hasopt_mapsize = msg & FS_OPT_MAPSIZE;
+    int hasopt_shmtest = msg & FS_OPT_SHMTESTDELIV;
+    int hasopt_autodict = msg & FS_OPT_AUTODICT;
+
+    /* Process selected options */
+    if (hasopt_mapsize)
+        receiveMapSize();
+    if (hasopt_shmtest)
+        enableSHMTestDeliv();
+    if (hasopt_autodict)
+        receiveAutoDict();
+}
+
+void AFLForkserverExecutor::processFSOptionsLegacy(int msg) {
+    /* WARNING: The order of options processed matters for correct FS handshaking */
+    /* Extract options from forkserver message */
+    int hasopt_snapshot = msg & FS_OPT_SNAPSHOT_L;
+    int hasopt_shmtest = msg & FS_OPT_SHMTESTDELIV_L;
+    int hasopt_mapsize = msg & FS_OPT_MAPSIZE_L;
+    int hasopt_autodict = msg & FS_OPT_AUTODICT_L;
+
+    /* Construct response to confirm options with FS */
+    int resp = FS_OPT_ENABLED_L;
+    
+    /* Process selected options */
+    if (hasopt_snapshot)
+        enableSnapshot();
+    if (hasopt_shmtest) {
+        enableSHMTestDeliv();
+        resp |= FS_OPT_SHMTESTDELIV_L;
+    }
+    if (hasopt_mapsize)
+        processMapSizeMsg(msg);
+    if (hasopt_autodict)
+        resp |= FS_OPT_AUTODICT_L;
+
+    if (hasopt_shmtest || hasopt_autodict) {
+        /* Confirm options with FS via control pipe */
+        LOG_DEBUG << "Constructed response to handshake forkserver options: " << std::hex << resp;
+        if (checkedWrite(CTRL_PIPE_WR, reinterpret_cast<uint8_t*>(&resp), 4) != 4)
+            throw RuntimeException("Failed control pipe write during initial FS handshake "
+                                   "to confirm optional features",
+                                   RuntimeException::UNEXPECTED_ERROR);
+    }
+    /* Receive auto dictionary if requested */
+    if (hasopt_autodict)
+        receiveAutoDict();
+}
+
+
+void AFLForkserverExecutor::handshakeResp(int msg) {
+    int resp = msg ^ 0xffffffff;
+    if (checkedWrite(CTRL_PIPE_WR, reinterpret_cast<uint8_t*>(&resp), 4) != 4) {
+        LOG_ERROR << "Failed to respond to FS handshake";
+        throw RuntimeException("Failed to write to control pipe during initial FS handshake",
+                               RuntimeException::UNEXPECTED_ERROR);
+    }
+}
+
+int AFLForkserverExecutor::handshakeFS(void) {
     int status;
-    int read_length = readStatus(&status, 0); 
+    int read_length = readStatus(&status, NOBLOCK_LONG_TIMEOUT); 
+
+    LOG_DEBUG << "Received " << read_length << "-byte first handshake message: 0x" << std::hex << status;
 
     /* Expecting a 4-byte "hello" message the first time we read from
-       the status pipe. We don't care about the actual status message */
-    if (read_length == 4)
-        return AFL_STATUS_OK; 
+       the status pipe. */
+    if (read_length == 4) {
+        forkserver_version = processFSVersion(status);
+        if (forkserver_version > 0) {
+            /* Respond to FS with XOR'ed status value */
+            handshakeResp(status);
+            /* Read handshake message containing FS options */
+            int status2;
+            read_length = readStatus(&status2, NOBLOCK_LONG_TIMEOUT);
+            LOG_DEBUG << "Received " << read_length << "-byte second handshake message: 0x"
+                      << std::hex << status2;
+            if (read_length != 4) {
+                LOG_ERROR << "Unexpected " << read_length << "-byte (not 4-byte) handshake message";
+                throw RuntimeException("Unexpected FS handshake message",
+                                       RuntimeException::UNEXPECTED_ERROR);
+            }
+            processFSOptions(status2);
 
+            /* Read final handshake message */
+            int status3;
+            read_length = readStatus(&status3, NOBLOCK_LONG_TIMEOUT);
+            LOG_DEBUG << "Received " << read_length << "-byte final handshake message: 0x"
+                      << std::hex << status3;
+            if ((read_length != 4) || (status3 != status))
+                throw RuntimeException("Unexpected final FS handshake message",
+                                       RuntimeException::UNEXPECTED_ERROR);
+
+            /* Completed Handshake */
+            return AFL_STATUS_OK;
+            
+        } else {
+            /* Legacy forkserver handshake */
+            processFSOptionsLegacy(status);
+            return AFL_STATUS_OK; 
+        }
+    }
     /* Otherwise, figure out what went wrong */
     /* Check for timeout */
     if (sut_hung)
@@ -684,7 +975,7 @@ int AFLForkserverExecutor::checkSUT(void) {
     return AFL_STATUS_ERROR;
 }
 
-int AFLForkserverExecutor::readStatus(int* result, int timeout_ms) {
+int AFLForkserverExecutor::readStatus(int* result, int timeout_ms, int max_bytes) {
     int read_length = 0;
     static struct timeval tv;
     static fd_set readfds;
@@ -692,7 +983,7 @@ int AFLForkserverExecutor::readStatus(int* result, int timeout_ms) {
     /* Caller doesn't want a timer.
        They mustn't afraid of this read hanging */
     if (timeout_ms == 0) 
-        return read(STAT_PIPE_RD, result, 4);
+        return read(STAT_PIPE_RD, result, max_bytes);
 
     /* Set a timer in case the read hangs */
     tv.tv_sec = (timeout_ms / 1000);
@@ -718,7 +1009,7 @@ int AFLForkserverExecutor::readStatus(int* result, int timeout_ms) {
             /* Only retry the read (not select) if it we got this far */
             do {
                 /* Attempt to read 4 bytes from the status pipe */
-                read_length = read(STAT_PIPE_RD, (uint8_t *)result, 4);
+                read_length = read(STAT_PIPE_RD, (uint8_t *)result, max_bytes);
                 if ((read_length == -1) && (errno == EINTR))
                     interrupted = true;
                 else
@@ -921,10 +1212,37 @@ void AFLForkserverExecutor::initSUTEnv() {
     setenv("__AFL_SHM_ID", tmp_str, OVERWRITE);
     sprintf(tmp_str, "%d", map_size);
     setenv("AFL_MAP_SIZE", tmp_str, OVERWRITE);
+
+    /* Turn on additional AFL debug info if requested. Used for debugging instrumentation issues. */
+    if (enable_afl_debug)
+    {
+	setenv("AFL_DEBUG", "1", OVERWRITE);
+    }
+
     /* CmpLog */
     if (cmp_log_enabled) {
         sprintf(tmp_str, "%d", cmplog_shm_id);
         setenv("__AFL_CMPLOG_SHM_ID", tmp_str, OVERWRITE);
+    }
+
+    /* Shared memory fuzzing */
+    if (is_shared_mem_binary)
+    {
+        LOG_INFO << "Setting shmem id to " << shm_testcase_id;
+        sprintf(tmp_str, "%d", shm_testcase_id);
+        setenv("__AFL_SHM_FUZZ_ID", tmp_str, OVERWRITE);
+    }
+
+    /* Persistent mode */
+    if (is_persistent_mode_binary)
+    {
+        setenv("__AFL_PERSISTENT", "1", OVERWRITE);
+    }
+
+    /* Deferred initialization */
+    if (is_deferred_init_binary)
+    {
+        setenv("__AFL_DEFER_FORKSRV", "1", OVERWRITE);
     }
 
     /* Set sanitizer options */
@@ -993,7 +1311,7 @@ void AFLForkserverExecutor::setResourceLimits(void) {
 }
 
 
-int AFLForkserverExecutor::getSUTMapSize(void) {
+void AFLForkserverExecutor::parseSUTDebugInfo(void) {
 
     /* Enable AFL_DEBUG */
     setenv("AFL_DEBUG", "1", 1);
@@ -1001,75 +1319,174 @@ int AFLForkserverExecutor::getSUTMapSize(void) {
     /* Construct run command. We must redirect stderr to stdout so popen captures it,
        because AFL_DEBUG info is sent on stderr. We add a timeout to kill any waiting for stdin.
        Timeout with -k issues a SIGTERM after 1s and a SIGKILL after 2s.*/
-    char cmd[sut_argv[0].length() + 64];
-    sprintf(cmd, "timeout -k 1s 2s %s 2>&1", sut_argv[0].c_str());
+    std::string cmd = "timeout -k 1s 2s " + sut_argv[0] + " 2>&1";
 
     /* Run SUT with popen. We don't need to run it properly with args etc.
        As long as it reaches main that is enough to get info we need. That makes
        this part simple, we can ignore stdin vs file input, args,... */
     std::array<char, 4096> buffer;
-    auto pipe = popen(cmd, "r");
+    auto pipe = popen(cmd.c_str(), "r");
     if (!pipe) throw std::runtime_error("popen() failed!");
 
     /* Parse results */
-    int found_map_size = 0;
     while (!feof(pipe)) {
         if (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
 
             std::string line = buffer.data();
+            int index;
 
-            /* Search for "__afl_final_loc" */
-            int index = line.find("__afl_final_loc");
-
-            /* We must handle two types of lines that contain map size information:
-               "Done __sanitizer_cov_trace_pc_guard_init: __afl_final_loc = 14447"
-               "DEBUG: (1) id_str <null>, __afl_area_ptr 0x7f0e2018, ... , __afl_final_loc 14448,
-            */
-
+            /* Search for "__afl_final_loc" to extract the map size*/
+            index = line.find("__afl_final_loc");
             if (index != -1)
-            {
-                /* Begin searching for map size at character following the magic string */
-                auto it = line.begin() + index + strlen("__afl_final_loc");
-                std::string nextNum = "";
-                for (; it != line.end(); it++)
-                {
-                    char c = *it;
-                    /* Skip over spaces and '=' to handle the two line types */
-                    if (c == ' ' || c == '=')
-                        continue;
+                parseMapSizeFromDebugInfo(line, index);
 
-                    /* If it's a digit, add to string. Otherwise exit */
-                    if (isdigit(c))
-                    {
-                        nextNum += c;
-                    } else {
-                        break;
-                    }
-                }
-
-                /* Take highest value we find */
-                int extracted_map_size = atoi(nextNum.c_str());
-		/* Round up to nearest 64 bytes like AFL does */
-		if (extracted_map_size % 64)
-		    extracted_map_size = (((extracted_map_size + 63) >> 6) << 6);
-		/* Record highest size we find, output sometimes has multiple sizes */
-                if (extracted_map_size > found_map_size)
-                    found_map_size = extracted_map_size;
-            }
+            /* Search for "AFL++ afl-compiler-rt" to extract the compiler version */
+            index = line.find("AFL++ afl-compiler-rt");
+            if (index != -1)
+                parseCompilerVersionFromDebugInfo(line, index);
         }
     }
 
     /* Clean up */
     pclose(pipe);
     unsetenv("AFL_DEBUG");
-    
-    // 0 means we didn't find a size
-    return found_map_size;
+}
+
+/**
+ * @brief Helper method to parse a map size from a single line of debug info
+ * from AFL_DEBUG that we know contains the string "__afl_final_loc"
+ */
+void AFLForkserverExecutor::parseMapSizeFromDebugInfo(std::string line, int index) {
+
+    /* We must handle two types of lines that contain map size information:
+       "Done __sanitizer_cov_trace_pc_guard_init: __afl_final_loc = 14447"
+       "DEBUG: (1) id_str <null>, __afl_area_ptr 0x7f0e2018, ... , __afl_final_loc 14448,
+    */
+
+    /* Begin searching for map size at character following the magic string */
+    auto it = line.begin() + index + strlen("__afl_final_loc");
+    std::string nextNum = "";
+    for (; it != line.end(); it++)
+    {
+        char c = *it;
+        /* Skip over spaces and '=' to handle the two line types */
+        if (c == ' ' || c == '=')
+            continue;
+
+        /* If it's a digit, add to string. Otherwise exit */
+        if (isdigit(c))
+        {
+            nextNum += c;
+        } else {
+            break;
+        }
+    }
+
+    /* Take highest value we find */
+    unsigned int extracted_map_size = atoi(nextNum.c_str());
+
+    /* We add one because __afl_final_loc is the last index where 
+       instrumentation will write. The size is that plus one. */
+    if (extracted_map_size != 0)
+        extracted_map_size += 1;
+
+    /* Round up to nearest 64 bytes like AFL for making memcpy etc faster */
+    if (extracted_map_size % 64 != 0)
+	extracted_map_size = (((extracted_map_size + 63) >> 6) << 6);
+
+    /* Record highest size we find, output sometimes has multiple sizes */
+    if (extracted_map_size > map_size_from_debug_info)
+    {
+        LOG_INFO << "Parsed map size " << extracted_map_size;
+        map_size_from_debug_info = extracted_map_size;
+    }
+}
+
+/**
+ * @brief Helper method to parse an instrumentation version from a single line of debug info
+ * from AFL_DEBUG that we know contains the string "AFL++ afl-compiler-rt"
+ * For example, the line "AFL++ afl-compiler-rt++4.30c" should give a major version of 4
+ * and a minor version of 30.
+ */
+void AFLForkserverExecutor::parseCompilerVersionFromDebugInfo(std::string line, int index) {
+
+    /* Begin searching for map size at character following the magic string */
+    auto it = line.begin() + index + strlen("AFL++ afl-compiler-rt");
+    std::string majorVersionStr = "";
+    std::string minorVersionStr = "";
+    bool hasFoundPeriod = false;
+    for (; it != line.end(); it++)
+    {
+        char c = *it;
+
+        // Switch from parsing major to minor when we hit the period
+        if (c == '.')
+        {
+            hasFoundPeriod = true;
+            continue;
+        }
+
+        /* If it's a digit, add to string. Otherwise ignore */
+        if (isdigit(c))
+        {
+            if (hasFoundPeriod)
+                minorVersionStr += c;
+            else
+                majorVersionStr += c;
+        } else {
+            continue;
+        }
+    }
+
+    if (majorVersionStr != "" &&  minorVersionStr != "")
+    {
+        major_version = std::stoi(majorVersionStr);
+        minor_version = std::stoi(minorVersionStr);
+        LOG_INFO << "AFL instrumentation version detected: " << major_version << "." << minor_version;
+    }
+}
+
+void AFLForkserverExecutor::validateVersionCompatibility() {
+
+    /* In the case of CmpLog, we must check data structure compatibility.*/
+    if (cmp_log_enabled)
+    {
+        bool allowed = true;
+
+        if (major_version == 0)
+        {
+            throw RuntimeException("The SUT uses old instrumentation (<4.20c) which is incompatible with RedPawn.", RuntimeException::UNEXPECTED_ERROR);
+        }
+
+        /* Check major version is the same */
+        if (major_version != CMPLOG_MAJOR_VERSION)
+            allowed = false;
+
+        /* Disallow if minor version is too old */
+        if (minor_version < CMPLOG_MINOR_VERSION)
+            allowed = false;
+
+        /* Print a warning if using future version, which may or may not work */
+        if (allowed && minor_version > CMPLOG_MINOR_VERSION)
+        {
+            LOG_WARNING << "You are using a newer version of the CmpLog instrumentation than VMF was expecting. It may or may not work.";
+        }
+
+        if (!allowed)
+        {
+            char message[256];
+            snprintf(message, sizeof(message),
+                     "RedPawn error: SUT reported instrumentation version %d.%d, but RedPawn requires %d.%d",
+                     major_version, minor_version, CMPLOG_MAJOR_VERSION, CMPLOG_MINOR_VERSION);
+            throw RuntimeException(message, RuntimeException::UNEXPECTED_ERROR);
+        } else {
+            LOG_INFO << "CmpLog version validation passed.";
+        }
+    }
 }
 
 void AFLForkserverExecutor::runCalibrationCases(StorageModule& storage, std::unique_ptr<Iterator>& iterator) {
-    StorageEntry& metadata = storage.getMetadata();
-    metadata.setValue(map_size_key, map_size);
+
     /* Remove existing timeouts to prep for calibration */
     setTimeouts(DEFAULT_TIMEOUT_MS);
 
@@ -1127,12 +1544,12 @@ void AFLForkserverExecutor::runCalibrationCases(StorageModule& storage, std::uni
 
     /* Use calibration metrics to decide on timeout values */
     calibrateTimeout(max_time, sum_time);
-    /* Register our calculated timeout */
-    metadata.setValue(calib_timeout_key, timeout_dur);
+    /* Save our calculated timeout to a static member variable (for use by any other executor instances)*/
+    calibrated_timeout = timeout_dur;
 }
 
 void AFLForkserverExecutor::calibrateTimeout(unsigned max_time, unsigned sum_time) {
-    int timeout;
+    int timeout = DEFAULT_TIMEOUT_MS;
 
     if (num_calib > 0) {
         /* Calculate the average execution time of the calibration tests */
@@ -1245,6 +1662,4 @@ void AFLForkserverExecutor::registerStorageNeeds(StorageRegistry& registry) {
 }
 void AFLForkserverExecutor::registerMetadataNeeds(StorageRegistry& registry) {
     cumulative_coverage_metadata = registry.registerKey("TOTAL_BYTES_COVERED", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);
-    map_size_key = registry.registerKey("MAP_SIZE", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);
-    calib_timeout_key = registry.registerKey("CALIBRATED_TIMEOUT", StorageRegistry::UINT, StorageRegistry::READ_WRITE);
 }

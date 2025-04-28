@@ -56,18 +56,24 @@ Confirm that Java has been properly installed using the `java -version` command 
 
 ## Setting Up Tomcat As a Service
 
+### Windows
+
+For a Windows installation of Tomcat, we recommend using the [service installer binary](https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.100/bin/apache-tomcat-9.0.100.exe) provided by Apache.  This will create a service that can be manually started from the `Services` application.
+
+### Ubuntu
+
 If you have admin privileges, you may prefer to install Tomcat as a service.  We recommend downloading and extract Tomcat rather than attempting to use the installer, as we have seen problems with the installer on Ubuntu.
 
 These directions are based on these [installation instructions](https://linuxize.com/post/how-to-install-tomcat-9-on-ubuntu-20-04/).
 
-### Create a Tomcat User
+#### Create a Tomcat User
 
 First create a new user and group with the home directory `/opt/tomcat`.  This user will be used to run the Tomcat service:
 ```bash
 sudo useradd -m -U -d /opt/tomcat -s /bin/false tomcat
 ```
 
-### Download and Extract Tomcat
+#### Download and Extract Tomcat
 Download the latest Tomcat 9.x release from the Apache Tomcat download page.  In these directions replace XXX with the actual version of Tomcat that you downloaded:
 https://tomcat.apache.org/download-90.cgi
 
@@ -90,7 +96,7 @@ Make all of the shell scripts within `/opt/tomcat` executable:
 sudo sh -c 'chmod +x /opt/tomcat/latest/bin/*.sh'
 ```
 
-### Configure Tomcat to Execute as a Service
+#### Configure Tomcat to Execute as a Service
 You will need to create a unit file named `tomcat.service` within `/etc/systemd/system/`.  Paste in the following configuration information, updating JAVA_HOME if Java was installed in a different location.
 ```
 [Unit]
@@ -135,7 +141,7 @@ tomcat.service - Apache Tomcat Web Application Container
    Active: active (running) since Thu 2023-06-15 12:44:10 EDT; 5s ago
 ```
 
-### Enable the Web Management Interface
+#### Enable the Web Management Interface
 Tomcat includes a web based management interface, which must be first enabled by creating at least one user with permissions to use this interface.
 
 Open the Tomcat users file located at `/opt/tomcat/latest/conf/tomcat-users.xml`, and add a new user to the `<tomcat-users>` section.  The example below creates one new user, admin, with manager-gui and admin-gui roles.
@@ -151,11 +157,11 @@ Restart Tomcat to add the new user:
 sudo systemctl restart tomcat
 ```
 
-## Setting up Tomcat without Admin Privileges
+### Setting up Tomcat without Admin Privileges
 
 These directions are based on these [installation instructions](https://csns.cysun.org/wiki/content/cysun/course_materials/tomcat_without_admin#:~:text=Start%20and%20Stop%20the%20Server,%2Fbin%2Fshutdown.sh)
 
-### Installing Tomcat in a Local Directory
+#### Installing Tomcat in a Local Directory
 Download the latest Tomcat 9.x release from the Apache Tomcat download page.  In these directions replace XXX with the actual version of Tomcat that you downloaded:
 https://tomcat.apache.org/download-90.cgi
 
@@ -174,7 +180,7 @@ Open the Tomcat users file located at `apache-tomcat-XXX/conf/tomcat-users.xml`,
 </tomcat-users>
 ```
 
-### Starting and Stopping Tomcat Manually
+#### Starting and Stopping Tomcat Manually
 Use the following command to start the Tomcat server.  This command will need to be run again each time you start Tomcat:
 ```bash
 cd apache-tomcat-XXX/bin
@@ -230,7 +236,7 @@ Comment in this section and add your IP address to the list.  For example, to ad
 The CMDS application, like all tomcat applications, is contained within a .war file that is deployed to the webserver.  To deploy the .war file:
 1.  Click on the "Manager App" button in the upper right hand corner of the top level Tomcat webpage.  
 2. Enter the crendentials of the user that you configured in the `tomcat-users.xml` file.
-3. Click `Choose File` and select the pre-built CDMS.war file that was included along with your VMF release.  
+3. Click `Choose File` and select the pre-built CDMS.war file that was included along with your [VMF release](https://github.com/draperlaboratory/VaderModularFuzzer/releases).  
 4. Click `Deploy` to deploy the CDMS application.
 
 After deployment, if you installed Tomcat as a service, you will be able to access the application at http://127.0.0.1:8080/CDMS/.  

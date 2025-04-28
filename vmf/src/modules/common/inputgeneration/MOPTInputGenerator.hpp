@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -35,10 +26,16 @@ namespace vmf
 {
 
 /**
- * @brief This is an optimized mutator selection approach that is based on the MOpt algorithm
+ * @brief This InputGeneratorModule is an optimized mutator selection approach that is based on the MOpt algorithm.
  * 
  * See https://www.usenix.org/system/files/sec19-lyu.pdf
  * 
+ * This module uses the RAN_SUCCESSFULLY tag to select only test cases with a normal execution
+ * pattern as the basis of mutation.  It uses MUTATOR_ID to track which MutatorModule submodule
+ * was used to create each TEST_CASE, and adjusts how frequently it uses each mutator based on
+ * the observed performance of the resulting test cases.
+ * @image html CoreModuleDataModel_4.png width=800px
+ * @image latex CoreModuleDataModel_4.png width=6in
  */
 class MOPTInputGenerator: public InputGeneratorModule
 {
@@ -58,6 +55,7 @@ private:
 
     MOPT* mopt;
     unsigned int testCasesRan;
+    int moptMutatorIdKey;
     int mutatorIdKey;
     int normalTag;
     int testCaseKey;

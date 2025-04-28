@@ -1,0 +1,51 @@
+vmfModules:
+  storage: #a storage module must be specified
+    className: SimpleStorage
+  controller: #a controller module must be specified
+    className: IterativeController
+    children:
+      #- className: StringsInitialization
+      - className: DirectoryBasedSeedGen
+      - className: MOPTInputGenerator
+      - className: AFLForkserverExecutor
+      - className: AFLFavoredFeedback
+      - className: CorpusMinimization
+      - className: SaveCorpusOutput
+      - className: ComputeStats
+      - className: StatsOutput
+  MOPTInputGenerator:
+    children:
+      - className: AFLFlipBitMutator
+      - className: AFLFlip2BitMutator
+      - className: AFLFlip4BitMutator
+      - className: AFLFlipByteMutator
+      - className: AFLFlip2ByteMutator
+      - className: AFLFlip4ByteMutator
+      - className: AFLRandomByteAddSubMutator
+      - className: AFLRandomByteMutator
+      - className: AFLDeleteMutator
+      - className: AFLCloneMutator
+      - className: AFLSpliceMutator
+  CorpusMinimization:
+    children:
+      - className: AFLForkserverExecutor
+        id: CorpusMinExecutor
+
+# Modules-specific parameters
+#(The SUT-specific portions of these all defined using YAML anchors)
+AFLForkserverExecutor:
+  sutArgv: *SUT_ARGV
+  useASAN: true
+
+CorpusMinExecutor:
+  sutArgv: *SUT_ARGV
+  alwaysWriteTraceBits: true
+  useASAN: true
+
+DirectoryBasedSeedGen:
+  inputDir: *INPUT_DIR
+
+#Only used if the StringsInitialization module is commented in above
+StringsInitialization:
+  sutArgv: *SUT_ARGV  
+

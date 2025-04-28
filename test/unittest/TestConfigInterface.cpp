@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -29,6 +20,7 @@
 #include "TestConfigInterface.hpp"
 #include "RuntimeException.hpp"
 #include <algorithm>
+#include <iostream>
 
 using namespace vmf;
 
@@ -44,98 +36,150 @@ TestConfigInterface::~TestConfigInterface()
     //do nothing
 }
 
-/**
- * @brief Helper method to see if this parameter has been added before
- * If it has, return the index to the parameter, if it has not, return -1
- * 
- * @param name the name to look for
- * @param nameList the list of names to check 
- * @return int the index, or -1 if not found
- */
-int TestConfigInterface::containsName(std::string name, std::vector<std::string>& nameList)
+std::string TestConfigInterface::getModuleName(int id)
 {
-    int index = -1;
-    std::vector<std::string>::iterator it = std::find(nameList.begin(), nameList.end(), name);
-    if(it != nameList.end())
-    {
-        //name was found
-        index = it - nameList.begin();
-    }
-    return index;
+    return "Method not implemented";
 }
 
-template<typename T> T TestConfigInterface::getParam(std::string paramName, std::vector<std::string>& nameList, std::vector<T>& valueList)
+//see ConfigInterface::getAllParamsYAML
+std::string TestConfigInterface::getAllParamsYAML(std::string moduleName)
 {
-    int index = containsName(paramName,nameList);
-    if(-1 == index)
-    {
-        GTEST_ERR << "Param not set: " << paramName << "\n";
-        throw RuntimeException("getParam failed because the param value was not yet set");
-    }
-    else
-    {
-        return valueList[index];
-    }
-}
+    const YAML::Node& node = _configRoot[moduleName];
 
-template<typename T> T TestConfigInterface::getParam(std::string paramName, T defaultValue, std::vector<std::string>& nameList, std::vector<T>& valueList)
-{
-    int index = containsName(paramName,nameList);
-    if(-1 == index)
+    if (node)
     {
-        return defaultValue;
+        std::stringstream SS;
+        SS << node; 
+        return SS.str();
     }
-    else
-    {
-        return valueList[index];
-    }
-}
-
-template<typename T> void TestConfigInterface::setParam(std::string paramName, T value, std::vector<std::string>& nameList, std::vector<T>& valueList)
-{
-    int index = containsName(paramName,nameList);
-    if(-1 == index)
-    {
-        nameList.push_back(paramName);
-        valueList.push_back(value);
-    }
-    else
-    {
-        valueList[index] = value;
-    }
+    return "";
 }
 
 bool TestConfigInterface::isParam(std::string moduleName, std::string paramName)
 {
-    if(-1 != containsName(paramName, intParamNames))
-    {
-        return true;
-    }
-    if(-1 != containsName(paramName, stringParamNames))
-    {
-        return true;
-    }
-    if(-1 != containsName(paramName, floatParamNames))
-    {
-        return true;
-    }
-    if(-1 != containsName(paramName, boolParamNames))
-    {
-        return true;
-    }
-    if(-1 != containsName(paramName, intVectorParamNames))
-    {
-        return true;
-    }
-    if(-1 != containsName(paramName, stringVectorParamNames))
-    {
-        return true;
-    }
-    if(-1 != containsName(paramName, floatVectorParamNames))
-    {
-        return true;
-    }
-    return false;
+    const YAML::Node& node = _configRoot[moduleName];
+    return static_cast<bool>(node) && static_cast<bool>(node[paramName]);
+}
+
+void TestConfigInterface::setIntParam(std::string moduleName, std::string paramName, int value) 
+{ 
+    setParam( moduleName, paramName, value ); 
+}
+
+void TestConfigInterface::setIntVectorParam(std::string moduleName, std::string paramName, std::vector<int> value) 
+{ 
+    setParam( moduleName, paramName, value ); 
+}
+
+void TestConfigInterface::setStringParam(std::string moduleName, std::string paramName, std::string value) 
+{ 
+    setParam( moduleName, paramName, value ); 
+}
+
+void TestConfigInterface::setStringVectorParam(std::string moduleName, std::string paramName, std::vector<std::string> value) 
+{ 
+    setParam( moduleName, paramName, value ); 
+}
+
+void TestConfigInterface::setFloatParam(std::string moduleName, std::string paramName, float value) 
+{ 
+    setParam( moduleName, paramName, value ); 
+}
+
+void TestConfigInterface::setFloatVectorParam(std::string moduleName, std::string paramName, std::vector<float> value) 
+{ 
+    setParam( moduleName, paramName, value ); 
+}
+
+void TestConfigInterface::setBoolParam(std::string moduleName, std::string paramName, bool value) 
+{ 
+    setParam( moduleName, paramName, value ); 
+}
+
+//see ConfigInterface::getStringParam
+std::string TestConfigInterface::getStringParam(std::string moduleName, std::string paramName)
+{
+    return getParam<std::string>(moduleName, paramName);
+}
+
+//see ConfigInterface::getStringParam
+std::string TestConfigInterface::getStringParam(std::string moduleName, std::string paramName, std::string defaultValue)
+{
+    return getParam<std::string>(moduleName, paramName, defaultValue);
+}
+
+//see ConfigInterface::getStringVectorParam
+std::vector<std::string> TestConfigInterface::getStringVectorParam(std::string moduleName, std::string paramName)
+{
+    return getParam<std::vector<std::string>>(moduleName, paramName);
+}
+
+//see ConfigInterface::getStringVectorParam
+std::vector<std::string> TestConfigInterface::getStringVectorParam(std::string moduleName, std::string paramName, std::vector<std::string> defaultValue)
+{
+    return getParam<std::vector<std::string>>(moduleName, paramName, defaultValue);
+}
+
+//see ConfigInterface::getIntParam
+int TestConfigInterface::getIntParam(std::string moduleName, std::string paramName)
+{
+    return getParam<int>(moduleName, paramName);
+}
+
+//see ConfigInterface::getIntParam
+int TestConfigInterface::getIntParam(std::string moduleName, std::string paramName, int defaultValue)
+{
+    return getParam<int>(moduleName, paramName, defaultValue);
+}
+
+//see ConfigInterface::getIntVectorParam
+std::vector<int> TestConfigInterface::getIntVectorParam(std::string moduleName, std::string paramName)
+{
+    return getParam<std::vector<int>>(moduleName, paramName);
+}
+
+//see ConfigInterface::getIntVectorParam
+std::vector<int> TestConfigInterface::getIntVectorParam(std::string moduleName, std::string paramName, std::vector<int> defaultValue)
+{
+    return getParam<std::vector<int>>(moduleName, paramName, defaultValue);
+}
+
+//see ConfigInterface::getFloatParam
+float TestConfigInterface::getFloatParam(std::string moduleName, std::string paramName)
+{
+    return getParam<float>(moduleName, paramName);
+}
+
+//see ConfigInterface::getFloatParam
+float TestConfigInterface::getFloatParam(std::string moduleName, std::string paramName, float defaultValue)
+{
+    return getParam<float>(moduleName, paramName, defaultValue);
+}
+
+//see ConfigInterface::getFloatVectorParam
+std::vector<float> TestConfigInterface::getFloatVectorParam(std::string moduleName, std::string paramName)
+{
+    return getParam<std::vector<float>>(moduleName, paramName);
+}
+
+//see ConfigInterface::getFloatVectorParam
+std::vector<float> TestConfigInterface::getFloatVectorParam(std::string moduleName, std::string paramName, std::vector<float> defaultValue)
+{
+    return getParam<std::vector<float>>(moduleName, paramName, defaultValue);
+}
+
+//see ConfigInterface::getBoolParam
+bool TestConfigInterface::getBoolParam(std::string moduleName, std::string paramName)
+{
+    bool option = getParam<bool>(moduleName, paramName);
+    return option;
+}
+
+//see ConfigInterface::getBoolParam
+bool TestConfigInterface::getBoolParam(std::string moduleName, std::string paramName, bool defaultValue)
+{
+    bool option = getParam<bool>(moduleName, paramName, defaultValue);
+    return option;
 }
 
 void TestConfigInterface::setOutputDir(std::string dir)
@@ -148,117 +192,108 @@ std::string TestConfigInterface::getOutputDir()
     return outputDir;
 }
 
-void TestConfigInterface::addSubmodule(Module* module)
+void TestConfigInterface::addSubmodule(std::string moduleName, Module* module)
 {
-    submodules.push_back(module);
+    bool found = false;
+    //Look for the index into the submodules data structure
+    //This structure maps a module name to a list of submodules
+    for(int i=0; i< submodules.size(); i++)
+    {
+        if(moduleName == submodules[i].first)
+        {
+            //We found the entry, go ahead add the module
+            found = true;
+            submodules[i].second.push_back(module);
+        }
+    }
+
+    if(!found)
+    {
+        //This is a new submodule name, we need to add it to the data structure
+        std::vector<Module*> newModuleList;
+        newModuleList.push_back(module);
+        submodules.push_back(std::make_pair(moduleName, newModuleList));
+    }
+
 }
 
 std::vector<Module*> TestConfigInterface::getSubModules(std::string parentModuleName)
 {
-    return submodules;
+    for(int i=0; i< submodules.size(); i++)
+    {
+        if(parentModuleName == submodules[i].first)
+        {
+            return submodules[i].second;
+        }
+    }
+
+    //Otherwise, there are no submodules, return an empty list
+    return {};
 }
 
-void TestConfigInterface::setIntParam(std::string paramName, int value)
+/**
+ * @brief Helper method to find a required cofiguration parameter
+ * This templated method is used as the implemenation for all of the getXXXConfig
+ * methods required by ConfigInterface.
+ * 
+ * @tparam T the type to retrieve
+ * @param moduleName the name of the module requesting the configuration parameter
+ * @param paramName the name of the parameter (must match the config file)
+ * @return T the configuration value
+ * @throws RuntimeExcepttion if the parameter is not found
+ */
+template<typename T> T TestConfigInterface::getParam(std::string moduleName, std::string paramName)
 {
-    setParam(paramName,value,intParamNames,intParamValues);
+    const YAML::Node& node = _configRoot[moduleName];
+
+    if(node && node[paramName])
+    {
+        return node[paramName].as<T>();
+    }
+    else
+    {
+        throw RuntimeException("getParam failed because the param value was not yet set");
+    }
 }
 
-int TestConfigInterface::getIntParam(std::string moduleName, std::string paramName)
+/**
+ * @brief Helper method to find a required cofiguration parameter
+ * This templated method is used as the implemenation for all of the getXXXConfig
+ * methods required by ConfigInterface.
+ * 
+ * @tparam T the type to retrieve
+ * @param moduleName the name of the module requesting the configuration parameter
+ * @param paramName the name of the parameter (must match the config file)
+ * @param defValue the default value if the parameter is not defined in config
+ * @return T the configuration value
+ * @throws RuntimeExcepttion if the parameter is not found
+ */
+template<typename T> T TestConfigInterface::getParam(std::string moduleName, std::string paramName, T defValue)
 {
-    return getParam(paramName,intParamNames,intParamValues);
+    const YAML::Node& node = _configRoot[moduleName];
+
+    if(node && node[paramName])
+    {
+        return node[paramName].as<T>();
+    }
+    else
+    {
+        return defValue;
+    }
 }
 
-int TestConfigInterface::getIntParam(std::string moduleName, std::string paramName, int defaultValue)
+/**
+ * @brief Helper method to set a required cofiguration parameter
+ * This templated method is used as the implemenation for all of the setXXXConfig
+ * methods required by ConfigInterface.
+ * 
+ * @tparam T the type to retrieve
+ * @param moduleName the name of the module requesting the configuration parameter
+ * @param paramName the name of the parameter (must match the config file)
+ * @return T the configuration value
+ * @throws RuntimeExcepttion if the parameter is not found
+ */
+template<typename T> void TestConfigInterface::setParam(std::string moduleName, std::string paramName, T value )
 {
-    return getParam(paramName,defaultValue,intParamNames,intParamValues);
+    _configRoot[moduleName][paramName] = value;
 }
-
-void TestConfigInterface::setStringParam(std::string paramName, std::string value)
-{
-    setParam(paramName,value,stringParamNames,stringParamValues);
-}
-
-std::string TestConfigInterface::getStringParam(std::string moduleName, std::string paramName)
-{
-    return getParam(paramName,stringParamNames,stringParamValues);
-}
-
-std::string TestConfigInterface::getStringParam(std::string moduleName, std::string paramName, std::string defaultValue)
-{
-    return getParam(paramName,defaultValue,stringParamNames,stringParamValues);
-}
-
-void TestConfigInterface::setStringVectorParam(std::string paramName, std::vector<std::string> value)
-{
-    setParam(paramName,value,stringVectorParamNames,stringVectorParamValues);
-}
-
-std::vector<std::string> TestConfigInterface::getStringVectorParam(std::string moduleName, std::string paramName)
-{
-    return getParam(paramName,stringVectorParamNames,stringVectorParamValues);
-}
-
-std::vector<std::string> TestConfigInterface::getStringVectorParam(std::string moduleName, std::string paramName, std::vector<std::string> defaultValue)
-{
-    return getParam(paramName,defaultValue,stringVectorParamNames,stringVectorParamValues);
-}
-
-void TestConfigInterface::setIntVectorParam(std::string paramName, std::vector<int> value)
-{
-    setParam(paramName,value,intVectorParamNames,intVectorParamValues);
-}
-
-std::vector<int> TestConfigInterface::getIntVectorParam(std::string moduleName, std::string paramName)
-{
-    return getParam(paramName,intVectorParamNames,intVectorParamValues);
-}
-std::vector<int> TestConfigInterface::getIntVectorParam(std::string moduleName, std::string paramName, std::vector<int> defaultValue)
-{
-    return getParam(paramName,defaultValue,intVectorParamNames,intVectorParamValues);
-}
-
-void TestConfigInterface::setFloatParam(std::string paramName, float value)
-{
-    setParam(paramName,value,floatParamNames,floatParamValues);
-}
-
-float TestConfigInterface::getFloatParam(std::string moduleName, std::string paramName)
-{
-    return getParam(paramName,floatParamNames,floatParamValues);
-}
-
-float TestConfigInterface::getFloatParam(std::string moduleName, std::string paramName, float defaultValue)
-{
-    return getParam(paramName,defaultValue,floatParamNames,floatParamValues);
-}
-
-void TestConfigInterface::setFloatVectorParam(std::string paramName, std::vector<float> value)
-{
-    setParam(paramName,value,floatVectorParamNames,floatVectorParamValues);
-}
-
-std::vector<float> TestConfigInterface::getFloatVectorParam(std::string moduleName, std::string paramName)
-{
-    return getParam(paramName,floatVectorParamNames,floatVectorParamValues);
-}
-
-std::vector<float> TestConfigInterface::getFloatVectorParam(std::string moduleName, std::string paramName, std::vector<float> defaultValue)
-{
-    return getParam(paramName,defaultValue,floatVectorParamNames,floatVectorParamValues);
-}
-
-void TestConfigInterface::setBoolParam(std::string paramName, bool value)
-{
-    setParam(paramName,value,boolParamNames,boolParamValues);
-}
-
-bool TestConfigInterface::getBoolParam(std::string moduleName, std::string paramName)
-{
-    return getParam(paramName,boolParamNames,boolParamValues);
-}
-
-bool TestConfigInterface::getBoolParam(std::string moduleName, std::string paramName, bool defaultValue)
-{
-    return getParam(paramName,defaultValue,boolParamNames,boolParamValues);
-}
-    

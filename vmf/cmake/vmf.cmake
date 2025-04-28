@@ -1,17 +1,8 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+# Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
 # <vmf@draper.com>
-#  
-# Effort sponsored by the U.S. Government under Other Transaction number
-# W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
-# Is authorized to reproduce and distribute reprints for Governmental purposes
-# notwithstanding any copyright notation thereon.
-#  
-# The views and conclusions contained herein are those of the authors and
-# should not be interpreted as necessarily representing the official policies
-# or endorsements, either expressed or implied, of the U.S. Government.
-#  
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 (only) as 
 # published by the Free Software Foundation.
@@ -68,15 +59,29 @@ set(CMAKE_INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
 # add a target (e.g., a library) to the build, you are expected to apply this
 # function to it.
 #
+
 function (set_vmf_compile_options target)
-  target_compile_options(${target}
-    PRIVATE
-    -Wall
-    -Wextra
-    # -Wextra turns on unused-parameter, but we don't want that one currently?
-    -Wno-unused-parameter
-    -Werror
-    )
+  if(WIN32)
+    target_compile_definitions(${target} PRIVATE   
+       # Prevents Windows.h from adding unnecessary includes    
+       WIN32_LEAN_AND_MEAN  
+       # Prevents Windows.h from defining min/max as macros 
+       NOMINMAX 
+       # Remove warnings about _s functions (that are Microsoft only implementations)
+       _CRT_SECURE_NO_WARNINGS
+       # Remove warnings about POSIX functions names (also Microsoft only)
+       _CRT_NONSTDC_NO_WARNINGS
+    )   
+  else()
+    target_compile_options(${target}
+      PRIVATE
+      -Wall
+      -Wextra
+      # -Wextra turns on unused-parameter, but we don't want that one currently?
+      -Wno-unused-parameter
+      -Werror
+      )
+  endif()
 endfunction()
 
 #

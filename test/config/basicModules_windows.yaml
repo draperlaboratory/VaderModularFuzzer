@@ -1,0 +1,30 @@
+vmfModules:
+  storage: #a storage module must be specified
+      className: SimpleStorage
+  controller: #a controller module must be specified
+      className: IterativeController
+      children:
+        - className: DirectoryBasedSeedGen
+        - className: GeneticAlgorithmInputGenerator
+        - className: FridaExecutor
+        - className: AFLFeedback
+        - className: SaveCorpusOutput
+        - className: ComputeStats
+        - className: StatsOutput
+  GeneticAlgorithmInputGenerator:
+      children:
+        - className: AFLFlipBitMutator
+        - className: AFLFlip2BitMutator
+        - className: AFLFlip4BitMutator
+        - className: AFLFlipByteMutator
+        - className: AFLFlip2ByteMutator
+        - className: AFLFlip4ByteMutator
+        - className: AFLRandomByteAddSubMutator
+        - className: AFLRandomByteMutator
+        - className: AFLDeleteMutator
+        - className: AFLCloneMutator
+        - className: AFLSpliceMutator
+# Modules-specific parameters
+
+DirectoryBasedSeedGen:
+  inputDir: *INPUT_DIR

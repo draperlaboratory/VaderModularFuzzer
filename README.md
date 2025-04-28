@@ -1,20 +1,18 @@
 # VADER Modular Fuzzer (VMF)
-- [Downloading & Initializing VMF](#downloading---initializing-vmf)
-  * [VMF Compatibility](#vmf-compatibility)
+- [VMF Compatibility](#vmf-compatibility)
 - [Detailed Documentation](#detailed-documentation)
   * [Generate Doxygen Documentation](#generate-doxygen-documentation)
 - [Basic Build & Run Instructions](#basic-build---run-instructions)
-  * [Building VMF](#building-vmf)
-    + [Supplemental Installs](#supplemental-installs)
-  * [Run VMF](#run-vmf)
+  * [Building VMF Linux](#building-vmf-linux)
+  * [Building VMF Windows](#building-vmf-windows)
+  * [Running VMF](#running-vmf)
+- [Building New Modules](#building-new-modules)
 - [License](#license)
 
 ### Upgrading from an Earlier Release of VMF?
 See [migration-4.0.0.md](docs/migration-4.0.0.md) for a list of the API changes in VMF 4.0.0.
 
-***Note: VMF is compatible with compiler instrumentation from AFL++ 4.10c or earlier, due to an update in the forkserver interface that was introduced in 4.20c.  VMF will be updated in a future release to fix this compatibility issue.***
-
-### VMF Compatibility
+## VMF Compatibility
 
 As of now, VMF can be run in Docker and on the following distributions of Linux:
 
@@ -26,6 +24,8 @@ As of now, VMF can be run in Docker and on the following distributions of Linux:
 
 VMF depends on several open source projects, but uses a "batteries-included" philosophy to dependencies where practical.
 
+VMF can also be run on Windows 10, however the "batteries-included" philosophy is not applied to one major dependancy (FridaRE). This results in a few system configuration and package requirements for building this necessary dependancy. See [Building VMF Windows](#building-vmf-windows)
+
 The sources of particular versions of these dependencies live inside of the VMF tree.  
 For more information about VMF's included package, and other required dependencies, see
 [External Projects](docs/external_projects.md)
@@ -35,7 +35,7 @@ to install the VMF dependencies (these command can even be copied from the corre
 
 ## Detailed Documentation
 If you are new to fuzzing, read these documents:
- - [Intro to Fuzzing](docs/intro_to_fuzzing.md): A basic overview of what fuzzing is and how it works.
+ - [Fuzz Harnessing](docs/fuzz_harnessing.md): A basic overview of how to connect a fuzzer to your target code (harnessing)
  - [Glossary](docs/glossary.md): Definitions for common fuzzing & VMF terminology.
 
 If you want to use VMF to fuzz your own System Under Test (SUT), read these documents:
@@ -53,8 +53,11 @@ If you want to extend VMF by adding new modules, read these documents:
 
 
 ## Basic Build & Run Instructions
+The VMF build binary artifacts, including supporting files for building VMF modules, can be installed
+into a tree for distribution.  By default that tree is in the vmf_install directory under the build
+directory, but the build system can be directed to install to a different directory.  The installed tree is position independent, and can be copied anywhere.
 
-### Building VMF
+### Building VMF (Linux)
 
 VMF is build using CMake, see the [Build System Documentation](docs/build_system.md) for details. The build depends on libcurl, which
 is often installed by default. You can install this on Debian-based systems (including Ubuntu and Kali) via
@@ -66,38 +69,51 @@ On CentOS, RHEL, or Fedora, try
 sudo yum install libcurl-devel
 ```
 
-Execute the following commands to build VMF:
+Execute the following commands to build and install VMF.
+
+*Note: The -DCMAKE_INSTALL_PREFIX may be used to optionally specify an install location other than the default (build/vmf_install).*
 
 ```bash
 # from /path/to/vmf/ directory:
 mkdir build
 cd build
-cmake .. && make
-```
-
-### Installing VMF
-
-The VMF build binary artifacts, including supporting files for building VMF modules, can be installed
-into a tree for distribution.  By default that tree is in the vmf_install directory under the build
-directory, but it can be moved anywhere.  If you wish to configure the build from the start to
-set an install location, do this:
-
-```bash
-mkdir build
-cd build
-cmake -DCMAKE_INSTALL_PREFIX=<your install path here> ..
-make
-```
-
-To install the VMF build, do this in the build directory (-j8 may be ommitted to build single threaded, but the build will be slower):
-```bash
+cmake ..
+#Or optionally use this version instead to specify an install path
+#cmake -DCMAKE_INSTALL_PREFIX=<your install path here> ..
 make install -j8
 ```
 
-The installed tree is position independent, and can be copied anywhere.
+If your default C++ compiler is not gcc or clang, you will need to explicitely set the compiler using a cmake flag [see docs/build_system.md for more information](docs/build_system.md).
+```bash
+$ cmake -DCMAKE_CXX_COMPILER=g++ .. && make
+```
+### Building VMF (Windows)
+To build VMF, Visual Studio must be installed -- the community edition is available at [https://visualstudio.microsoft.com/vs/community/](https://visualstudio.microsoft.com/vs/community/).
+
+The only supported windows execution environment is [Frida](https://frida.re/). The currently supported and tested version is 16.4.8 and their released archive has been added to the VMF repo, for convience, as vmf\dependencies\frida\frida-gum-devkit-16.4.8-windows-x86_64.tar.xz
+
+Run the 64-bit Developer Command Prompt for Visual Studio (e.g. "x64 Native Tools Command Prompt VS 2022"), and navigate to the VMF directory.  Then execute the following commands to generation a solution file for VMF.  The exact version of visual studio must be specified in the final command -- here we specify Visual Studio 2022 Version 17.x.  Use `cmake --help` to see additional generation options.
+
+*Note: The -DCMAKE_INSTALL_PREFIX may be used to optionally specify an install location other than the default (build\vmf_install).*
+
+```powershell
+#from \path\to\vmf directory
+mkdir build
+cd build
+cmake -G "Visual Studio 17 2022" ..
+#Or optionally use this version instead to specify an install path
+#cmake -G "Visual Studio 17 2022" -DCMAKE_INSTALL_PREFIX=<your install path here> ..
+cmake --build . --target INSTALL --config Release
+```
+
+You may alternatively open the VMF.sln file that has been generated in the build directory and build the INSTALL  target in the GUI.
+
+More information on the build system is available in our [Build System Documentation](docs/build_system.md).
 
 ### Running VMF
 VMF can be run in a standalone mode, with a single fuzzing instance, as well as in a distributed mode where multiple VMF instances work together to fuzz something.
+
+#### Linux Directions
 
 To run VMF in standalone mode:
 
@@ -108,21 +124,37 @@ cd vmf_install
 
 This will run VMF with a simple System Under Test (SUT) called haystack, providing the fuzzed input to stdin.  Alternatively, you may split the configuration into one or more files and provide as many as desired to VMF.  See [Getting Started #Running VMF Configurations](docs/getting_started.md#running-vmf-configurations) for details.
 
+#### Windows Directions
+To run VMF in standalone mode:
 
+```powershell
+cd vmf_install
+.\bin\vader.exe -c test/config/basicModules_windows.yaml -c test/haystackSUT/haystack_libfuzzer.yaml
+```
+
+This will run VMF with a simple System Under Test (SUT) called haystack, using the FridaRE instrumentation library and the VMF windows Frida runtime (RT) for providing input and collecting coverage.  Alternatively, you may split the configuration into one or more files and provide as many as desired to VMF.  See [Getting Started #Running VMF Configurations](docs/getting_started.md#running-vmf-configurations) for details.
+
+#### Distributed Directions
 To run VMF in distributed mode, you must first install the Campaign Data Management Server (CDMS).  See detailed directions in [docs/distributed_fuzzing.md](docs/distributed_fuzzing.md).  Once the server is installed, each individual VMF instance is started using the -d option, to indicated distributed mode.  A small configuration file is provided that contains the information needed to connect to the server.
 
-Note: The linux zip utility is also required for distributed mode.  If the command `which zip` does not return a path to the zip executable, you will need to first install zip on your system:
+Note: On linux, the linux zip utility is also required for distributed mode (on windows the required tar utility is included with the Windows OS).  If the command `which zip` does not return a path to the zip executable, you will need to first install zip on your system:
 ```bash
 sudo apt install zip
 ```
-To run VMF in distributed mode:
 
+Linux command to run VMF in distributed mode:
 ```bash
 cd vmf_install
 ./bin/vader -d test/config/serverconfig.yaml
 ```
 
-### Samples
+Windows command to run VMF in distributed mode:
+```powershell
+cd vmf_install
+.\bin\vader.exe -d test\config\serverconfig.yaml
+```
+
+## Building New Modules
 
 The samples directory contains samples of how to build a VMF module outside of the full VMF tree.
 This directory is installed with the VMF binaries in a distribution install.

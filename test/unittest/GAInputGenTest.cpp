@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -47,7 +38,7 @@ protected:
     void SetUp() override {
         testHelper = new ModuleTestHelper();
         //Construct module under test
-        GAInputGen = new GeneticAlgorithmInputGenerator("GeneticAlgorithmInputGenerator");
+        GAInputGen = new GeneticAlgorithmInputGenerator(GAModuleName);
         testHelper->addModule(GAInputGen);
 
         config = testHelper->getConfig();
@@ -72,9 +63,9 @@ protected:
         testHelper->addModule(mutator3);
 
         //Setup config data
-        config->addSubmodule(mutator1);
-        config->addSubmodule(mutator2);
-        config->addSubmodule(mutator3);
+        config->addSubmodule(GAModuleName,mutator1);
+        config->addSubmodule(GAModuleName,mutator2);
+        config->addSubmodule(GAModuleName,mutator3);
 
         //Register for relevant storage handles that we need to read or write within the unit test
         //(the module's registerStorageNeeds method is called automatically by the ModuleTestHelper)
@@ -89,7 +80,7 @@ protected:
         }
         catch(RuntimeException e)
         {
-            FAIL() << "Storage initialization failed -- " << e.getReason();
+            FAIL() << "Storage or module initialization failed due to error -- " << e.getReason();
         }
 
         //Module is now fully initialized and ready for further testing
@@ -100,6 +91,7 @@ protected:
     InputGeneratorModule* GAInputGen;
     TestConfigInterface* config;
     StorageModule* storage;
+    std::string GAModuleName = "GeneticAlgorithmInputGenerator";
 
     //Storage fields that are read or written by this unit test
     int normalTag;

@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -45,19 +36,27 @@ class ConfigInterface
 public:
 
     ///The key name for the root module (used in the config file)
-    static const std::string ROOT_MODULE_KEY;
+    const std::string ROOT_MODULE_KEY = "controller";
     ///The key name for the storage module (used in the config file)
-    static const std::string STORAGE_MODULE_KEY;
+    const std::string STORAGE_MODULE_KEY = "storage";
     ///The key name for module children (used in the config file)
-    static const std::string VMF_FRAMEWORK_KEY;
+    const std::string VMF_FRAMEWORK_KEY = "vmfFramework";
     ///The key name for the vmf variables configuration section (used in the config file)
-    static const std::string VMF_VARIABLES_KEY;
+    const std::string VMF_VARIABLES_KEY = "vmfVariables";
     ///The key name for the vmf class set configuration section (used in the config file)
-    static const std::string VMF_CLASS_SET_KEY;
+    const std::string VMF_CLASS_SET_KEY = "vmfClassSet";
     ///The key name for the vmf modules configuration section (used in the config file)
-    static const std::string VMF_MODULES_KEY;
+    const std::string VMF_MODULES_KEY = "vmfModules";
     ///The key name for the vmf distributed configuration section (used in the config file)
-    static const std::string VMF_DISTRIBUTED_KEY;
+    const std::string VMF_DISTRIBUTED_KEY = "vmfDistributed";
+
+    /**
+     * @brief Lookup a module's name given its unique ID
+     *
+     * @param id unique identifer for an instance of a module
+     * @return std::string the instance's name
+     */
+    virtual std::string getModuleName(int id) = 0;
 
     /**
      * @brief Get the Output Directory for the application
@@ -100,6 +99,14 @@ public:
      * @return std::string the concatenated value of all configs
      */
     virtual std::string getAllParams(std::string moduleName) = 0;
+
+    /**
+     * @brief Get the YAML of map for the module name.
+     *
+     * @param moduleName the name of the module (use getModuleName())
+     * @return std::string YAML serialized value of all configs
+     */
+    virtual std::string getAllParamsYAML(std::string moduleName) = 0;
 
     /**
      * @brief Get a required string based parameter from the config file(s)

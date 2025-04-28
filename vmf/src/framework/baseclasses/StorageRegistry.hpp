@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -48,12 +39,15 @@ public:
     {
         INT,
         UINT,
+        U64, //64-bit unsigned integer
         FLOAT,
         BUFFER, //Note: Storage cannot be sorted by a BUFFER or BUFFER_TEMP type
         BUFFER_TEMP //BUFFER_TEMP is for data that is kept around only for one pass through the fuzzing loop
     };
     //Note: If other data types are added to storage, be careful to update the other classes
-    //that rely on these type definitions (including the implementations of StorageModule).
+    //that rely on these type definitions.  In addition to updating the methods in this class, changes will be 
+    //needed to StorageEntry, StorageKeyHelper, and likely to the implementations of StorageModule 
+    //(e.g. SimpleStorage).  The associated unit tests should be updated as well.
 
     static storageTypes stringToStorageType(std::string type);
     static std::string storageTypeToString(storageTypes type);
@@ -82,6 +76,7 @@ public:
     int registerKey(std::string keyName, storageTypes type, accessType access);
     int registerIntKey(std::string keyName, accessType access, int defaultValue);
     int registerUIntKey(std::string keyName, accessType access, unsigned int defaultValue);
+    int registerU64Key(std::string keyName, accessType access, unsigned long long defaultValue);
     int registerFloatKey(std::string keyName, accessType access, float defaultValue);
     int registerTag(std::string tagName, accessType access);
     void registerForAllTags(accessType access);
@@ -94,6 +89,7 @@ public:
     int getNumTags();
     std::vector<int> getIntKeyDefaults();
     std::vector<unsigned int> getUIntKeyDefaults();
+    std::vector<unsigned long long> getU64KeyDefaults();
     std::vector<float> getFloatKeyDefaults();
     int getSortByKey();
     storageTypes getSortByType();
@@ -121,6 +117,7 @@ private:
     std::vector<registryInfo> tagNames;
     std::vector<int> intDefaults;
     std::vector<unsigned int> uintDefaults;
+    std::vector<unsigned long long> u64Defaults;
     std::vector<float> floatDefaults;
 
     std::unordered_map<storageTypes,std::vector<registryInfo>> registryMap;

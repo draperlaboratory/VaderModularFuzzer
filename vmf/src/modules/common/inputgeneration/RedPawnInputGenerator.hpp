@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -43,7 +34,12 @@ namespace vmf
 enum RedPawnMode {StartNewTestCase, FinishTestCase, MoreTestCasesInQueue};
 
 /**
- * @brief Input generator that performs an input-to-state analysis comparable to RedQueen or AFL CmpLog.
+ * @brief InputGeneratorModule that performs an input-to-state analysis comparable to RedQueen or AFL CmpLog.
+ * This module requires as inputs a number of fields that are output by executor modules.  
+ * This module uses the REDPAWN_NEW_COVERAGE tag to track test cases that still needs to process.  
+ * It outputs new TEST_CASE fields, based on its input-to-state analysis.
+ * @image html CoreModuleDataModel_3.png width=800px
+ * @image latex CoreModuleDataModel_3.png width=6in
  */
 class RedPawnInputGenerator: public InputGeneratorModule
 {
@@ -85,6 +81,7 @@ private:
     int traceBitsKey;
     int cmpLogMapKey;
     int execTimeKey;
+    int mutatorIdKey;
 
     // User-configurable parameters
     int colorizeMaxExecs = 1000;

@@ -1,0 +1,18 @@
+# Combine this config file with defaultModules.yaml to fuzz the haystack SUT
+# This should be run from vmf_install (all paths are relative to the vmf_install directory)
+
+# VMF Variable parameters
+# Such as SUT args and input directory path
+
+vmfVariables:
+  - &SUT_ARGV ["./test/unittest/inputs/AFLForkserverExecutorTest/mimeSUT/mime"]
+  - &INPUT_DIR ./test/unittest/inputs/AFLForkserverExecutorTest/mimeSUT/test-input/
+
+# VMF Framework parameters (this section is optional)
+# Such as logging path, logging level, plugin path
+
+vmfFramework:
+  outputBaseDir: output
+  logLevel : 0 #0=DEBUG, 1=INFO, 2=WARNING, 3=ERROR
+
+

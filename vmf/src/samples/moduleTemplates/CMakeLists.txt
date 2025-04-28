@@ -1,17 +1,8 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+# Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
 # <vmf@draper.com>
-#  
-# Effort sponsored by the U.S. Government under Other Transaction number
-# W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
-# Is authorized to reproduce and distribute reprints for Governmental purposes
-# notwithstanding any copyright notation thereon.
-#  
-# The views and conclusions contained herein are those of the authors and
-# should not be interpreted as necessarily representing the official policies
-# or endorsements, either expressed or implied, of the U.S. Government.
-#  
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 (only) as 
 # published by the Free Software Foundation.
@@ -34,18 +25,23 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 #Clang or g++ are supported
-set(CMAKE_CXX_COMPILER g++)
+#set(CMAKE_CXX_COMPILER g++)
 #set(CMAKE_CXX_COMPILER clang++)
 
 project(ModuleTemplates VERSION 1.0 LANGUAGES CXX)
 
-# Check that VMF_INSTALL directory is properly defined, exit with error if not
-if (NOT IS_DIRECTORY ${VMF_INSTALL})
-  message( FATAL_ERROR "CMake variable VMF_INSTALL must be defined as full path to a VMF install tree, please use cmake -DVMF_INSTALL=/full/path/to/VMF" )
+#Set flag to export all symbols for windows builds
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
+# Check that CMAKE_INSTALL_PREFIX directory is properly defined, exit with error if not
+if (NOT IS_DIRECTORY ${CMAKE_INSTALL_PREFIX})
+  message( "CMAKE_INSTALL_PREFIX: " ${CMAKE_INSTALL_PREFIX} )
+  message( FATAL_ERROR "CMake variable CMAKE_INSTALL_PREFIX must be defined as full path to a VMF install tree, please use cmake -DCMAKE_INSTALL_PREFIX=/full/path/to/VMF" )
 endif()
 
+
 # Bring in VMF support variables and utility functions
-list(APPEND CMAKE_MODULE_PATH "${VMF_INSTALL}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_INSTALL_PREFIX}/cmake")
 include(vmf_imports)
 include(vmf)
 
@@ -60,20 +56,35 @@ add_library(ModuleTemplates SHARED
 # set VMF standard compile options
 set_vmf_compile_options(ModuleTemplates)
 
+
+# windows needs an additional import to make the logger work
+if(WIN32)
+   target_compile_definitions(ModuleTemplates PRIVATE PLOG_IMPORT)
+endif()
+
 #include the vmf framework headers
 target_include_directories(ModuleTemplates
   PUBLIC
-  ${VMF_INSTALL}/include
-  ${VMF_INSTALL}/include/vmf
-  ${VMF_INSTALL}/include/plog
+  ${CMAKE_INSTALL_PREFIX}/include
+  ${CMAKE_INSTALL_PREFIX}/include/vmf
+  ${CMAKE_INSTALL_PREFIX}/include/plog
 )
 
 #link to the vmf framework library
 target_link_libraries(ModuleTemplates
   PUBLIC
+  vmf_framework
 )
 
 #install build library into vmf plugins directory
 install(TARGETS ModuleTemplates
-  LIBRARY DESTINATION ${VMF_INSTALL}/plugins
+  LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins
 )
+
+#On windows the /plugins directory above is ignored, and everything ends up in /lib and /bin
+if(WIN32)
+  cmake_path(SET WIN_LIB_FILE ${CMAKE_INSTALL_PREFIX}/lib/ModuleTemplates.lib)
+  cmake_path(SET WIN_DLL_FILE ${CMAKE_INSTALL_PREFIX}/bin/ModuleTemplates.dll)
+  install(FILES ${WIN_LIB_FILE} ${WIN_DLL_FILE}
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins)
+endif()

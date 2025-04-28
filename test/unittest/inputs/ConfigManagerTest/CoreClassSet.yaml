@@ -1,0 +1,23 @@
+#The full set of AFL-style mutators
+vmfClassSet: &AFL_MUTATORS
+  - AFLFlipBitMutator
+  - AFLFlip2BitMutator
+  - AFLFlip4BitMutator
+  - AFLFlipByteMutator
+  - AFLFlip2ByteMutator
+  - AFLFlip4ByteMutator
+  - AFLRandomByteAddSubMutator
+  - AFLRandomByteMutator
+  - AFLDeleteMutator
+  - AFLCloneMutator
+  - AFLSpliceMutator
+
+#VMF Basic Modules
+vmfClassSet: &BASIC_MODULES
+  - DirectoryBasedSeedGen
+  - GeneticAlgorithmInputGenerator
+  - AFLForkserverExecutor
+  - AFLFeedback
+  - SaveCorpusOutput
+  - ComputeStats
+  - StatsOutput

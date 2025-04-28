@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -55,7 +46,7 @@ Module* MOPTInputGenerator::build(std::string name)
 void MOPTInputGenerator::init(ConfigInterface& config)
 {
     mutators = MutatorModule::getMutatorSubmodules(config,getModuleName());
-    int size = mutators.size();
+    int size = (int)mutators.size();
     if(0 == size)
     {
         throw RuntimeException("MOPTInputGenerator must be configured with at least one child mutator",
@@ -107,7 +98,8 @@ MOPTInputGenerator::~MOPTInputGenerator()
 void MOPTInputGenerator::registerStorageNeeds(StorageRegistry& registry)
 {
     normalTag = registry.registerTag("RAN_SUCCESSFULLY", StorageRegistry::READ_ONLY);
-    mutatorIdKey = registry.registerIntKey("MUTATOR_ID", StorageRegistry::READ_WRITE, -1);
+    moptMutatorIdKey = registry.registerIntKey("MOPT_MUTATOR_ID", StorageRegistry::READ_WRITE, -1);
+    mutatorIdKey = registry.registerIntKey("MUTATOR_ID", StorageRegistry::WRITE_ONLY, 1);
     testCaseKey = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_WRITE);
 }
 
@@ -124,8 +116,10 @@ void MOPTInputGenerator::addNewTestCases(StorageModule& storage)
         {
             int pickedMutator = mopt -> pickMutator();
             StorageEntry* newEntry = storage.createNewEntry();
-            mutators[pickedMutator]->mutateTestCase(storage, baseTestCase, newEntry, testCaseKey);
-            newEntry->setValue(mutatorIdKey, pickedMutator + 1); //The id is simply the index into the mutators vector plus 1
+            MutatorModule* mutator = mutators[pickedMutator];
+            mutator->mutateTestCase(storage, baseTestCase, newEntry, testCaseKey);
+            newEntry->setValue(moptMutatorIdKey, pickedMutator + 1); //The id is simply the index into the mutators vector plus 1
+            newEntry->setValue(mutatorIdKey, mutator->getID());
             mopt->updateExecCount(pickedMutator);
             testCasesRan++;
         }

@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -38,37 +29,6 @@
 #include <stdio.h>
 #include <string>
 
-#if !defined(_WIN32)
-    //Linux specific headers
-    #include <libgen.h>         // dirname
-    #include <unistd.h>         // readlink
-    #include <linux/limits.h>   // PATH_MAX
-#else
-    //Windows headers
-    #include <Shlwapi.h>
-#endif
-
-#ifndef MIN
-  #define MIN(a, b)           \
-    ({                        \
-                              \
-      __typeof__(a) _a = (a); \
-      __typeof__(b) _b = (b); \
-      _a < _b ? _a : _b;      \
-                              \
-    })
-
-  #define MAX(a, b)           \
-    ({                        \
-                              \
-      __typeof__(a) _a = (a); \
-      __typeof__(b) _b = (b); \
-      _a > _b ? _a : _b;      \
-                              \
-    })
-
-#endif
-
 
 namespace vmf
 {
@@ -89,7 +49,5 @@ public:
     static std::string getExecutablePath();
     static int selectWeightedRandomValue(int min, int max);
     static size_t hashBuffer(char * buff, int len);
-    static bool commandLineUnzip(std::string zipFilePath, std::string outputDir);
-    static bool commandLineZip(std::string zipFilePath, std::string inputDir);
 };
 }

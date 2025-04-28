@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -180,7 +171,7 @@ public class CorpusServlet extends ControllerServlet
        //--------------------------------------------------------------------------------
        // RESTFul Path: /CDMS/corpus/store/<clusterId>/<scenarioId>/<vmfId>/<TestCaseSize>/<fileType>
        // FileType at the end of the URL will determine if this is a compressed set of test cases to
-       // store. If it is omitted it will behave as a regular file storage.
+       // store. If it is ZIP, the format is compressed, and "FILE" it is a single file.
         
        if( resourcePath[0].equals("store") )
        {  
@@ -221,7 +212,7 @@ public class CorpusServlet extends ControllerServlet
                
                if(myObj.delete()) Logger.println(this, "Deleted testCase ZipFile: " + myObj.getName());
            }
-           else
+           else //Assume it is a "FILE"
            {           
                // Store the testCase as part of the Scenarios Corpus.
                CorpusServices.Instance().StoreTestCase(testcaseMsg);

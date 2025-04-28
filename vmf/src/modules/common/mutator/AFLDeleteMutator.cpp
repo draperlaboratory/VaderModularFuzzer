@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -46,7 +37,6 @@
  *  customized fuzzers for a specific target while taking advantage of
  *  a lot of features that AFL++ already provides.
  */
-
 #include "AFLDeleteMutator.hpp"
 #include "RuntimeException.hpp"
 #include "VmfUtil.hpp"
@@ -148,9 +138,9 @@ void AFLDeleteMutator::mutateTestCase(StorageModule& storage, StorageEntry* base
  * @param limit 
  * @return size_t 
  */
-size_t AFLDeleteMutator::choose_block_len(VmfRand& rand, size_t limit) {
+int AFLDeleteMutator::choose_block_len(VmfRand& rand, size_t limit) {
 
-    size_t min_value, max_value;
+    int min_value, max_value;
     switch (rand.randBelow(3)) {
 
     case 0:
@@ -171,8 +161,8 @@ size_t AFLDeleteMutator::choose_block_len(VmfRand& rand, size_t limit) {
         }
     }
 
-    if (min_value >= limit) { min_value = 1; }
+    if (min_value >= (int)limit) { min_value = 1; }
 
-    return rand.randBetween(min_value, MIN(max_value, limit));
+    return rand.randBetween(min_value, std::min(max_value, (int)limit));
 
 }

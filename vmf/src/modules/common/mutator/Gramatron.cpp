@@ -25,6 +25,9 @@
 #include "Logging.hpp"
 #include "VmfRand.hpp"
 
+#include <string.h>
+
+
 using namespace vmf;
 /* --
  * Start of code copied from Gramatron, source file
@@ -141,7 +144,12 @@ void vmf::insertArray(Array *a, int state, char* symbol, size_t symbol_len, int 
     if (a->used == a->size) {
         a->size = a->size * sizeof(terminal);
         a->start = (terminal *)realloc(a->start, a->size * sizeof(terminal));
+        if (nullptr == a->start)
+        {
+            throw RuntimeException("Unable to allocate additional memory", RuntimeException::OTHER);
+        }
     }
+
     // Add the element
     term_ptr = & a->start[a->used];
     term_ptr->state = state;
@@ -166,6 +174,10 @@ char* vmf::unparse_walk(Array* input) {
     terminal* term_ptr;
     size_t offset = 0;
     char *unparsed = (char*)malloc(input->inputlen + 1);
+    if (nullptr == unparsed)
+    {
+        throw RuntimeException("Unable to allocate additional memory", RuntimeException::OTHER);
+    }
     term_ptr = & input->start[offset];
     std::strcpy(unparsed, term_ptr->symbol);
     offset += 1;
@@ -179,37 +191,6 @@ char* vmf::unparse_walk(Array* input) {
 /* -- End of code copied from Gramatron */
 
 /**
- * @brief Dump the input PDA representation into a file. Currently not in use.
- *
- * @param input the PDA walk representation
- * @param fn the file name in a char buffer
- */
-void vmf::write_input(Array* input, char* fn) {
-    FILE *fp;
-    // If file already exists, then skip creating the file
-    if (access (fn, F_OK) != -1) {
-        return;
-    }
-
-    fp = fopen(fn, "wbx+");
-    // If the input has already been flushed, then skip silently
-    // This matters for the AFL++ implementation but likely not for VMF
-    if (fp == NULL) {
-        LOG_WARNING << "File (" << fn << ") could not be opened, exiting";
-        exit(1);
-    }
-
-    // Write the length parameters
-    fwrite(&input->used, sizeof(size_t), 1, fp);
-    fwrite(&input->size, sizeof(size_t), 1, fp);
-    fwrite(&input->inputlen, sizeof(size_t), 1, fp);
-
-    // Write the dynamic array to file
-    fwrite(input->start, input->size*sizeof(terminal), 1, fp);
-    fclose(fp);
-}
-
-/**
  * @brief Read the input representation into memory
  *
  * @param pda pointer to the first state in the PDA
@@ -221,6 +202,10 @@ Array* vmf::read_input(pdaState* pda, char* buffer) {
     trigger *trigger;
     int trigger_idx;
     Array* input = (Array*)calloc(1, sizeof(Array));
+    if (nullptr == input)
+    {
+        throw RuntimeException("Unable to allocate additional memory", RuntimeException::OTHER);
+    }
 
     // Read the length parameters
     size_t src_index = 0;
@@ -232,6 +217,10 @@ Array* vmf::read_input(pdaState* pda, char* buffer) {
     src_index += sizeof(size_t);
 
     terminal *start_ptr = (terminal*)calloc(input->size, sizeof(terminal));
+    if (nullptr == start_ptr)
+    {
+        throw RuntimeException("Unable to allocate additional memory", RuntimeException::OTHER);
+    }
 
     // Read the dynamic array to memory
     memcpy(start_ptr,&buffer[src_index],input->size*sizeof(terminal));

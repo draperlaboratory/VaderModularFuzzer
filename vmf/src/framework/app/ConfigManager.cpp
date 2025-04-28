@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -74,6 +65,61 @@ void ConfigManager::readConfig(std::vector<std::string> filenames)
     readConfig();
 }
 
+/** 
+ * Helper method to add the provided configuration string to the current config (theConfigAsString).
+ * First we determine if this particular config string should be prepended (rather than appended),
+ * based on looking for the VMF_VARIABLES_KEY or VMF_CLASS_SET_KEY.
+ * @param newConfig the new config to add
+*/
+void ConfigManager::addToConfig(std::string newConfig)
+{
+    //We need to make sure that the key is present, and not within a commented out line
+    bool shouldPrepend = false;
+    std::istringstream configStream(newConfig);
+    std::string line;    
+    while (std::getline(configStream, line)) {
+        //Check for VMF_VARIABLES_KEY
+        const auto varKeyPos = line.find(VMF_VARIABLES_KEY);
+        if(std::string::npos != varKeyPos)
+        {
+            //Make sure this key didn't appear after a comment character
+            const auto commentPos = line.find("#");
+            if((std::string::npos == commentPos)||(commentPos > varKeyPos))
+            {
+                //This is real, non-commented out key, this file should be pre-pended
+                shouldPrepend = true;
+                break; //No need to keep searching
+            }
+        }
+
+        //Check for VMF_CLASS_SET_KEY
+        const auto classKeyPos = line.find(VMF_CLASS_SET_KEY);
+        if(std::string::npos != classKeyPos)
+        {
+            //Make sure this key didn't appear after a comment character
+            const auto commentPos = line.find("#");
+            if((std::string::npos == commentPos)||(commentPos > classKeyPos))
+            {
+                //This is real, non-commented out key, this file should be pre-pended
+                shouldPrepend = true;
+                break; //No need to keep searching
+            }
+        }
+    }
+
+    if (shouldPrepend)
+    {
+        // pre-pend this yaml config
+        theConfigAsString.insert(0, newConfig + "\n");
+    }
+    else
+    {
+        // append this yaml config
+        theConfigAsString += "\n";
+        theConfigAsString.append(newConfig);
+    }
+}
+
 /**
  * @brief Parses the configuration files stored as a member variable
  *
@@ -90,30 +136,14 @@ void ConfigManager::readConfig()
         {
             // get size of file contents and create string of same length
             inFile.seekg(0, inFile.end);
-            int size = inFile.tellg();
+            int size = (int) inFile.tellg();
             std::string thisInput(size,' ');
 
             // read file contents into string
             inFile.seekg(0, inFile.beg);
             inFile.read(&thisInput[0], size);
- 
-            // if the input file's contents contains the string 'vmfVariables' or 'vmfClassSet'
-            // then pre-pend vs append its contents to the string containing all input file's contents
-            // (this is to ensure that there are no errors related to declaration order of yaml anchors)
 
-            const auto varPos = thisInput.find(VMF_VARIABLES_KEY);
-            const auto classSetPos = thisInput.find(VMF_CLASS_SET_KEY);
-
-            if ((std::string::npos != varPos) || (std::string::npos != classSetPos))
-            {
-                // pre-pend this file's contents
-                theConfigAsString.insert(0, thisInput + "\n");
-            }
-            else
-            {
-                // append this file's contents
-                theConfigAsString.append(thisInput + "\n");
-            }
+            addToConfig(thisInput);
 
         } 
         else 
@@ -174,24 +204,7 @@ void ConfigManager::readConfig()
  */
 void ConfigManager::addConfig(std::string cfg)
 {
-    // if the input yaml's contents contains the string 'vmfVariables' 
-    // then pre-pend vs append its contents to the string containing all input file's contents
-
-    const auto pos = cfg.find(VMF_VARIABLES_KEY);
-
-    if (std::string::npos != pos)
-    {
-        // pre-pend this yaml's contents
-        theConfigAsString.insert(0, cfg);
-        theConfigAsString += "\n";
-    }
-    else
-    {
-        // append this yaml's contents
-        theConfigAsString += "\n";
-        theConfigAsString.append(cfg);
-    }
-
+    addToConfig(cfg);
 }
 
 /**
@@ -260,12 +273,12 @@ void ConfigManager::writeConfig(std::string outputFilePath)
  */
 void ConfigManager::loadModules()
 {
-    YAML::Node modules = findRequiredConfig(ConfigInterface::VMF_MODULES_KEY);
+    YAML::Node modules = findRequiredConfig(VMF_MODULES_KEY);
 
     if(modules.Type() == YAML::NodeType::Map)
     {
         //Build storage module
-        YAML::Node storage = modules[ConfigInterface::STORAGE_MODULE_KEY];
+        YAML::Node storage = modules[STORAGE_MODULE_KEY];
         if(storage)
         {
             YAML::Node className = storage["className"];
@@ -284,7 +297,7 @@ void ConfigManager::loadModules()
         }
 
         //Build controller module
-        YAML::Node root = modules[ConfigInterface::ROOT_MODULE_KEY];
+        YAML::Node root = modules[ROOT_MODULE_KEY];
         if(root)
         {
             YAML::Node className = root["className"];
@@ -429,6 +442,18 @@ void ConfigManager::setOutputDir(std::string dir)
  *
  * @return std::string Single line representation of a node and its children
  */
+std::string ConfigManager::getNodeAsYAML(const YAML::Node& node)
+{
+    std::stringstream SS;
+    SS << node; 
+    return SS.str();
+}
+
+/**
+ * @brief Returns a string representation of a node
+ *
+ * @return std::string Single line representation of a node and its children
+ */
 std::string ConfigManager::getNodeAsString(const YAML::Node& node)
 {
     // Return value
@@ -483,18 +508,18 @@ std::vector<Module*> ConfigManager::getSubModules(std::string parentModuleName)
 {
     bool found = false;
     std::vector<Module*> list;
-    YAML::Node modulesSection = findRequiredConfig(ConfigInterface::VMF_MODULES_KEY);
+    YAML::Node modulesSection = findRequiredConfig(VMF_MODULES_KEY);
 
     //Child modules are listed under the module name, except for the top level controller
     //and the storage module, whose children are listed under special names.
     std::string lookupName = parentModuleName;
     if(moduleManager->getRootModule()->getModuleName() == parentModuleName)
     {
-        lookupName = ConfigInterface::ROOT_MODULE_KEY;
+        lookupName = ROOT_MODULE_KEY;
     }
     else if(moduleManager->getStorageModule()->getModuleName() == parentModuleName)
     {
-        lookupName = ConfigInterface::STORAGE_MODULE_KEY;
+        lookupName = STORAGE_MODULE_KEY;
     }
 
     YAML::Node submodulesSection = modulesSection[lookupName];
@@ -511,11 +536,11 @@ std::vector<Module*> ConfigManager::getSubModules(std::string parentModuleName)
                 YAML::Node className = submodules[i]["className"];
                 if(id)
                 {
-                    list.push_back(moduleManager->lookupModule(id.as<std::string>()));
+                    list.push_back(moduleManager->getModule(id.as<std::string>()));
                 }
                 else if(className)
                 {
-                    list.push_back(moduleManager->lookupModule(className.as<std::string>()));
+                    list.push_back(moduleManager->getModule(className.as<std::string>()));
                 }
                 else //this is a class set, so look up every module in the set (by className)
                 {
@@ -524,7 +549,7 @@ std::vector<Module*> ConfigManager::getSubModules(std::string parentModuleName)
                     for(size_t j=0; j<classSet.size(); j++)
                     {
                         YAML::Node theClassName = classSet[j];
-                        list.push_back(moduleManager->lookupModule(theClassName.as<std::string>()));
+                        list.push_back(moduleManager->getModule(theClassName.as<std::string>()));
                     }
 
                 }
@@ -558,6 +583,20 @@ std::string ConfigManager::getAllParams(std::string moduleName)
     if (module_root)
     {
         str = getNodeAsString(module_root);
+    }
+
+    return str;
+}
+
+//see ConfigInterface::getAllParamsYAML
+std::string ConfigManager::getAllParamsYAML(std::string moduleName)
+{
+    const YAML::Node& module_root = theConfig[moduleName];
+    std::string str = "Module name " + moduleName + "was not found";
+
+    if (module_root)
+    {
+        str = getNodeAsYAML(module_root);
     }
 
     return str;
@@ -728,6 +767,7 @@ template<typename T> T  ConfigManager::getParam(std::string moduleName, std::str
     else
     {
         LOG_ERROR << moduleName << " requires parameter " << paramName << " which was not found.";
+        LOG_ERROR << "List of module parameters found: " << getAllParams(moduleName);
         throw RuntimeException("Missing required parameter", RuntimeException::CONFIGURATION_ERROR);
     }
 }
@@ -755,4 +795,9 @@ template<typename T> T ConfigManager::getParam(std::string moduleName, std::stri
     }
 
     return result;
+}
+
+std::string ConfigManager::getModuleName(int id)
+{
+    return moduleManager->getModuleName(id);
 }

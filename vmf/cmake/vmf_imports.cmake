@@ -1,17 +1,8 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+# Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
 # <vmf@draper.com>
-#  
-# Effort sponsored by the U.S. Government under Other Transaction number
-# W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
-# Is authorized to reproduce and distribute reprints for Governmental purposes
-# notwithstanding any copyright notation thereon.
-#  
-# The views and conclusions contained herein are those of the authors and
-# should not be interpreted as necessarily representing the official policies
-# or endorsements, either expressed or implied, of the U.S. Government.
-#  
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 (only) as 
 # published by the Free Software Foundation.
@@ -33,13 +24,34 @@
 # 'common' library.  This file provides the import library definition they should use.
 #
 
-set(VMF_INSTALL_LIBDIR ${VMF_INSTALL}/${CMAKE_INSTALL_LIBDIR})
-set(VMF_INSTALL_INCLUDEDIR ${VMF_INSTALL}/include)
+include(GNUInstallDirs)
+set(VMF_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
+set(VMF_INSTALL_INCLUDEDIR ${CMAKE_INSTALL_PREFIX}/include)
+
+# Export all symbols for windows
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 add_library(vmf_framework SHARED IMPORTED)
+if(WIN32)
+set_target_properties(vmf_framework PROPERTIES IMPORTED_LOCATION ${VMF_INSTALL_LIBDIR}/VMFFramework.dll)
+else()
 set_target_properties(vmf_framework PROPERTIES IMPORTED_LOCATION ${VMF_INSTALL_LIBDIR}/libVMFFramework.so)
+endif()
 set_target_properties(vmf_framework PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${VMF_INSTALL_INCLUDEDIR})
 #target_include_directories(vmf_framework
 #  INTERFACE
 #  ${VMF_INSTALL_INCLUDEDIR}
 #)
+
+#Windows needs additional paths to the .lib file, as it is needed at compile time
+#(And this has to be here, and not in vmf_imports.cmake, or it doesn't work right)
+if(WIN32)
+    set(VMF_ADDITIONAL_PATH ${CMAKE_INSTALL_PREFIX}/lib/VMFFramework.lib)
+    set_target_properties(vmf_framework PROPERTIES IMPORTED_IMPLIB ${VMF_ADDITIONAL_PATH})
+    # Windows insists on this being set for each type of build (e.g. Debug, Release, etc)
+    foreach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
+        string( TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG )
+        set_target_properties(vmf_framework PROPERTIES IMPORTED_IMPLIB_${OUTPUTCONFIG} ${VMF_ADDITIONAL_PATH})
+    endforeach( OUTPUTCONFIG CMAKE_CONFIGURATION_TYPES )
+endif()
+

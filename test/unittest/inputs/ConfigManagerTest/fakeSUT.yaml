@@ -1,0 +1,3 @@
+vmfVariables:
+  - &SUT_ARGV ["test/haystackSUT/haystack"]
+  - &INPUT_DIR test/haystackSUT/test-input/

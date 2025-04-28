@@ -5,7 +5,7 @@
 
 **Fuzzing software (e.g. VMF)** - a tool that exercises the SUT's input space to elicit new behaviors ([Brumley](https://twitter.com/thedavidbrumley/status/1495880726457298944 "\"Fuzzing is the process of automatically exploring the program input space to elicit new behaviors\""))
 
-**Fuzz harness** - tooling that (1) manages the lifecycle of the SUT, (2) maps input provided by the fuzzing software to the SUT's input, and (3) returns data from the SUT's execution of the input as feedback to the fuzzing software.  See [Intro to Fuzzing](/docs/intro_to_fuzzing.md) for more information.
+**Fuzz harness** - tooling that (1) manages the lifecycle of the SUT, (2) maps input provided by the fuzzing software to the SUT's input, and (3) returns data from the SUT's execution of the input as feedback to the fuzzing software.  See [Intro to Fuzzing](./fuzz_harnessing.md) for more information.
 
 **Bug** – a departure from nominal execution, such as a crash, hang, or violation of security policy.
 

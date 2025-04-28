@@ -1,0 +1,17 @@
+vmfModules: #Extra comments to test parsing vmfClassSet
+  storage: #a storage module must be specified
+      className: SimpleStorage
+  controller: #a controller module must be specified
+      className: IterativeController
+      children:
+        - classSet: *BASIC_MODULES #See CoreClassSet.yaml for vmfClassSet definition
+  GeneticAlgorithmInputGenerator:
+      children:
+        - classSet: *AFL_MUTATORS #See CoreClassSet.yaml for vmfClassSet definition
+# Modules-specific parameters (defined in a vmfVariables section in another file)
+#(The SUT-specific portions of these all defined using YAML anchors)
+AFLForkserverExecutor:
+  sutArgv: *SUT_ARGV
+
+DirectoryBasedSeedGen:
+  inputDir: *INPUT_DIR

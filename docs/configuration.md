@@ -7,14 +7,14 @@ The VMF configuration file is contained in one or more YAML file. These YAML fil
 ## Top level sections
 
 A VMF configuration file consists of the following top-level sections: 
-* [`vmfVariables`](#vmfVariables) - provides default values for all variable expansions.
-* [`vmfFramework`](#vmfFramework) - provides VMF framework configuration
-* [`vmfModules`](#vmfModules) - provides module configuration information
-* [`vmfDistributed`](#vmfDistributed) - provides distributed fuzzing configuration
-* [`vmfClassSet`](#vmfClassSet) - provides a variable-based reusable list of submodules
+* [`vmfVariables`](#section-vmfvariables) - provides default values for all variable expansions.
+* [`vmfFramework`](#section-vmfframework) - provides VMF framework configuration
+* [`vmfModules`](#section-vmfmodules) - provides module configuration information
+* [`vmfDistributed`](#section-vmfdistributed) - provides distributed fuzzing configuration
+* [`vmfClassSet`](#section-vmfclassset) - provides a variable-based reusable list of submodules
 * Any module specific parameters - these are listed in a section named by the module id or classname (see note below).
 
-The parameters for specific core modules are documented in [Core modules README](/docs/coremodules/core_modules_readme.md) and [Core modules configuration](/docs/coremodules/core_modules_configuration.md).  
+The parameters for specific core modules are documented in [Core modules README](./coremodules/core_modules_readme.md) and [Core modules configuration](./coremodules/core_modules_configuration.md).  
 
 Note that configuration options for individual modules are listed under the id of the module, if one was specified, or the classname is there was no id.  
 
@@ -58,7 +58,7 @@ Value types specific to VMF:
 * `<enum>` - set of ints or strings representing keywords or flags (value-list in comments of key)
 * `<path>` - local filesystem path to a file or directory
 
-## <a id="vmfVariables"></a>Section: `vmfVariables`
+## Section: `vmfVariables`
 
 This section provides a space to define YAML anchors that can be referenced in other sections. Configuration files can use YAML anchors and aliases to avoid repeating the same information multiple times.  This section may be omitted entirely if no YAML anchors or aliases are used in your VMF configuration.
 
@@ -84,7 +84,7 @@ StringsInitialization:
   sutArgv: *SUT_ARGV
 ```
 
-## <a id="vmfFramework"></a>Section: `vmfFramework`
+## Section: `vmfFramework`
 
 This section provides the basic configuration for the VMF framework. 
 
@@ -124,7 +124,17 @@ Default value: empty
 
 Usage: A list of directories that contain loadable VMF plugins (.so files)
 
-## <a id="vmfModules"></a>Section: `vmfModules`  
+### `vmfFramework.seed`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default value: 0
+
+Usage: Specifies a seed value for VmfRand, which powers all psuedo-random number generation in VMF. When set to 0, a random seed is chosen for each run. When set to anything except 0, that number is used as the seed and will cause the same sequence of random numbers to be chosen each run. Note that using a seed does not itself guarantee the fuzzing process will be deterministic. Other sources of nondeterminism include fitness functions with a runtime component, whether a particular execution is slow enough to count as a timeout or not, or any inherent nondeterminism in the SUT such as thread scheduling.
+
+## Section: `vmfModules`
 
 This section provides the list of modules and their associated hierarchy that should be used in the VMF fuzzer.
 
@@ -181,7 +191,7 @@ Usage: An optional list of submodules for a particular module.  The module must 
 
 Submodules can be listed individually or using a reusable list of modules called a ["classSet"](#vmfClassSet).  To list submodules individually, provide a "className" for each module (and  optionally provide an "id").
 
-## <a id="vmfDistributed"></a>Section: `vmfDistributed`  
+## Section: `vmfDistributed`
 
 The configuration parameters needed for running VMF in distributed mode.  This section may be omitted completely for standalone mode.
 
@@ -193,7 +203,19 @@ Status: Required (for distributed mode)
 
 Default value: Empty
 
-Usage: The URL for the distibuted fuzzing server (CDMS).
+Usage: The URL for the distibuted fuzzing server (CDMS).  Supports IP addresses and DNS resolvable names.  Confirm that this server addresses can be resolved with utilities such as `nslookup` or `dig`.
+
+### `vmfDistributed.proxyURL`
+
+Value type: <string>
+
+Status: Optional (for distributed mode)
+
+Default value: Empty
+
+Usage: The URL for the web proxy, if one is needed to access the distributed fuzzing server (CDMS).  This is formatted as hostname:port (e.g. proxy.name.com:1234). The URL may be prefixed with http:// or https://, and if no prefix is used http:// is assumed.
+
+Note that proxy variables can also be set via environment variables (HTTP_PROXY and HTTPS_PROXY).  If a proxy is specified in both an environment variable and in the VMF config file, the value in the config file will take precidence.  If proxy environment variables are set on your host system, but you don't want VMF to use a proxy for distributed fuzzing, use the NO_PROXY environment variable with a comma separately list of hosts that should be accessed without a proxy.  For example, setting NO_PROXY to "localhost, 127.0.0.1" will disable the proxy for localhost connections.  The values for NO_PROXY must agree with the `vmfDistributed.serverURL` IP.
 
 ### `vmfDistributed.clientName`
 
@@ -245,7 +267,7 @@ Default value: -1 (disabled)
 
 Usage: This parameter controls an initial random sleep for each VMF that occurs just after the VMF registers with the server, and before it asks the server for tasking.  By default this is not enabled, but it is useful to enable for distributed fuzzing configurations that include a large number of VMFs, as it minimizes the concurrent requests to the CDMS server.  Use a value of -1 to disable this feature.
 
-## <a id="vmfClassSet"></a>Section: `vmfClassSet`
+## Section: `vmfClassSet`
 
 This section provides a space to define lists of submodules as YAML anchors that can be used in defining the children of a module.  This section may be omitted entirely if submodules are instead listed individually in your VMF configuration.
 

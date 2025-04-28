@@ -1,15 +1,18 @@
 # VMF core modules configuration #
 
-This document provides detailed information on the configuration options for VMF core modules. A general specification of the VMF configuration file format and the top-level sections is in [/docs/configuration.md](/docs/configuration.md).
+This document provides detailed information on the configuration options for VMF core modules. A general specification of the VMF configuration file format and the top-level sections is in [/docs/configuration.md](../configuration.md).
 
 Each module may have a configuration section for keys that are specific to that module.
 
 Initialization modules
 * [`DirectoryBasedSeedGen`](#section-directorybasedseedgen)
 * [`GramatronBasedSeedGen`](#section-gramatronbasedseedgen)
+* [`ServerCorpusInitialization`](#section-servercorpusinitialization)
+* [`ServerSeedInitialization`](#section-serverseedinitialization)
+* [`TrivialSeedInitialization`](#section-trivialseedinitialization)
+* [`DictionaryInitialization`](#section-dictionaryinitialization)
 * [`KleeInitialization`](#section-kleeinitialization)
 * [`StringsInitialization`](#section-stringsinitialization)
-* [`ServerSeedInitialization`](#section-serverseedinitialization)
 
 Input Generator and Mutator modules
 * [`GeneticAlgorithmInputGenerator`](#section-geneticalgorithminputgenerator)
@@ -27,6 +30,8 @@ Output modules
 * [`CSVMetadataOutput`](#section-csvmetadataoutput)
 * [`LoggerMetadataOutput`](#section-loggermetadataoutput)
 * [`SaveCorpusOutput`](#section-savecorpusoutput)
+* [`ServerCorpusMinOutput`](#section-servercorpusminoutput)
+* [`ServerCorpusOutput`](#section-servercorpusoutput)
 * [`StatsOutput`](#section-statsoutput)
 
 Controller modules
@@ -35,6 +40,25 @@ Controller modules
 * [`IterativeController`](#section-iterativecontroller)
 * [`NewCoverageController`](#section-newcoveragecontroller)
 * [`RunOnceController`](#section-runoncecontroller)
+
+Mutator modules
+* [`DictionaryMutator`](#section-dictionarymutator)
+* [`AFLCloneMutator`](#section-aflclonemutator)
+* [`AFLDeleteMutator`](#section-afldeletemutator)
+* [`AFLFlipBitMutator`](#section-aflflipbitmutator)
+* [`AFLFlipByteMutator`](#section-aflflipbytemutator)
+* [`AFLFlip2BitMutator`](#section-aflflip2bitmutator)
+* [`AFLFlip2ByteMutator`](#section-aflflip2bytemutator)
+* [`AFLFlip4BitMutator`](#section-aflflip4bitmutator)
+* [`AFLFlip4ByteMutator`](#section-aflflip4bytemutator)
+* [`AFLRandomByteAddSubMutator`](#section-aflrandombyteaddsubmutator)
+* [`AFLRandomByteMutator`](#section-aflrandombytemutator)
+* [`AFLSpliceMutator`](#section-aflsplicemutator)
+<!-- * [`GramatronMutator`](#section-grammatronmutator) -->
+* [`GramatronGenerateMutator`](#section-gramatrongeneratemutator)
+* [`GramatronRandomMutator`](#section-gramatronrandommutator)
+* [`GramatronRecursiveMutator`](#section-gramatronrecursivemutator)
+* [`GramatronSpliceMutator`](#section-gramatronsplicemutator)
 
 ## <a id="DirectoryBasedSeedGen"></a>Section: `DirectoryBasedSeedGen`
 
@@ -74,6 +98,90 @@ Status: Required
 
 Usage: Number of test cases to generate for the initial seed corpus before starting the fuzzing loop.
 
+
+### Configuration example
+```yaml
+GramatronBasedSeedGen:
+  numTestCases: 20s
+  PDAPAth: path/to/pda.json
+```
+
+## <a id="ServerCorpusInitialization"></a>Section: `ServerCorpusInitialization`
+
+Initialize using the server-provided corpus -- distinct from ServerSeedInitialization in
+that the whole corpus is always retrieved from the server. This is useful for VMF
+configurations that minimize the corpus.
+
+### `ServerCorpusInitialization.writeServerURL`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default value: `true`
+
+Usage: Stores a copy of the URL associated with the file in storage
+
+### Configuration example
+```yaml
+ServerCorpusInitialization:
+  writeServerURL: true
+```
+
+
+## <a id="ServerSeedInitialization"></a>Section: `ServerSeedInitialization`
+
+Configuration information specific to the ServerSeedInitialization module. This module is only used in conjunction with the CDMS server for distributed fuzzing.
+
+### `ServerSeedInitialization.commonCorpusTags`
+
+Value type: `<list of strings>`
+
+Status: Optional
+
+Default value: ["RAN_SUCCESSFULLY"]
+
+Usage: A list (array) of strings that specifies the tags used to select which test cases are retrieved from the common corpus maintained by the CDMS server.
+
+### `ServerSeedInitialization.writeServerURL`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default value: false
+
+Usage: This parameter specifies whether test cases retrieved from the CDMS server should include the CDMS server's URL as a field in local storage. This is used in conjuction with the `ServerCorpusOutput` module. If that module is used, the value of this parameter must be set to `true`.
+
+### Configuration example
+```yaml
+ServerSeedInitialization:
+  commonCorpusTags: ["RAN_SUCCESSFULLY", "CRASHED", "HUNG"]
+  writeServerURL: true
+```
+
+## <a id="TrivialSeedInitialization"></a>Section: `TrivialSeedInitialization`
+
+This initialization module will initialize the storage module with a single string that is hard-coded in order to provide a trivial input into the SUT.  This module has no configuration settings.
+
+## <a id="DictionaryInitialization"></a>Section: `DictionaryInitialization`
+
+Configuration information specific to the DictionaryInitialization module. 
+
+### `DictionaryInitialization.sutArgv`
+
+Value type: `<list of strings>`
+
+Status: Required
+
+Usage: The SUT to extract the strings from using the linux `strings` command.
+
+### Configuration example
+```yaml
+DictionaryInitialization:
+  sutArgv: test/haystackSUT/haystack.bc
+```
+
 ## <a id="KleeInitialization"></a>Section: `KleeInitialization`
 
 Configuration information specific to the KleeInitialization module. 
@@ -110,36 +218,6 @@ StringsInitialization:
   sutArgv: ["test/haystack", "@@"] 
 ```
 
-## <a id="ServerSeedInitialization"></a>Section: `ServerSeedInitialization`
-
-Configuration information specific to the ServerSeedInitialization module. This module is only used in conjunction with the CDMS server for distributed fuzzing.
-
-### `ServerSeedInitialization.commonCorpusTags`
-
-Value type: `<list of strings>`
-
-Status: Optional
-
-Default value: ["RAN_SUCCESSFULLY"]
-
-Usage: A list (array) of strings that specifies the tags used to select which test cases are retrieved from the common corpus maintained by the CDMS server.
-
-### `ServerSeedInitialization.writeServerURL`
-
-Value type: `<bool>`
-
-Status: Optional
-
-Default value: false
-
-Usage: This parameter specifies whether test cases retrieved from the CDMS server should include the CDMS server's URL as a field in local storage. This is used in conjuction with the `ServerCorpusOutput` module. If that module is used, the value of this parameter must be set to `true`.
-
-### Configuration example
-```yaml
-ServerSeedInitialization:
-  commonCorpusTags: ["RAN_SUCCESSFULLY", "CRASHED", "HUNG"]
-  writeServerURL: 
-```
 
 ## <a id="GeneticAlgorithmInputGenerator"></a>Section: `GeneticAlgorithmInputGenerator`
 
@@ -163,7 +241,7 @@ GeneticAlgorithmInputGenerator:
 
 ## <a id="MOPTInputGenerator"></a>Section: `MOPTInputGenerator`
 
-Configuration information specific to the MOPTInputGenerator module. 
+Configuration information specific to the MOPTInputGenerator module.  Can be used with any mutator module as a submodule.
 
 ### `MOPTInputGenerator.numSwarms`
 
@@ -215,9 +293,13 @@ MOPTInputGenerator:
   corePeriodLength:  500000  # Number of testcases executed during core period
   pMin: 0.0                  # Minimum mutator probability (0.0 means ignore and use adaptive value)
 ```
+
 ## <a id="RedPawnInputGenerator"></a>Section: `RedPawnInputGenerator`
 
-Configuration information specific to the RedPawn Input Generator module. 
+Configuration information specific to the RedPawn Input Generator module.  Can be used with the following submodules:
+
+* [`AFLForkserverExecutor`](#section-aflforkserverexecutor) for `colorizationExecutor`
+* [`AFLForkserverExecutor`](#section-aflforkserverexecutor) for `cmplogExecutor`
 
 ### `RedPawnInputGenerator.colorizeMaxExecs`
 
@@ -238,6 +320,19 @@ Status: Optional
 Default Value: 1,000
 
 Usage: Specifies the maximum number of testcases that can be created and added to storage in one run (invocation from controller) of the RedPawn Input Generator.  This setting is useful if you wish to reduce the overall memory usage associated with RedPawn, as producing fewer test cases at once will reduce the overall memory footprint.  Sometimes a single comparison instruction will produces a lot of possible test cases from RedPawn; this setting also serves as a limit for the total number of test cases that can be produces for each comparison instruction.
+
+
+
+### `RedPawnInputGenerator.skipStaticLogEntries`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default Value: `true`
+
+Usage: This is an optimization that skips some expensive RedPawn analysis for log entries
+whose comparisons are unaffected by a colorized input.
 
 ### `RedPawnInputGenerator.useDirectTransform`
 
@@ -290,6 +385,19 @@ Default Value: `true`
 Usage: enables the XOR transform.
 
 
+### Configuration example
+```yaml
+RedPawnInputGenerator:
+  colorizeMaxExecs: 2000
+  batchSize: 2000
+  skipStaticLogEntries: false
+  useDirectTransform: false
+  useReverseBytesTransform: false
+  useOffsetTransform: false
+  useFactorTransform: false
+  useXORTransform: false
+```
+
 ## <a id="AFLForkserverExecutor"></a>Section: `AFLForkserverExecutor`
 
 Configuration information specific to the AFL Forkserver Executor module. 
@@ -307,6 +415,8 @@ Usage: A list (array) of strings that represent the command line with arguments 
 Value type: `<int>`
 
 Status: Optional
+
+Default: Computed based on initial seeds
 
 Usage: Specifies the time in milliseconds that VMF will use to determine whether execution of the SUT has hung.  This is an optional parameter, and when not specified the executor will instead automatically compute a timeout value based on the initial seeds. Care must be taken when manually specifying this value, as a timeout that is too short will result in test cases being erroneously identified as hanging.
 
@@ -339,6 +449,16 @@ Status: Optional
 Default value: `false`
 
 Usage: Records all SUT stdout/stderr to files. These file names default to `stdout` and `stderr` in the `forkserver/` directory under the output directory.
+
+### `AFLForkserverExecutor.enableAFLDebug`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: `false`
+
+Usage: Sets the `AFL_DEBUG` environment variable which causes AFL instrumentation to print more debug information on stderr. Can be useful for debugging instrumentatation issues, such as map size, shared memory or cmplog issues. Use with `debugLog` to inspect it.
 
 ### `AFLForkserverExecutor.stdout`
 
@@ -460,6 +580,16 @@ Default value: `false`
 
 Usage: When enabled, this sets sane defaults for fuzzing UBSAN-instrumented SUTs.
 
+### `AFLForkserverExecutor.enableCoreDumpCheck`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: `true`
+
+Usage: When enabled, the forkserver requires core dump notifications to not be sent to an external utility.  This is important for speed and to prevent crashes from being misinterpreted as timeouts.  Typically this setting should not be changed, but is is provided because it is not always possible to configure core dump notifications in all environments, due to permission issues.
+
 ### Configuration example
 ```yaml
 AFLForkserverExecutor:
@@ -510,6 +640,7 @@ AFLFeedback:
   sizeWeight: 1.0           # sizeWeight should be 0.0-10.0 (0.0 will remove this factor. Must be nonnegative.) 
   speedWeight: 5.0          # speedWeight should be 0.0-10.0 (0.0 will remove this factor. Must be nonnegative.) 
 ```
+
 ## <a id="AFLFavoredFeedback"></a>Section: `AFLFavoredFeedback`
 
 Configuration information specific to the AFLFavoredFeedback module. This module extends [AFLFeedback](#AFLFeedback) and uses the same configuration parameters, plus the ones listed below.
@@ -534,6 +665,7 @@ AFLFavoredFeedback:
   sizeWeight: 1.0           # sizeWeight should be 0.0-10.0 (0.0 will remove this factor. Must be nonnegative.)
   speedWeight: 5.0          # speedWeight should be 0.0-10.0 (0.0 will remove this factor. Must be nonnegative.)
 ```
+
 ## <a id="ComputeStats"></a>Section: `ComputeStats`
 
 Configuration information specific to the ComputeStats module, which computes statistics using the information in storage.
@@ -556,7 +688,7 @@ ComputeStats:
 
 ## <a id="CorpusMinimization"></a>Section: `CorpusMinimization`
 
-Configuration information specific to the CorpusMinimization module, which periodically scans the testcase corpus and removes testcases that are not contributing to coverage. 
+Configuration information specific to the CorpusMinimization module, which periodically scans the testcase corpus and removes testcases that are not contributing to coverage.  Can be used with [`ServerCorpusMinOutput`](#section-servercorpusminoutput).
 
 ### `CorpusMinimization.frequencyInMinutes`
 
@@ -570,9 +702,21 @@ Usage: This parameter specifies how often the module is scheduled, in minutes. I
 
 ### Configuration example
 ```yaml
-SaveCorpusOutput:
+CorpusMinimization:
   frequencyInMinutes: 30
 ```
+
+### `CorpusMinimization.minimizeOnShutdown`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default value: true
+
+Usage: This parameter controls whether corpus minimization is performed when VMF receives a signal to shutdown. 
+
+
 ## <a id="CSVMetadataOutput"></a>Section: `CSVMetadataOutput`
 
 Configuration information specific to the CSVMetadataOutput module, which periodically writes the numeric values in metadata to a CSV file.
@@ -644,6 +788,71 @@ SaveCorpusOutput:
   tagsToSave: ["CRASHED", "HUNG", "MYTAG"]
 ```
 
+### `SaveCorpusOutput.recordTestMetadata`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default value: false
+
+Usage: This parameter controls whether the module creates files per saved test case that
+contain metadata such as the mutators, notable input generators, etc. used to generate
+that test case. Seed test cases are labeled with the configuration's controller module
+name.
+
+### Configuration example
+```yaml
+SaveCorpusOutput:
+  recordTestMetadata: true
+```
+
+
+## <a id="ServerCorpusMinOutput"></a>Section: `ServerCorpusMinOutput`
+
+This module transmits a minimized corpus to the server. This module only makes sense in
+the context of a controller that solely performs corpus minimization on the common corpus
+(e.g. AnalysisController).
+
+### Accepted Submodules
+
+This module accepts the following children submodules:
+
+* [CorpusMinimization](#section-corpusminimization)
+
+### Example Configuration
+```yaml
+  ServerCorpusMinOutput:
+    children:
+      - className: CorpusMinimization
+```
+
+## <a id="ServerCorpusOutput"></a>Section: `ServerCorpusOutput`
+
+This module transmits all corpus data, including any tags, to the server. Test cases
+tagged with "SERVER_TC" are excluded.
+
+### `ServerCorpusOutput.serverDelayTimeinSecs`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default value: 30
+
+Usage: Send test cases to the server at this interval.
+
+### `ServerCorpusOutput.serverDelayOverrideCount`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default value: -1
+
+Usage: Override serverDelayTimeInSecs if the configured number of test cases have been
+found, and send test cases immediately. A value of -1 will disable this override.
+
 ## <a id="StatsOutput"></a>Section: `StatsOutput`
 
 Configuration information specific to the StatsOutput module. 
@@ -656,7 +865,7 @@ Status: Optional
 
 Default value: false
 
-Usage: This parameter controls whether the module outputs runtime statistics to the local console or to a distributed fuzzing CDMS server. If the value is `true` the data will be sent to the server address specified in [`vmfDistributed.serverURL`](/docs/configuration.md#vmfDistributed)
+Usage: This parameter controls whether the module outputs runtime statistics to the local console or to a distributed fuzzing CDMS server. If the value is `true` the data will be sent to the server address specified in [`vmfDistributed.serverURL`](../configuration.md#vmfDistributed)
 
 ### `StatsOutput.outputRateInSeconds`
 
@@ -689,52 +898,8 @@ Default value: true
 
 Usage: If set to true, all seed testcases will be saved and inserted into the fuzzing queue regardless of their coverage or quality. If set to false, only testcases that the feedback module decides to keep (eg have new coverage) will be kept. When set to true, more care should be given to seed redundancy and quality.
 
-### `controller.corpusInitialUpdateMins`
 
-Value type: `<int>`
-
-Status: Optional - Distributed fuzzing only
-
-Default value: 5
-
-Usage: This sets the minimum number of minutes that must pass before the controller will perform the first corpus update.  Do not configure this parameter to be smaller than 5min unless you are using a very small number of VMFs.
-
-### `controller.batchSize`
-
-Value type: `<int>`
-
-Status: Optional - Distributed fuzzing only
-
-Default value: 1000
-
-Usage: This sets a maximum number of new test cases that will be pulled in from the server at once.  All the test cases will eventually be pulled in, but this parameter limits how many get pulled in at once (in order to limit the RAM usage by VMF).  When this value is too large, VMF will use an excessive amount of RAM (with resulting slow downs, consequently this value may need to be set to be smaller if the test cases are large).
-
-### `controller.corpusUpdateRateMins`
-
-Value type: `<int>`
-
-Status: Optional - Distributed fuzzing only
-
-Default value: 5
-
-Usage: This sets a minimum rate for the controller to retrieve subsequent corpus updates from the server.  Do not configure this parameter to be smaller than 5min unless you are using a very small number of VMFs.
-
-### `controller.corpusUpdateTags`
-
-Value type: `<list of strings>`
-
-Status: Optional - Distributed fuzzing only
-
-Default value: ["RAN_SUCCESSFULLY"]
-
-Usage: This parameter controls which test case tags are retrieved by the controller. The default value is ["RAN_SUCCESSFULLY"], which will retrieve only the test cases ran succesfully (i.e. didn't hang or crash). This is the correct value if you are using VMF Core Modules in your fuzzer.
-
-## <a id="AnalysisController"></a>Section: `AnalysisController`
-The AnalysisController does not support any custom configuration parameters.
-
-## <a id="IterativeController"></a>Section: `IterativeController`
-Configuration information specific to the IterativeController.
-### `IterativeController.runTimeInMinutes`
+### `controller.runTimeInMinutes`
 
 Value type: `<int>`
 
@@ -742,7 +907,13 @@ Status: Optional
 
 Default value: 0
 
-Usage: This parameter controls the execution time of the fuzzer (in minutes). When set to the default value of 0 the fuzzer runs until the user shuts it down. Note: The execution time will be an approximate value, particularly for long running SUTs, as the controller shuts down at the end of the complete fuzzing loop in which the execution time was met.  
+Usage: The runtime in minutes for executing the fuzzing session.  If not set the fuzzing session will continue until manually exited by the user.
+
+## <a id="AnalysisController"></a>Section: `AnalysisController`
+The AnalysisController does not support any custom configuration parameters.
+
+## <a id="IterativeController"></a>Section: `IterativeController`
+The IterativeController does not support any custom configuration parameters.
 
 ## <a id="NewCoverageController"></a>Section: `NewCoverageController`
 Configuration information specific to the NewCoverageController.
@@ -763,15 +934,94 @@ Status: Required
 
 Usage: This parameter specifies the className or ID of the InputGeneratorModule to use as the new coverage input generator.
 
-### `NewCoverageController.runTimeInMinutes`
-
-Value type: `<int>`
-
-Status: Optional
-
-Default value: 0
-
-Usage: This parameter controls the execution time of the fuzzer (in minutes). When set to the default value of 0 the fuzzer runs until the user shuts it down. Note: The execution time will be an approximate value, particularly for long running SUTs, as the controller shuts down at the end of the complete fuzzing loop in which the execution time was met.  
+### Configuration example
+```yaml
+NewCoverageController:
+  primaryInputGenerator: MOPT
+  newCoverageInputGenerator: RedPawnInputGenerator
+```
 
 ## <a id="RunOnceController"></a>Section: `RunOnceController`
 The RunOnceController does not support any custom configuration parameters.
+
+
+
+## <a id="DictionaryMutator"></a>Section: `DictionaryMutator`
+Configuration information specific to the DictionaryMutator.
+
+### `DictionaryMutator.dictionaryPaths`
+
+Value type: `<list of strings>`
+
+Status: Optional
+
+Usage: This parameter specifies the paths to the list of tokens to fuzz with.  When not specified, this module must be run in a configuration that contains a DictionaryInitialization module to provide dictionary inputs.
+
+
+### Configuration example
+```yaml
+DictionaryMutator:
+  dictionaryPaths: test/unittest/inputs/DictionaryMutator/png.dict
+```
+
+
+## <a id="AFLCloneMutator"></a>Section: `AFLCloneMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLDeleteMutator"></a>Section: `AFLDeleteMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLFlipBitMutator"></a>Section: `AFLFlipBitMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLFlipByteMutator"></a>Section: `AFLFlipByteMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLFlip2BitMutator"></a>Section: `AFLFlip2BitMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLFlip2ByteMutator"></a>Section: `AFLFlip2ByteMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLFlip4BitMutator"></a>Section: `AFLFlip4BitMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLFlip4ByteMutator"></a>Section: `AFLFlip4ByteMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLRandomByteAddSubMutator"></a>Section: `AFLRandomByteAddSubMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLRandomByteMutator"></a>Section: `AFLRandomByteMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLSpliceMutator"></a>Section: `AFLSpliceMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="GramatronGenerateMutator"></a>Section: `GramatronGenerateMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="GramatronRandomMutator"></a>Section: `GramatronRandomMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="GramatronRecursiveMutator"></a>Section: `GramatronRecursiveMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="GramatronSpliceMutator"></a>Section: `GramatronSpliceMutator`
+
+This mutator does not take any configuration values.
+

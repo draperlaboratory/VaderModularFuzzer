@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -37,6 +28,7 @@ using std::vector;
 
 std::vector<StorageRegistry::storageTypes> StorageRegistry::storageTypeList = {StorageRegistry::INT, 
                                                                     StorageRegistry::UINT, 
+                                                                    StorageRegistry::U64,
                                                                     StorageRegistry::FLOAT, 
                                                                     StorageRegistry::BUFFER, 
                                                                     StorageRegistry::BUFFER_TEMP};
@@ -115,6 +107,10 @@ StorageRegistry::storageTypes StorageRegistry::stringToStorageType(std::string t
     {
         enumVal = UINT;
     }
+    else if("U64" == type)
+    {
+        enumVal = U64;
+    }
     else if("INT" != type)
     {
         LOG_ERROR << "storageType specified is not a valid enum value: " << type;
@@ -138,6 +134,9 @@ std::string StorageRegistry::storageTypeToString(storageTypes type)
             break;
         case UINT:
             return "UINT";
+            break;
+        case U64:
+            return "U64";
             break;
         case FLOAT:
             return "FLOAT";
@@ -192,6 +191,7 @@ bool StorageRegistry::validateRegistration()
     //matches the number of keys
     if((registryMap[INT].size() != intDefaults.size())||
        (registryMap[UINT].size() != uintDefaults.size())||
+       (registryMap[U64].size() != u64Defaults.size())||
        (registryMap[FLOAT].size() != floatDefaults.size()))
     {
         LOG_ERROR << "Programming Error -- the number of int, uint, or float keys does not match the number of default values";
@@ -202,7 +202,7 @@ bool StorageRegistry::validateRegistration()
     //and writeAllTags parameters
     if(readAllTags || writeAllTags)
     {
-        int numTags = tagNames.size();
+        int numTags = (int)tagNames.size();
         for(int i=0; i<numTags; i++)
         {
             if(readAllTags)
@@ -240,7 +240,7 @@ bool StorageRegistry::validateRegistration()
  */
 void StorageRegistry::setIsReadOnAllKeys(std::vector<registryInfo> keyList)
 {
-    int numKeys = keyList.size();
+    int numKeys = (int)keyList.size();
     for(int i=0; i<numKeys; i++)
     {
         keyList[i].isRead = true;
@@ -274,7 +274,7 @@ bool StorageRegistry::validateList(vector<registryInfo>& keyList, string listNam
         }
         else
         {
-            LOG_INFO << info.name << " is valid";
+            LOG_INFO << info.name << " is valid, handle=" << info.handle;
         }
     }
 
@@ -304,6 +304,10 @@ int StorageRegistry::registerKey(string keyName, storageTypes type, accessType a
         else if(UINT == type)
         {
             uintDefaults.push_back(0); //When unspecified, the default value is 0
+        }
+        else if(U64 == type)
+        {
+            u64Defaults.push_back(0); //When unspecified, the default value is 0
         }
         else if(FLOAT == type)
         {
@@ -344,6 +348,21 @@ int StorageRegistry::registerIntKey(std::string keyName, accessType access, int 
 int StorageRegistry::registerUIntKey(std::string keyName, accessType access, unsigned int defaultValue)
 {
     return registerWithDefault(keyName, access, StorageKeyHelper::UINT_TYPE_MASK, registryMap[UINT], uintDefaults, defaultValue);
+}
+
+/**
+ * @brief Register a key for a data field (with a default unsigned long long value)
+ *
+ * This version of the register key method registers a key of type U64 with the specified default value.
+ * 
+ * @param keyName the unique string name of the field
+ * @param access how the caller doing the registration will use the key
+ * @param defaultValue the default value to use for the key
+ * @return int the handle to use for subsequent access to the key (for getters and setters in the StorageEntry)
+ */
+int StorageRegistry::registerU64Key(std::string keyName, accessType access, unsigned long long defaultValue)
+{
+    return registerWithDefault(keyName, access, StorageKeyHelper::U64_TYPE_MASK, registryMap[U64], u64Defaults, defaultValue);
 }
 
 /**
@@ -538,7 +557,7 @@ std::vector<int> StorageRegistry::getTagHandles()
  */
 int StorageRegistry::getNumKeys(storageTypes type)
 {
-    return registryMap[type].size();
+    return (int)registryMap[type].size();
 }
 
 /**
@@ -570,7 +589,7 @@ std::vector<int> StorageRegistry::getKeyHandles(storageTypes type)
  */
 int StorageRegistry::getNumTags()
 {
-    return tagNames.size();
+    return (int)tagNames.size();
 }
 
 /**
@@ -592,6 +611,17 @@ std::vector<unsigned int> StorageRegistry::getUIntKeyDefaults()
 {
     return uintDefaults;
 }
+
+/**
+ * @brief Returns the default values for the unsigned long long keys
+ * 
+ * @return std::vector<unsigned long long> 
+ */
+std::vector<unsigned long long> StorageRegistry::getU64KeyDefaults()
+{
+    return u64Defaults;
+}
+
 
 
 /**
@@ -675,7 +705,7 @@ int StorageRegistry::addIfNotPresent(int typeMask, vector<StorageRegistry::regis
             keyList[i].isWritten = true;
         }
         wasNew = false;
-        return StorageKeyHelper::addTypeToIndex(i,typeMask);
+        return StorageKeyHelper::addTypeToIndex((int)i,typeMask);
     }
     else
     {
@@ -683,7 +713,7 @@ int StorageRegistry::addIfNotPresent(int typeMask, vector<StorageRegistry::regis
         bool isRead = ((READ_ONLY == access)||(READ_WRITE == access));
         bool isWritten = ((WRITE_ONLY == access)||(READ_WRITE == access));
         bool hasDefault = false;
-        int index = keyList.size();
+        int index = (int)keyList.size();
 
         wasNew = true;
         int handle = StorageKeyHelper::addTypeToIndex(index,typeMask);
