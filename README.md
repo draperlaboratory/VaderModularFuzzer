@@ -10,7 +10,7 @@
 - [License](#license)
 
 ### Upgrading from an Earlier Release of VMF?
-See [migration-4.0.0.md](docs/migration-4.0.0.md) for a list of the API changes in VMF 4.0.0.
+See [migration.md](docs/migration.md) for a list of the API changes in the latest version of VMF.
 
 ## VMF Compatibility
 
