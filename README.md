@@ -64,6 +64,12 @@ is often installed by default. You can install this on Debian-based systems (inc
 ```bash
 sudo apt install libcurl-dev
 ```
+
+Note: You _may_ need to install a libcurl development package built specifically for your host's secure socket layer library via, e.g.,
+```bash
+sudo apt install libcurl4-openssl-dev
+```
+
 On CentOS, RHEL, or Fedora, try
 ```bash
 sudo yum install libcurl-devel
