@@ -37,6 +37,9 @@ endif()
 
 
 list(APPEND CoreModules_SOURCES
+    common/controller/DifferentialController.cpp
+    common/feedback/AFLDiffFeedback.cpp
+
     common/controller/AnalysisController.cpp
     common/controller/RunOnceController.cpp
     common/controller/IterativeController.cpp
@@ -50,6 +53,7 @@ list(APPEND CoreModules_SOURCES
     common/initialization/ServerCorpusInitialization.cpp
     common/initialization/ServerSeedInitialization.cpp
     common/initialization/TrivialSeedInitialization.cpp
+    common/inputgeneration/DiffInputGenerator.cpp
     common/inputgeneration/GeneticAlgorithmInputGenerator.cpp
     common/inputgeneration/MOPTInputGenerator.cpp    
     common/inputgeneration/MOPT.cpp
@@ -78,6 +82,7 @@ list(APPEND CoreModules_SOURCES
     common/mutator/StackedMutator.cpp
     common/mutator/MutatorSelector.cpp
     common/output/ComputeStats.cpp
+    common/output/ComputeDiffStats.cpp
     common/output/CorpusMinimization.cpp
     common/output/CSVMetadataOutput.cpp
     common/output/LoggerMetadataOutput.cpp
@@ -85,6 +90,7 @@ list(APPEND CoreModules_SOURCES
     common/output/ServerCorpusMinOutput.cpp
     common/output/ServerCorpusOutput.cpp
     common/output/StatsOutput.cpp
+    common/output/StatsDiffOutput.cpp
 )
 
 add_library(CoreModules SHARED ${CoreModules_SOURCES})

@@ -52,6 +52,7 @@ public:
     virtual std::string getOutputDir();
     virtual void setOutputDir(std::string dir);
     virtual std::vector<Module*> getSubModules(std::string parentModuleName);
+    virtual Module* getSuperModule(std::string subModuleName);
 
     virtual bool isParam(std::string moduleName, std::string paramName);
     virtual std::string getStringParam(std::string moduleName, std::string paramName);

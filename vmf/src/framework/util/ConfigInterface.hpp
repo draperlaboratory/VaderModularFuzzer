@@ -80,6 +80,18 @@ public:
     virtual std::vector<Module*> getSubModules(std::string parentModuleName) = 0;
 
     /**
+     * @brief Retrieves the supermodule that is associated with this module in the config file(s)
+     * 
+     * To use, any module can call getSuperModule(getModuleName())
+     * Module* will need to be converted to their underlying type, using the convenience methods
+     * isAnInstance() and castTo() that are defined in each of the module base classes.
+     * 
+     * @param subModuleName the name of the module
+     * @return Module* the supermodule
+     */
+    virtual Module* getSuperModule(std::string subModuleName) = 0;
+
+    /**
      * @brief Check to see if a parameter is defined in a config file, without returning the value.
      * 
      * This method is primarily useful for truly optional parameters.  Parameters with a default

@@ -51,6 +51,9 @@ public:
     //Methods required by ConfigInterface -- these are just stubbed out to compile
     virtual std::string getAllParamsYAML(std::string moduleName);
 
+    //Methods required by ConfigInterface -- these are stubbed out to compile
+    virtual Module* getSuperModule(std::string subModuleName) {return nullptr;}
+
     //Methods required by ConfigInterface -- these have reasonably real implementations
     virtual std::string getOutputDir();
     virtual std::vector<Module*> getSubModules(std::string parentModuleName);
