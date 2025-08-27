@@ -20,5 +20,7 @@
 
 #This make file wraps source code from wingetopt.  See: https://github.com/alex85k/wingetopt
 
-add_library(getopt STATIC getopt.c)
-target_include_directories(getopt PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+message("-- Extracting wingetopt")
+file(ARCHIVE_EXTRACT INPUT ${CMAKE_CURRENT_SOURCE_DIR}/wingetopt-1.00.zip DESTINATION ${DEPENDENCIES_DIRECTORY}/wingetopt)
+add_library(getopt STATIC ${DEPENDENCIES_DIRECTORY}/wingetopt/wingetopt-1.00/src/getopt.c)
+target_include_directories(getopt PUBLIC ${DEPENDENCIES_DIRECTORY}/wingetopt/wingetopt-1.00/src)

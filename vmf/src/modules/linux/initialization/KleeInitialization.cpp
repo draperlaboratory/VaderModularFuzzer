@@ -86,7 +86,7 @@ void KleeInitialization::init(ConfigInterface& config)
     std::string outputDir = config.getOutputDir().c_str();
     LOG_DEBUG << "Using test case output directory: " << outputDir;
     try{
-        outputDir = realpath(outputDir.c_str(), NULL);
+        outputDir = std::string(realpath(outputDir.c_str(), NULL));
     } catch (...) {
         LOG_ERROR << "Failed to find output directory " << outputDir;
         throw RuntimeException("Missing output directory", RuntimeException::OTHER);

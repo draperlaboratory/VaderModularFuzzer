@@ -52,6 +52,25 @@ void check(char *buf)
 }
 
 
+void check_hang(char *buf)
+{
+    // Check input against 'hang'
+    if (buf[0] != 'h')
+	return;
+
+    if (buf[1] != 'a')
+	return;
+
+    if (buf[2] != 'n')
+	return;
+
+    if (buf[3] != 'g')
+	return;
+
+    while (1)
+    {}
+}
+
 int main(int argc, char **argv) {
 
     int   fd = 0;
@@ -72,6 +91,7 @@ int main(int argc, char **argv) {
 	}
 	input[n] = '\0';
 	check(input);
+	check_hang(input);
     }
     return 0;
 }

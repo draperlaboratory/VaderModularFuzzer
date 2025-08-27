@@ -49,6 +49,15 @@ class OSAPIImp: public OSAPI
         virtual bool commandLineZip(std::string zipFilePath, std::string inputDir);
         virtual bool commandLineUnzip(std::string zipFilePath, std::string outputDir);
 
+        /**
+         * @brief This is the Linux version of the function that will accept a function pointer.  The pointer to
+         * that function will mean that that function will be called when an interrupt signal is received by VMF.
+         *
+         * @param handler this is the pointer to a function that will be run when an interrupt signal is received by
+         * VMF.
+         */
+        virtual void setSignalHandlers(sighandler_t handler);
+
         virtual ~OSAPIImp();
 };
 }

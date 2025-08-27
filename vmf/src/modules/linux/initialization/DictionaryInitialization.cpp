@@ -133,7 +133,10 @@ void DictionaryInitialization::run(StorageModule& storage)
                 // remove newline at end of output
                 response.erase(std::remove(response.begin(), response.end(), '\n'), response.cend());
                 
-                outFile << "token=\"" << response << "\"" << std::endl;
+                if (!response.empty())
+                    outFile << "token=\"" << response << "\"" << std::endl;
+                else
+                    LOG_INFO << "Skipping blank line";
             }
         }
         outFile.close();

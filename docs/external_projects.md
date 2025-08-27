@@ -17,14 +17,14 @@ no incompatibly licensed tools are being included.
 | Project                                                       | Version   | License |
 | ------------------------------------------------------------- | --------- | ------- |
 | [curl](https://github.com/curl/curl)| 8.9.1 | [Custom](https://github.com/curl/curl/blob/master/LICENSES/curl.txt)|
-| [googletest](https://github.com/google/googletest)  | release-1.8.0-2963-8d51dc50  | [BSD Clause 3 New or Revised](https://github.com/google/googletest/blob/main/LICENSE) |
-| [json11](https://github.com/dropbox/json11)         | head-2df9473f                | [MIT](https://github.com/dropbox/json11/blob/master/LICENSE.txt) |
+| [googletest](https://github.com/google/googletest)  | 1.17.0   | [BSD Clause 3 New or Revised](https://github.com/google/googletest/blob/main/LICENSE) |
+| [json11](https://github.com/dropbox/json11)         | v1.0.0                | [MIT](https://github.com/dropbox/json11/blob/master/LICENSE.txt) |
 | [Klee ktest](https://github.com/klee/klee/) | 1.0 | [University of Illinois/NCSA Open Source License](https://github.com/klee/klee/blob/master/LICENSE.TXT) |
-| [plog](https://github.com/SergiusTheBest/plog)      | 1.1.9-d60df3a1               | [MIT](https://github.com/SergiusTheBest/plog/blob/master/LICENSE) |
-| [restclient-cpp](https://github.com/mrtazz/restclient-cpp) | 0.5.2-c4683b21        | [MIT](https://github.com/mrtazz/restclient-cpp/blob/master/LICENSE) |
+| [plog](https://github.com/SergiusTheBest/plog)      |  1.1.10               | [MIT](https://github.com/SergiusTheBest/plog/blob/master/LICENSE) |
+| [restclient-cpp](https://github.com/mrtazz/restclient-cpp) | 0.5.3        | [MIT](https://github.com/mrtazz/restclient-cpp/blob/master/LICENSE) |
 | [wingetopt](https://github.com/alex85k/wingetopt)| 1.00 | [ISD](https://github.com/alex85k/wingetopt/blob/master/LICENSE) |
-| [uthash](http://troydhanson.github.io/uthash/) |   2.1.0          | [BSD Revised](http://troydhanson.github.io/uthash/license.html)
-| [yaml-cpp](https://github.com/jbeder/yaml-cpp)      | yaml-cpp-0.7.0-31-987a6042   | [MIT](https://github.com/jbeder/yaml-cpp/blob/master/LICENSE) |
+| [uthash](http://troydhanson.github.io/uthash/) |   2.3.0          | [BSD Revised](http://troydhanson.github.io/uthash/license.html)
+| [yaml-cpp](https://github.com/jbeder/yaml-cpp)      | yaml-cpp-0.8.0   | [MIT](https://github.com/jbeder/yaml-cpp/blob/master/LICENSE) |
 
 ## Installed Packages
 

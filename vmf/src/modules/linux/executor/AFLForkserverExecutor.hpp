@@ -290,6 +290,8 @@ protected:
     int crashed_tag;
     ///HUNG tag
     int hung_tag;
+    ///INCOMPLETE tag for liveness-only fuzzing
+    int incomplete_tag;
     ///RAN_SUCCESSFULLY tag
     int normal_tag;
     ///HAS_NEW_COVERAGE tag
@@ -330,6 +332,8 @@ protected:
     unsigned int map_size;
     ///sutArgv config options
     std::vector<std::string> sut_argv;
+    ///liveness-only fuzzing, will ignore hanging testcases
+    bool ignore_hangs;
     ///memoryLimitInMB config option
     int sut_mem_limit;
     ///True for stdin interface

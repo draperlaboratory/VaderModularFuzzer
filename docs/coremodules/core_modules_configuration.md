@@ -59,6 +59,7 @@ Mutator modules
 * [`GramatronRandomMutator`](#section-gramatronrandommutator)
 * [`GramatronRecursiveMutator`](#section-gramatronrecursivemutator)
 * [`GramatronSpliceMutator`](#section-gramatronsplicemutator)
+* [`StackedMutator`](#section-stackedmutator)
 
 ## <a id="DirectoryBasedSeedGen"></a>Section: `DirectoryBasedSeedGen`
 
@@ -174,7 +175,7 @@ Value type: `<list of strings>`
 
 Status: Required
 
-Usage: The SUT to extract the strings from using the linux `strings` command.
+Usage: The SUT to extract the strings from using the linux `strings` command.  Any blank strings that are extacted as skipped over during dictionary generation.
 
 ### Configuration example
 ```yaml
@@ -301,6 +302,16 @@ Configuration information specific to the RedPawn Input Generator module.  Can b
 * [`AFLForkserverExecutor`](#section-aflforkserverexecutor) for `colorizationExecutor`
 * [`AFLForkserverExecutor`](#section-aflforkserverexecutor) for `cmplogExecutor`
 
+### `RedPawnInputGenerator.maxTimePerSeedInSeconds`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default Value: 600
+
+Usage: Configures the maximum amount of wallclock time that will be spent doing RedPawn analysis from the same seed testcase. When the maximum amount of time is reached, RedPawn discards the seed testcase and moves on to the next. The value of 0 can be used to indicate no time limit. The default is 10 minutes (600 seconds).
+
 ### `RedPawnInputGenerator.colorizeMaxExecs`
 
 Value type: `<int>`
@@ -321,8 +332,6 @@ Default Value: 1,000
 
 Usage: Specifies the maximum number of testcases that can be created and added to storage in one run (invocation from controller) of the RedPawn Input Generator.  This setting is useful if you wish to reduce the overall memory usage associated with RedPawn, as producing fewer test cases at once will reduce the overall memory footprint.  Sometimes a single comparison instruction will produces a lot of possible test cases from RedPawn; this setting also serves as a limit for the total number of test cases that can be produces for each comparison instruction.
 
-
-
 ### `RedPawnInputGenerator.skipStaticLogEntries`
 
 Value type: `<bool>`
@@ -333,6 +342,16 @@ Default Value: `true`
 
 Usage: This is an optimization that skips some expensive RedPawn analysis for log entries
 whose comparisons are unaffected by a colorized input.
+
+### `RedPawnInputGenerator.alwaysCreatePlusMinusOne`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default Value: `false`
+
+Usage: Force RedPawn to create +/- 1 variations to values it creates. When compare types (eg., less than, greater than) are available those can be used instead which creates less total testcases. When using standard AFL CMPLOG, this should be left as false because the compare types will be available.
 
 ### `RedPawnInputGenerator.useDirectTransform`
 
@@ -384,18 +403,50 @@ Default Value: `true`
 
 Usage: enables the XOR transform.
 
+### `RedPawnInputGenerator.useDirectStringTransform`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default Value: `true`
+
+Usage: enables the direct string transform
+
+### `RedPawnInputGenerator.useToUpperStringTransform`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default Value: `false`
+
+Usage: enables the ToUpper (uppercase characters) string transform
+
+### `RedPawnInputGenerator.useToLowerStringTransform`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default Value: `false`
+
+Usage: enables the ToLower (lowercase characters) string transform
 
 ### Configuration example
 ```yaml
 RedPawnInputGenerator:
   colorizeMaxExecs: 2000
   batchSize: 2000
-  skipStaticLogEntries: false
-  useDirectTransform: false
-  useReverseBytesTransform: false
-  useOffsetTransform: false
-  useFactorTransform: false
+  skipStaticLogEntries: true
+  useDirectTransform: true
+  useReverseBytesTransform: true
+  useOffsetTransform: true
+  useFactorTransform: true
   useXORTransform: false
+  useDirectStringTransform: true
+  useToUpperStringTransform: false
+  useToLowerStringTransform: false
 ```
 
 ## <a id="AFLForkserverExecutor"></a>Section: `AFLForkserverExecutor`
@@ -419,6 +470,16 @@ Status: Optional
 Default: Computed based on initial seeds
 
 Usage: Specifies the time in milliseconds that VMF will use to determine whether execution of the SUT has hung.  This is an optional parameter, and when not specified the executor will instead automatically compute a timeout value based on the initial seeds. Care must be taken when manually specifying this value, as a timeout that is too short will result in test cases being erroneously identified as hanging.
+
+### `AFLForkserverExecutor.ignoreHangs`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default: false
+
+Usage: Specifies to ignore hanging test cases during fuzzing.  While hanging testcases may be executed and marked as hanging they will not be marked as producing new coverage.  This will be overriden to false if `timeoutInMs` is specified in the user-provided configuration.  All testcases that hang in this mode will additionally be marekd as `INCOMPLETE`.
 
 ### `AFLForkserverExecutor.maxCalibrationCases`
 
@@ -912,8 +973,32 @@ Usage: The runtime in minutes for executing the fuzzing session.  If not set the
 ## <a id="AnalysisController"></a>Section: `AnalysisController`
 The AnalysisController does not support any custom configuration parameters.
 
+## <a id="NewCoverageController"></a>Section: `BalancedController`
+The BalancedController can be configured with any number of InputGenerator modules and balances their use.
+
+### `BalancedController.balanceMetric`
+
+Value type: `<string>`
+
+Status: Optional
+
+Default value: "time"
+
+Usage: Sets the metric by which the InputGenerators wills be balanced. The three available options are "time", "uses", or "testcasesGenerated". Each cycle of the controller, the InputGenerator that is behind the most by the specified metric will be selected for that cycle.
+
+### `BalancedController.epochLengthInMinutes`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default value: 30
+
+Usage: Sets the length of an epoch, which is the period of time under which stats are collected and balanced within. Epochs help address a "catch-up" problem that can occur when some input generators can't be used and therefore fall behind on stats by large amounts. When suddenly they become available, they become selected exclusively until parity is made among all input generators. The value of 0 can be used to disable epochs, which removes this feature and makes the balancing time window the entire run.
+
 ## <a id="IterativeController"></a>Section: `IterativeController`
 The IterativeController does not support any custom configuration parameters.
+
 
 ## <a id="NewCoverageController"></a>Section: `NewCoverageController`
 Configuration information specific to the NewCoverageController.
@@ -955,7 +1040,7 @@ Value type: `<list of strings>`
 
 Status: Optional
 
-Usage: This parameter specifies the paths to the list of tokens to fuzz with.  When not specified, this module must be run in a configuration that contains a DictionaryInitialization module to provide dictionary inputs.
+Usage: This parameter specifies the paths to the list of tokens to fuzz with.  When not specified, this module must be run in a configuration that contains a DictionaryInitialization module to provide dictionary inputs.  Blank tokens are skipped during load of these dictionaries.
 
 
 ### Configuration example
@@ -1025,3 +1110,105 @@ This mutator does not take any configuration values.
 
 This mutator does not take any configuration values.
 
+## <a id="StackedMutator"></a>Section: `StackedMutator`
+
+Configuration information specific to the `StackedMutator` module.  Must be used with the following submodule:
+
+* A list of desired mutators for composing in a mutation stack for `classSet`.  For example:  
+```yaml
+children:
+    - classSet: [AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator]
+```
+
+This set of mutators is not verified for compatability of mutation strategies between all members.
+
+
+### `StackedMutator.mutatorSelector`
+
+Value type: `<str>`
+
+Status: Optional
+
+Default value: `staticMutatorSelector`
+
+Usage: This parameter determines the method for selecting mutators during stack generation.  It currently supports 3 options:
+
+* `staticMutatorSelector`
+  * Stacks generated with this will follow the same order as those provided in the `classSet`
+* `uniformMutatorSelector`
+  * Mutators will be choosen according to a uniform random distribution from the `classSet` provided by the user
+* `WeightedRandomSelector`
+  * Mutators will be choosen according to a weighted random distribution from the `classSet` provided by the user according to a distribution also proided by the user, see [`StackedMutator.mutatorSelectionDistribution`](#stackedmutatormutatorselectiondistribution)
+
+The default value will assume that the `classSet` provided by the user defines the mutation stack the user wishes to use for all testcase generation.
+
+### `StackedMutator.randomStackSize`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default value: `false`
+
+Usage: This parameter determines whether to randomize stack size for the stacked mutator during application to a specific test case.  It will randomly select between 1 and the `stackSize` value.  It will pick from the same list of mutators in the same order of mutator selection randomization is not enabled and will randomly select the randomly choosen stack size number of mutators if selection is randomized
+
+### `StackedMutator.stackSize`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default value: length of the list of mutators provided
+
+Usage: An optional choice for length of mutation stack generated during testcase execution time.  When mutator randomization is not enabled it will cyclically select from the pool of mutators provided by the user in the same order provided by the user.  For example, if the user provides:
+
+```yaml
+children:
+    - classSet: [AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator]
+```
+
+with `stackSize: 4` then it will produce mutation stack: `{AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator, AFLFlipBitMutator}` at all test case mutation times.
+
+### `StackedMutator.mutatorSelectionDistribution`
+
+Value type: `<std::vector<float>>`
+
+Status: Optional
+
+Default value: a vector of floats the same size as the number of mutators provided by the user representing a uniform probability distribution
+
+Usage: An optional parameter to specify the selection distribution of mutators during randomized selection of mutators.  It must be the same size as the number of mutators and each index must correspond to the desired probability of selecting mutator `i` in the list of provided mutators.  For example, if a user provides the following list of mutators:
+
+
+```yaml
+children:
+    - classSet: [AFLRandomByteMutator, AFLDeleteMutator, AFLCloneMutator, AFLSpliceMutator]
+```
+
+with `mutatorSelectionDistribution: [0.125, 0.125, 0.25, 0.5]` and mutator selection randomization enabled then the chances of selecting `AFLRandomByteMutator` at position `i` in the mutation stack generated at test case mutation time will be `0.125` or 12.5%.  Similarly `AFLDeleteMutator` will be 12.5%, `AFLCloneMutator` 25%, and `AFLSpliceMutator` 50%.
+
+If specified without either stack size or mutator selection randomization enabled a warning will be issued that the specified distribution may not be followed during fuzzing.
+
+### Configuration example
+```yaml
+vmfModules:
+  storage: #a storage module must be specified
+      ...
+  controller: #a controller module must be specified
+      ...
+  GeneticAlgorithmInputGenerator:
+      children:
+        - id: baseStack
+          className: StackedMutator
+
+  baseStack:
+    children:
+      - classSet: [AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator]
+
+# Modules-specific parameters
+#(The SUT-specific portions of these all defined using YAML anchors)
+baseStack:
+  randomStackSize: false
+  stackSize: 3
+  mutatorSelectionDistribution: [0.333, 0.333, 0.334]
+```

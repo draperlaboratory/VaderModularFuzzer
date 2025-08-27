@@ -24,6 +24,7 @@
 #include <filesystem>
 #include <process.h>
 #include <Windows.h>
+#include <Winuser.h>
 #include <Winsock2.h>
 #include "getopt.h"
 
@@ -177,5 +178,7 @@ bool OSAPIImp::commandLineZip(std::string zipFilePath, std::string inputDir)
     return success;
 }
 
-
-
+void OSAPIImp::setSignalHandlers(void (*handler)(int))
+{
+    signal(SIGINT, handler);
+}

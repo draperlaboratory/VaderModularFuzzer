@@ -18,4 +18,12 @@
 # @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
 #===============================================================================
 
+add_subdirectory(${PROJECT_SOURCE_DIR}/test/driver)
 add_subdirectory(${PROJECT_SOURCE_DIR}/test/unittest)
+add_subdirectory(${PROJECT_SOURCE_DIR}/test/unittest/inputs/KleeInitializer)
+add_subdirectory(${PROJECT_SOURCE_DIR}/test/haystackSUT)
+add_subdirectory(${PROJECT_SOURCE_DIR}/test/magicBytesSUT)
+add_subdirectory(${PROJECT_SOURCE_DIR}/test/unittest/inputs/AFLForkserverExecutorTest/mimeSUT)
+add_subdirectory(${PROJECT_SOURCE_DIR}/test/unittest/inputs/AFLForkserverExecutorTest/haystackSUT)
+add_subdirectory(${PROJECT_SOURCE_DIR}/test/unittest/inputs/DictionaryMutator)
+add_subdirectory(${PROJECT_SOURCE_DIR}/test/unittest/inputs/ConfigManagerTest)

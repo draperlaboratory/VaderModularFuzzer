@@ -26,9 +26,9 @@ using namespace vmf;
 
 #define GTEST_COUT std::cerr << "[          ] [ INFO ]"
 
-#define BASIC "../test/unittest/inputs/ConfigManagerTest/basicModules.yaml"
-#define CLASS_SET "../test/unittest/inputs/ConfigManagerTest/CoreClassSet.yaml"
-#define SUT "../test/unittest/inputs/ConfigManagerTest/fakeSUT.yaml"
+#define BASIC "test/unittest/inputs/ConfigManagerTest/basicModules.yaml"
+#define CLASS_SET "test/unittest/inputs/ConfigManagerTest/CoreClassSet.yaml"
+#define SUT "test/unittest/inputs/ConfigManagerTest/fakeSUT.yaml"
 
 TEST(ConfigManagerTest, MissingAnchors)
 {

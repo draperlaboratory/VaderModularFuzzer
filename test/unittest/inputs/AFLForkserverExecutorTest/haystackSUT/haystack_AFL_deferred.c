@@ -10,6 +10,12 @@
    If persistent mode is working, subsequent executions will not create the flag.
 */
 
+// For deferred mode, optimizations have to be turned off or some
+// of the checks get optimized away.
+#pragma GCC optimize("O0")
+#pragma clang optimize off
+
+
 void check(char *buf)
 {
     // Check input against 'needle'
@@ -32,6 +38,25 @@ void check(char *buf)
 	return;
 
     raise(SIGSEGV);
+}
+
+void check_hang(char *buf)
+{
+    // Check input against 'needle'
+    if (buf[0] != 'h')
+	return;
+
+    if (buf[1] != 'a')
+	return;
+
+    if (buf[2] != 'n')
+	return;
+
+    if (buf[3] != 'g')
+	return;
+
+    while (1)
+    {}
 }
 
 int main(int argc, char **argv) {
@@ -59,5 +84,6 @@ int main(int argc, char **argv) {
     }
     input[n] = '\0';
     check(input);
+    check_hang(input);
     return 0;
 }

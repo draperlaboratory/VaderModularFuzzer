@@ -2,7 +2,7 @@ vmfModules:
   storage:
     className: SimpleStorage
   controller:
-    className: NewCoverageController
+    className: BalancedController
     children:
       - className: MOPTInputGenerator
       - className: RedPawnInputGenerator
@@ -40,10 +40,6 @@ vmfModules:
 # Modules-specific parameters
 #(The SUT-specific portions of these all defined using YAML anchors)
 
-NewCoverageController: #This specifies which input generator is primary
-  primaryInputGenerator: MOPTInputGenerator
-  newCoverageInputGenerator: RedPawnInputGenerator
-
 AFLForkserverExecutor: #Main fuzzing loop executor
   sutArgv: *SUT_ARGV
 
@@ -64,3 +60,6 @@ cmplogExecutor: #Red Pawn cmplog executor
   memoryLimitInMB: *CMPLOG_MEM_LIMIT_MB  #cmplog needs extra memory
   cmpLogEnabled: true
   writeStats: false
+
+BalancedController:
+  balanceMetric: time

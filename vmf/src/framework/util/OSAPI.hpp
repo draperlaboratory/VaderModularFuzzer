@@ -18,6 +18,7 @@
  * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
  * ===========================================================================*/
 #pragma once
+#include <signal.h>
 #include <string>
 
 namespace vmf {
@@ -111,6 +112,26 @@ class OSAPI
          * @return true if zip was successful, false otherwise
          */
         virtual bool commandLineZip(std::string zipFilePath, std::string inputDir) = 0;
+
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+        /**
+         * @brief This is the Windows version of the function that will accept a function pointer.  The pointer to
+         * that function will mean that that function will be called when an interrupt signal is received by VMF.
+         *
+         * @param handler this is the pointer to a function that will be run when an interrupt signal is received by
+         * VMF.
+         */
+        virtual void setSignalHandlers(void (*handler)(int)) = 0;
+#else
+        /**
+         * @brief This is the Linux version of the function that will accept a function pointer.  The pointer to
+         * that function will mean that that function will be called when an interrupt signal is received by VMF.
+         *
+         * @param handler this is the pointer to a function that will be run when an interrupt signal is received by
+         * VMF.
+         */
+	virtual void setSignalHandlers(sighandler_t handler) = 0;
+#endif
 
         virtual ~OSAPI() {};
 };

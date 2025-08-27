@@ -21,6 +21,7 @@
 #include <random> // colorize needs real randomness
 #include <unordered_set> // for testcase pruning
 #include <tuple>
+#include <array>
 #include "ExecutorModule.hpp"
 #include "InputGeneratorModule.hpp"
 #include "MutatorModule.hpp"
@@ -61,8 +62,11 @@ private:
     void collectLogEntries(StorageModule& storage, StorageEntry * baseEntry, char * colorized_testcase);
     bool generateRedPawnCandidates(StorageModule& storage);
     std::vector<unsigned int>* findMatchesOfPattern(char * testcase, char * colorized_testcase, int length, uint64_t base_pattern, uint64_t colorized_pattern, int compare_size);
-    bool performPatternReplacements(char * testcase, int len, std::vector<unsigned int>* indices, uint64_t replacement, int compare_size);
-    bool performPatternReplacement(char * testcase, int size, int index, uint64_t replacement, int compare_size);
+    bool generateRoutineCandidatesAtIndex(std::array<char, 32> pattern, std::array<char, 32> colorized_pattern, std::array<char, 32> replace_with, int taint_start, int taint_end);
+    bool performPatternReplacement(char * testcase, int size, int index, std::vector<uint64_t> replacement, int compare_size);
+    bool performPatternReplacement(int index, int length, std::array<char, 32> replacement);
+    bool performPatternReplacements(char * testcase, int len, std::vector<unsigned int>* indices, std::vector<uint64_t> replacements, int compare_size);
+    void createReplaceValues(bool left_hand_side, int compare_type, uint64_t value);
 
     bool addCandidateTestcase(char * buff, int size);
     void addCandidatesToStorage(StorageModule& storage);
@@ -76,24 +80,28 @@ private:
     // Keys and tags
     int newCoverageTag;
     int ranNormallyTag;
+    int incompleteTag;
     int redPawnNewCoverageTag;
     int testCaseKey;
     int traceBitsKey;
     int cmpLogMapKey;
     int execTimeKey;
     int mutatorIdKey;
+    int coverageCountKey;
 
     // User-configurable parameters
     int colorizeMaxExecs = 1000;
     int batchSize = 5000;
     bool skipStaticLogEntries;
+    bool alwaysCreatePlusMinusOne;
+    int maxTimePerSeedInSeconds = 0;
 
     // Stats tracking
     uint64_t testCasesGenerated, testCasesGeneratedTotal;
     uint64_t testCasesAdded, testCasesAddedTotal;
     uint64_t testCasesAddedByLastSeed;
     uint64_t testCasesInQueue;
-    time_t timeStartedTestCase;
+    uint64_t timeStartedRunningTestcase, timeSpentOnTestCase;
     uint64_t currTestCaseID;
 
     bool hasValidated = false;
@@ -107,14 +115,19 @@ private:
 
     char * base_testcase, * colorized_testcase;
     int size;
-    uint64_t currentLogIndex = 0;
+    uint64_t currentInsLogIndex = 0;
+    uint64_t currentRtnLogIndex = 0;
+
+    std::unordered_set<std::string> routineMatchLog;
 
     std::unordered_set<uint64_t> addedHashes;
     std::vector<std::pair<char*, int>> candidates;
-    std::vector<std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, int, int>> logEntries;
+    std::vector<std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, int, int>> insLogEntries;
+    std::vector<std::tuple<std::array<char, 32>, std::array<char, 32>, std::array<char, 32>, std::array<char, 32>, int, int>> rtnLogEntries;
     std::vector<std::pair<int, int>> taintRegions;
-
+    std::vector<uint64_t> replaceValues;
     std::vector<RedPawnEncodingTransform*> encodingTransforms;
     std::vector<RedPawnArithmeticTransform*> arithmeticTransforms;
+    std::vector<RedPawnStringTransform*> stringTransforms;
 };
 }

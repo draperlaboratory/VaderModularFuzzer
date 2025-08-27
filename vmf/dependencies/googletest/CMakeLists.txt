@@ -1,34 +1,20 @@
 # Note: CMake support is community-based. The maintainers do not use CMake
 # internally.
 
-cmake_minimum_required(VERSION 3.5)
 
-if (POLICY CMP0048)
-  cmake_policy(SET CMP0048 NEW)
-endif (POLICY CMP0048)
+# Test libs
+set(INSTALL_GTEST on CACHE BOOL "" FORCE)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+set(gtest_disable_pthreads ON CACHE BOOL "" FORCE)
+set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
 
-if (POLICY CMP0077)
-  cmake_policy(SET CMP0077 NEW)
-endif (POLICY CMP0077)
+set(GTEST_LIBRARY ${CMAKE_BINARY_DIR}/lib/libgtest.a)
+set(GTEST_MAIN_LIBRARY ${CMAKE_BINARY_DIR}/lib/libgtest_main.a)
+set(GTEST_INCLUDE_DIR ${DEPENDENCIES_DIRECTORY}/googletest/googletest-1.17.0/googletest/include)
+extract_and_build_dep(
+  ${CMAKE_CURRENT_SOURCE_DIR}/googletest-1.17.0.zip
+  googletest
+  googletest/googletest-1.17.0/
+)
 
-project(googletest-distribution)
-set(GOOGLETEST_VERSION 1.11.0)
 
-if(NOT CYGWIN AND NOT MSYS AND NOT ${CMAKE_SYSTEM_NAME} STREQUAL QNX)
-  set(CMAKE_CXX_EXTENSIONS OFF)
-endif()
-
-enable_testing()
-
-include(CMakeDependentOption)
-include(GNUInstallDirs)
-
-#Note that googlemock target already builds googletest
-option(BUILD_GMOCK "Builds the googlemock subproject" ON)
-option(INSTALL_GTEST "Enable installation of googletest. (Projects embedding googletest may want to turn this OFF.)" OFF)
-
-if(BUILD_GMOCK)
-  add_subdirectory( googlemock )
-else()
-  add_subdirectory( googletest )
-endif()

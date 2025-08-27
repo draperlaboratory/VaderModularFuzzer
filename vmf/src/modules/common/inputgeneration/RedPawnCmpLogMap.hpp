@@ -20,6 +20,23 @@
 
 // VMF copied and modified from AFL++
 
+// Compare types reverse engineered from https://github.com/AFLplusplus/AFLplusplus/blob/v4.31c/instrumentation/cmplog-instructions-pass.cc#L354-L384
+#define CMP_TYPE_NEQ 0
+#define CMP_TYPE_EQ 1
+#define CMP_TYPE_GT 2
+#define CMP_TYPE_GTE 3
+#define CMP_TYPE_LT 4
+#define CMP_TYPE_LTE 5
+// 6 and 7 unused
+#define CMP_TYPE_NE_FP 8
+#define CMP_TYPE_EQ_FP 9
+#define CMP_TYPE_GT_FP 10
+#define CMP_TYPE_GTE_FP 11
+#define CMP_TYPE_LT_FP 12
+#define CMP_TYPE_LTE_FP 13
+// 14 and 15 unusued, 15 claimed by VMF
+#define CMP_TYPE_NONE 15 // Defined by VMF to mean not set
+
 /*
    american fuzzy lop++ - cmplog header
    ------------------------------------

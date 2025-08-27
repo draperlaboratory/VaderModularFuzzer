@@ -74,6 +74,13 @@ void RedPawnInputGenerator::init(ConfigInterface& config)
     }
 
     // Load config options
+
+    maxTimePerSeedInSeconds = config.getIntParam(getModuleName(), "maxTimePerSeedInSeconds", 600);
+    if (maxTimePerSeedInSeconds != 0)
+	LOG_INFO << "RedPawn max time per seed testcase is: " << maxTimePerSeedInSeconds << " seconds.";
+    else
+	LOG_INFO << "RedPawn no max time per seed testcase.";
+    
     colorizeMaxExecs = config.getIntParam(getModuleName(), "colorizeMaxExecs", 1000);
     LOG_INFO << "RedPawn colorize bound set to " << colorizeMaxExecs << " executions.";
 
@@ -83,6 +90,10 @@ void RedPawnInputGenerator::init(ConfigInterface& config)
     // This is an optimization from the Improving CmpLog paper section 5.1.1. Default is on.
     skipStaticLogEntries = config.getBoolParam(getModuleName(), "skipStaticLogEntries", true);
     LOG_INFO << "skipStaticLogEntries optimization set to: " << skipStaticLogEntries;
+
+    // Always create +/- 1 variations instead of using compare types
+    alwaysCreatePlusMinusOne = config.getBoolParam(getModuleName(), "alwaysCreatePlusMinusOne", false);
+    LOG_INFO << "alwaysCreatePlusMinusOne set to: " << alwaysCreatePlusMinusOne;
 
     rand = VmfRand::getInstance();
     rng = std::mt19937_64(rand->randBelow(INT32_MAX));
@@ -94,6 +105,10 @@ void RedPawnInputGenerator::init(ConfigInterface& config)
     bool useOffsetTransform = config.getBoolParam(getModuleName(), "useOffsetTransform", true);
     bool useFactorTransform = config.getBoolParam(getModuleName(), "useFactorTransform", true);
     bool useXORTransform = config.getBoolParam(getModuleName(), "useXORTransform", true);
+
+    bool useDirectStringTransform = config.getBoolParam(getModuleName(), "useDirectStringTransform", true);
+    bool useToLowerStringTransform = config.getBoolParam(getModuleName(), "useToLowerStringTransform", false);
+    bool useToUpperStringTransform = config.getBoolParam(getModuleName(), "useToUpperStringTransform", false);
 
     // Add the requested transforms:
     // Encoding transforms
@@ -110,8 +125,16 @@ void RedPawnInputGenerator::init(ConfigInterface& config)
     if (useXORTransform)
         arithmeticTransforms.push_back(new XORTransform());
 
+    // String transforms
+    if (useDirectStringTransform)
+	stringTransforms.push_back(new DirectStringTransform());
+    if (useToUpperStringTransform)
+	stringTransforms.push_back(new ToUpperTransform());
+    if (useToLowerStringTransform)
+	stringTransforms.push_back(new ToLowerTransform());
+
     // Require at least 1 transform
-    int transformsUsed = (int) (arithmeticTransforms.size() + encodingTransforms.size());
+    int transformsUsed = (int) (arithmeticTransforms.size() + encodingTransforms.size() + stringTransforms.size());
     if (transformsUsed < 1)
     {
         throw RuntimeException("RedPawnInputGenerator was configured with no transforms. Enable at least 1 transform.", RuntimeException::CONFIGURATION_ERROR);
@@ -124,8 +147,8 @@ void RedPawnInputGenerator::init(ConfigInterface& config)
     testCasesAdded = 0;
     testCasesAddedTotal = 0;
     testCasesAddedByLastSeed = 0;
-    timeStartedTestCase = 0;
     currTestCaseID = 0;
+    timeStartedRunningTestcase = 0;
 
     // Initialize mode to starting from a fresh testcase
     currentMode = StartNewTestCase;
@@ -148,7 +171,7 @@ RedPawnInputGenerator::RedPawnInputGenerator(std::string name) :
     testCasesAdded = 0;
     testCasesAddedTotal = 0;
     testCasesAddedByLastSeed = 0;
-    timeStartedTestCase = 0;
+    timeStartedRunningTestcase = 0;
     currTestCaseID = 0;
     testCasesInQueue = 0;
 
@@ -160,6 +183,7 @@ RedPawnInputGenerator::RedPawnInputGenerator(std::string name) :
     redPawnNewCoverageTag = 0;
     newCoverageTag = 0;
     ranNormallyTag = 0;
+    incompleteTag = 0;
     cmplog_executor = nullptr;
     regular_executor = nullptr;
     rand = nullptr;
@@ -175,6 +199,8 @@ RedPawnInputGenerator::~RedPawnInputGenerator()
         delete t;
     for (RedPawnEncodingTransform * t : encodingTransforms)
         delete t;
+    for (RedPawnStringTransform * t : stringTransforms)
+        delete t;
 
     // Free scratch space testcases
     if (colorized_testcase != nullptr)
@@ -188,11 +214,13 @@ void RedPawnInputGenerator::registerStorageNeeds(StorageRegistry& registry)
 {
     // Read
     newCoverageTag = registry.registerTag("HAS_NEW_COVERAGE", StorageRegistry::READ_ONLY);
-    ranNormallyTag = registry.registerTag("RAN_SUCCESSFULLY", StorageRegistry::READ_ONLY);    
+    ranNormallyTag = registry.registerTag("RAN_SUCCESSFULLY", StorageRegistry::READ_ONLY);
+    incompleteTag = registry.registerTag("INCOMPLETE", StorageRegistry::READ_ONLY);
     testCaseKey = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_WRITE);
     traceBitsKey = registry.registerKey("AFL_TRACE_BITS", StorageRegistry::BUFFER_TEMP, StorageRegistry::READ_ONLY);
     execTimeKey = registry.registerKey("EXEC_TIME_US", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
     cmpLogMapKey = registry.registerKey("CMPLOG_MAP_BITS", StorageRegistry::BUFFER_TEMP, StorageRegistry::READ_ONLY);
+    coverageCountKey = registry.registerKey("COVERAGE_COUNT", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
 
     // Write
     redPawnNewCoverageTag = registry.registerTag("REDPAWN_NEW_COVERAGE", StorageRegistry::READ_WRITE);
@@ -217,6 +245,8 @@ void RedPawnInputGenerator::addNewTestCases(StorageModule& storage)
     testCasesInQueue = storageIterator->getSize();
 
     printStats();
+
+    timeStartedRunningTestcase = VmfUtil::getCurTime();
 
     // -------- First, finish off any work that needs resuming --------
 
@@ -249,11 +279,15 @@ void RedPawnInputGenerator::addNewTestCases(StorageModule& storage)
         testCasesGenerated = 0;
         testCasesAdded = 0;
         addedHashes.clear();
-        logEntries.clear();
-        timeStartedTestCase = time(0);
+        insLogEntries.clear();
+        rtnLogEntries.clear();
+        currentInsLogIndex = 0;
+        currentRtnLogIndex = 0;
+        timeSpentOnTestCase = 0;
+
+        StorageEntry * entry = storageIterator -> getNext();
 
         // Untag this entry now that it has been processed by RedPawn
-        StorageEntry * entry = storageIterator -> getNext();
         entry -> removeTag(redPawnNewCoverageTag);
 
         // Make a copy of the testcase data
@@ -277,7 +311,6 @@ void RedPawnInputGenerator::addNewTestCases(StorageModule& storage)
             collectLogEntries(storage, entry, colorized_testcase);
 
             // Using the logs and all the enabled transforms, generate candidate testcases
-            currentLogIndex = 0;
             done = generateRedPawnCandidates(storage);
         
             addCandidatesToStorage(storage);
@@ -316,6 +349,14 @@ void RedPawnInputGenerator::addNewTestCases(StorageModule& storage)
  */
 bool RedPawnInputGenerator::examineTestCaseResults(StorageModule& storage)
 {
+
+    // Some bookkeeping about time spent on current testcase. Must be able to handle
+    // RedPawn execution being interwoven with other InputGenerators.
+    if (timeStartedRunningTestcase != 0)
+    {
+	timeSpentOnTestCase += (VmfUtil::getCurTime() - timeStartedRunningTestcase) / 1000; // milliseconds
+	timeStartedRunningTestcase = 0;
+    }
 
     // Locate all of the testcases that are marked with having new coverage this cycle.
     // We tag them our own RedPawn tag to indicate we haven't processed these yet.
@@ -449,46 +490,73 @@ void RedPawnInputGenerator::collectLogEntries(StorageModule& storage, StorageEnt
             //LOG_DEBUG << "Warning: hit case where colorized map did not have same log as original testcase";
             continue;
         }
-        
-        // Skip function logs for now to focus on compare instructions
-        if (cmp_map->headers[i].type == CMP_TYPE_RTN)
-        {
-            continue;
-        }
-        
+
         // Each index has a circular buffer of size CMP_MAP_H, so that is max index
         unsigned int num_hit_entries = std::min((int)hit_count, CMP_MAP_H);
         
         int compare_size = cmp_map->headers[i].shape + 1; // Shape starts at 0
         int compare_type = cmp_map->headers[i].attribute;
 
-        if (compare_size > 8)
+        // Skip not equal
+        //if (compare_type == CMP_TYPE_NEQ)
+        //    continue;
+
+        // For the inst compare type we only support up to 8 bytes of compare data
+        if (compare_size > 8 && cmp_map->headers[i].type == CMP_TYPE_INS)
         {
             skipped_compare_too_large++;
             continue;
         }
 
-        // for each entry in the log for comparision id #i, see if we can find an I2S spot
+        // Inspect each log entry we have at index i
         for (unsigned int j=0; j < num_hit_entries; j++)
         {
-            
-            // Not that we only use the first 8 bytes of operands for now. The _128 fields have 8 more bytes.
-            uint64_t og_lhs = cmp_map->log[i][j].v0;
-            uint64_t og_rhs = cmp_map->log[i][j].v1;
-            
-            uint64_t co_lhs = colorized_cmp_map->log[i][j].v0;
-            uint64_t co_rhs = colorized_cmp_map->log[i][j].v1;
-            
-            //LOG_INFO << "og_lhs: " << og_lhs << ", co_lhs: " << co_lhs;
-            //LOG_INFO << "og_rhs: " << og_rhs << ", co_rhs: " << co_rhs;
-            
-            // Record this log entry
-            // Skipping static entries optimization, improving cmplog paper section 5.1.1 https://arxiv.org/pdf/2211.08357.pdf
-            // TODO: Another possible optimization is only adding *unique* entries (VADER-1232)
-            if (skipStaticLogEntries && (og_lhs == co_lhs && og_rhs == co_rhs))
-                continue;
+            // Interpret the bytes inside the log entry based on INS or RTN
 
-            logEntries.push_back(std::make_tuple(og_lhs, og_rhs, co_lhs, co_rhs, compare_size, compare_type));
+            // Skip function logs for now to focus on compare instructions
+            if (cmp_map->headers[i].type == CMP_TYPE_INS)
+            {
+            
+                // Not that we only use the first 8 bytes of operands for now. The _128 fields have 8 more bytes.
+                uint64_t og_lhs = cmp_map->log[i][j].v0;
+                uint64_t og_rhs = cmp_map->log[i][j].v1;
+            
+                uint64_t co_lhs = colorized_cmp_map->log[i][j].v0;
+                uint64_t co_rhs = colorized_cmp_map->log[i][j].v1;
+            
+                //LOG_INFO << "og_lhs: " << og_lhs << ", co_lhs: " << co_lhs;
+                //LOG_INFO << "og_rhs: " << og_rhs << ", co_rhs: " << co_rhs;
+
+                // Record this log entry
+                // Skipping static entries optimization, improving cmplog paper section 5.1.1 https://arxiv.org/pdf/2211.08357.pdf
+                // TODO: Another possible optimization is only adding *unique* entries (VADER-1232)
+                if (skipStaticLogEntries && (og_lhs == co_lhs && og_rhs == co_rhs))
+                    continue;
+
+                insLogEntries.push_back(std::make_tuple(og_lhs, og_rhs, co_lhs, co_rhs, compare_size, compare_type));
+            } else if (cmp_map->headers[i].type == CMP_TYPE_RTN)
+            {
+
+                struct cmpfn_operands* func_operands = (struct cmpfn_operands*) &cmp_map->log[i][j];
+                struct cmpfn_operands* func_operands_colorized = (struct cmpfn_operands*) &colorized_cmp_map->log[i][j];
+
+                int len0 = func_operands -> v0_len;
+                int len1 = func_operands -> v1_len;
+
+                if (skipStaticLogEntries && (memcmp(func_operands -> v0, func_operands_colorized -> v0, 32) == 0) &&
+                    memcmp(func_operands -> v1, func_operands_colorized -> v1, 32) == 0)
+                {
+                    continue;
+                }
+
+                std::array<char, 32> og_v0, og_v1, co_v0, co_v1;
+                memcpy(og_v0.data(), func_operands -> v0, 32);
+                memcpy(og_v1.data(), func_operands -> v1, 32);
+                memcpy(co_v0.data(), func_operands_colorized -> v0, 32);
+                memcpy(co_v1.data(), func_operands_colorized -> v1, 32);
+
+                rtnLogEntries.emplace_back(std::make_tuple(og_v0, og_v1, co_v0, co_v1, len0, len1));
+            }
         }
     }
 
@@ -498,33 +566,76 @@ void RedPawnInputGenerator::collectLogEntries(StorageModule& storage, StorageEnt
     }
 }
 
-// Returns a bool indicating whether or not it is done
+/**
+ * @brief The core RedPawn function that runs the analysis and drives generating candidate
+ * testcases. It returns a bool indicating whether or not it is done. When RedPawn is resumed,
+ * it picks up here at the currentRtnLogIndex and currentInsLogIndex where it left off. This
+ * allows RedPawn analysis to run in small batches at a time.
+ */
 bool RedPawnInputGenerator::generateRedPawnCandidates(StorageModule& storage)
 {
 
-    //LOG_INFO << "generateRedPawnCandidates starting at: " << currentLogIndex;
+    // Check for timeout on this testcase
+    int secondsSpent = timeSpentOnTestCase / 1000;
+    if (maxTimePerSeedInSeconds != 0 && secondsSpent > maxTimePerSeedInSeconds)
+    {
+	LOG_INFO << "Too long spent on one testcase, skipping.";
+	currentRtnLogIndex = rtnLogEntries.size();
+	currentInsLogIndex = insLogEntries.size();
+    }
 
     // Track whether there is still room in the candidates vector. When full, we can exit early.
     bool candidatesFull = false;
 
-    // Run for every log entry
-    while (currentLogIndex  < logEntries.size())
+    // Process each log entry of the routine (RTN) type
+    while (currentRtnLogIndex < rtnLogEntries.size())
     {
 
         printStats();
-        //LOG_INFO << "At log index " << currentLogIndex;
+
+        const auto& [og_v0, og_v1, co_v0, co_v1, len0, len1] = rtnLogEntries[currentRtnLogIndex];
+
+        // Loop over all taint regions
+        for (const auto& [start, end] : taintRegions)
+        {
+            //LOG_INFO << "Scanning " << start << " to " << end << " of size " << size;
+            if (!canAddMoreTestCases())
+                break;
+
+            // Left-hand side
+            generateRoutineCandidatesAtIndex(og_v0, co_v0, og_v1, start, end);
+            // Right-hand side
+            generateRoutineCandidatesAtIndex(og_v1, co_v1, og_v0, start, end);
+        }
+
+        currentRtnLogIndex++;
+
+        // If we have batchSize candidates, return and leave at currentInsLogIndex at current val
+        if (candidates.size() >= (uint64_t) batchSize)
+        {
+            return false;
+        }
+    }
+
+    // Process each log entry of the instruction (INS) type
+    while (currentInsLogIndex  < insLogEntries.size())
+    {
+
+        printStats();
+
+        //LOG_INFO << "At log index " << currentInsLogIndex;
         
         // Extract fields from log entry
-        const auto& [og_lhs, og_rhs, co_lhs, co_rhs, compare_size, cmp_type] = logEntries[currentLogIndex];
+        const auto& [og_lhs, og_rhs, co_lhs, co_rhs, compare_size, cmp_type] = insLogEntries[currentInsLogIndex];
 
         // We don't yet support compare sizes > 64 bits, and we can't perform analysis if testcase is smaller than compare size
         if (compare_size > 8 || compare_size > size)
         {
-            currentLogIndex++;
+            currentInsLogIndex++;
             continue;
         }
 
-        //LOG_INFO << "Compare (" << og_lhs << " " << og_rhs << ") (" << co_lhs << " " << co_rhs << ") size: " << compare_size;
+        // LOG_INFO << "Compare (" << og_lhs << " " << og_rhs << ") (" << co_lhs << " " << co_rhs << ") size: " << compare_size << " type " << cmp_type;
         
         // --------- Data Transforms -----------
 
@@ -541,7 +652,17 @@ bool RedPawnInputGenerator::generateRedPawnCandidates(StorageModule& storage)
             
             // Left hand side
             std::vector<unsigned int>* matches = findMatchesOfPattern(base_testcase, colorized_testcase, size, og_lhs_decoded, co_lhs_decoded, compare_size);
-            bool res = performPatternReplacements(base_testcase, size, matches, t -> Encode(og_rhs, compare_size), compare_size);
+	    replaceValues.clear();
+
+	    if (t -> ApplyCompareTypes())
+	    {
+		createReplaceValues(true, cmp_type, t -> Encode(og_rhs, compare_size));
+	    } else
+	    {
+		replaceValues.push_back(t -> Encode(og_rhs, compare_size));
+	    }
+
+            bool res = performPatternReplacements(base_testcase, size, matches, replaceValues, compare_size);
             delete matches;
             if (!res)
             {
@@ -551,7 +672,15 @@ bool RedPawnInputGenerator::generateRedPawnCandidates(StorageModule& storage)
 
             // Right hand side
             matches = findMatchesOfPattern(base_testcase, colorized_testcase, size, og_rhs_decoded, co_rhs_decoded, compare_size);
-            res = performPatternReplacements(base_testcase, size, matches, t -> Encode(og_lhs, compare_size), compare_size);
+	    replaceValues.clear();
+	    if (t -> ApplyCompareTypes())
+	    {
+	        createReplaceValues(false, cmp_type, t -> Encode(og_lhs, compare_size));
+	    } else
+	    {
+		replaceValues.push_back(t -> Encode(og_lhs, compare_size));
+	    }
+            res = performPatternReplacements(base_testcase, size, matches, replaceValues, compare_size);
             delete matches;
             if (!res)
             {
@@ -640,7 +769,9 @@ bool RedPawnInputGenerator::generateRedPawnCandidates(StorageModule& storage)
                         // Attempt transform (left hand side)
                         if (t -> SolveTransform(baseVal, og_lhs, colorizedVal, co_lhs, result, co_rhs, this_size))
                         {
-                            bool res = performPatternReplacement(base_testcase, size, start + i, result, this_size);
+			    replaceValues.clear();
+                            createReplaceValues(true, cmp_type, result);
+                            bool res = performPatternReplacement(base_testcase, size, start + i, replaceValues, this_size);
                             if (!res)
                             {
                                 candidatesFull = true;
@@ -651,7 +782,9 @@ bool RedPawnInputGenerator::generateRedPawnCandidates(StorageModule& storage)
                         // Attempt transform (right hand side)
                         if (t -> SolveTransform(baseVal, og_rhs, colorizedVal, co_rhs, result, co_lhs, this_size))
                         {
-                            bool res = performPatternReplacement(base_testcase, size, start + i, result, this_size);
+			    replaceValues.clear();
+                            createReplaceValues(false, cmp_type, result);
+                            bool res = performPatternReplacement(base_testcase, size, start + i, replaceValues, this_size);
                             if (!res)
                             {
                                 candidatesFull = true;
@@ -663,14 +796,79 @@ bool RedPawnInputGenerator::generateRedPawnCandidates(StorageModule& storage)
             }
         }
 
-        currentLogIndex++;
+        currentInsLogIndex++;
 
-        // If we have batchSize candidates, return and leave at currentLogIndex at current val
+        // If we have batchSize candidates, return and leave at currentInsLogIndex at current val
         if (candidates.size() >= (uint64_t) batchSize)
         {
             return false;
         }
     }
+    return true;
+}
+
+/**
+ * @brief Helper function for generateRedPawnCandidates that runs just the routine analysis (RTN entries)
+ * which are for processing strcmp/memcmp arguments. Is called once for the left-hand side and once for
+ * the right-hand side of the compare fields and runs for a specified taint region (portion of the testcase).
+ */
+bool RedPawnInputGenerator::generateRoutineCandidatesAtIndex(std::array<char, 32> pattern, std::array<char, 32> colorized_pattern, std::array<char, 32> replace_with, int taint_start, int taint_end)
+{
+
+    // Local copy of replace_with that we overwrite with decoded values
+    std::array<char, 32> replace_with_copy = replace_with;
+
+    for (RedPawnStringTransform * t : stringTransforms)
+    {
+	// We look for a match starting here and search upwards
+	int start_index = taint_start;
+
+	while (start_index <= taint_end && start_index < size)
+	{
+	    // Look to see if we have a match starting from this index
+	    int match_index = 0;
+	    int testcase_index = start_index;
+	    while (t->Encode(base_testcase[testcase_index]) == (uint8_t) pattern[match_index] && t->Encode(colorized_testcase[testcase_index]) == (uint8_t) colorized_pattern[match_index])
+	    {
+
+		match_index += 1;
+		testcase_index += 1;
+
+		// Patterns from cmplog instrumentation are only 32 bytes max
+		if (match_index >= 31 || testcase_index > size)
+		    break;
+
+		// Don't go past end of the testcase
+		if (testcase_index >= size)
+		    break;
+	    }
+
+	    // Only consider matches of at least 2 bytes
+	    if (match_index > 0)
+	    {
+
+		for (int i = 0; i < 32; i++)
+		{
+		    replace_with_copy[i] = t->Decode(replace_with[i]);
+		}
+
+		// Log unique matches for analysis
+		/*
+		char match[32];
+		memset(match, 0, 32);
+		memcpy(match, replace_with.data(), match_index);
+		if (routineMatchLog.find(match) == routineMatchLog.end())
+		{
+		    LOG_INFO << "RedPawn routine analysis hit on " << match << " (length " << match_index + 1 << ")";
+		    routineMatchLog.insert(match);
+		}
+		*/
+		performPatternReplacement(start_index, match_index, replace_with);
+	    }
+	    start_index += 1;
+	}
+    }
+
     return true;
 }
 
@@ -787,6 +985,7 @@ uint64_t RedPawnInputGenerator::hashTestCase(char * buff, int size)
         hash = hash * prime;
         hash = hash ^ buff[i];
     }
+
     return hash;
 }
 
@@ -795,9 +994,8 @@ uint64_t RedPawnInputGenerator::hashTestCase(char * buff, int size)
  * @brief Perform a direct replacement of the given pattern and size at the provided indices.
  * Adds candidates by calling addCandidateTestCase which performs uniqueness checking.
  */
-bool RedPawnInputGenerator::performPatternReplacements(char * buff, int len, std::vector<unsigned int>* indices, uint64_t replacement, int compare_size)
+bool RedPawnInputGenerator::performPatternReplacements(char * buff, int len, std::vector<unsigned int>* indices, std::vector<uint64_t> replacements, int compare_size)
 {
-
     if (compare_size > 8)
     {
         LOG_WARNING << "Compare sizes > 8 bytes not supported yet.";
@@ -808,33 +1006,27 @@ bool RedPawnInputGenerator::performPatternReplacements(char * buff, int len, std
     {
         unsigned int replaceIndex = indices->at(i);
 
-        // Create variant 1: direct copy
-        char * rp_candidate = (char *) malloc(len);
-        memcpy(rp_candidate, buff, len);
-        memcpy(rp_candidate + replaceIndex, &replacement, compare_size);
-
-        /*
-          LOG_INFO << "Original | new";
-          for (int j = 0; j < len; j++)
-          {
-          char string_buff[16];
-          sprintf(string_buff, "%02X %02X", (unsigned char) buff[j], (unsigned char) rp_candidate[j]);
-          LOG_INFO << string_buff;
-          }
-        */
-    
-        bool success = addCandidateTestcase(rp_candidate, len);
-        if (!success)
-            return false;
+	// Note: possible future performance improvement is checking hash using the same
+	// buffer then only allocating a new copy if it passes uniqueness.
+	for (uint64_t replacement : replacements)
+	{
+	    // Create variant 1: direct copy
+	    char * rp_candidate = (char *) malloc(len);
+	    memcpy(rp_candidate, buff, len);
+	    memcpy(rp_candidate + replaceIndex, &replacement, compare_size);
+	    bool success = addCandidateTestcase(rp_candidate, len);
+	    if (!success)
+		return false;
+	}
     }
     return true;
 }
 
 /**
- * @brief Perform a direct replacement of the given pattern and size at the provided indices.
+ * @brief Perform a direct replacement of the given pattern and size at the provided index.
  * Adds candidates by calling addCandidateTestCase which performs uniqueness checking.
  */
-bool RedPawnInputGenerator::performPatternReplacement(char * buff, int len, int index, uint64_t replacement, int compare_size)
+bool RedPawnInputGenerator::performPatternReplacement(char * buff, int len, int index, std::vector<uint64_t> replacements, int compare_size)
 {
 
     if (compare_size > 8)
@@ -843,24 +1035,35 @@ bool RedPawnInputGenerator::performPatternReplacement(char * buff, int len, int 
         return true;
     }
 
-    // LOG_INFO << "Replacing " << compare_size << " bytes as index " << index << " with " << replacement;
-    char * rp_candidate = (char *) malloc(len);
-    memcpy(rp_candidate, buff, len);
-    memcpy(rp_candidate + index, &replacement, compare_size);
-
-    /*
-    LOG_INFO << "Original | new";
-    for (int j = 0; j < len; j++)
+    for (uint64_t replacement : replacements)
     {
-        char string_buff[16];
-        sprintf(string_buff, "%02X %02X", (unsigned char) buff[j], (unsigned char) rp_candidate[j]);
-        LOG_INFO << string_buff;
-    }
-    */
 
-    return addCandidateTestcase(rp_candidate, len);
+	char * rp_candidate = (char *) malloc(len);
+	memcpy(rp_candidate, buff, len);
+	memcpy(rp_candidate + index, &replacement, compare_size);
+
+	bool success = addCandidateTestcase(rp_candidate, len);
+
+	if (!success)
+	    return false;
+    }
+
+    return true;
 }
 
+/**
+ * @brief Perform a direct replacement of the given pattern and size at the provided index.
+ * Adds candidates by calling addCandidateTestCase which performs uniqueness checking.
+ */
+bool RedPawnInputGenerator::performPatternReplacement(int index, int length, std::array<char, 32> data)
+{
+
+    char * rp_candidate = (char *) malloc(size);
+    memcpy(rp_candidate, base_testcase, size);
+    memcpy(rp_candidate + index, &data, length);
+
+    return addCandidateTestcase(rp_candidate, size);
+}
 
 // Helper function for colorize debugging
 /*
@@ -916,6 +1119,12 @@ bool RedPawnInputGenerator::colorize(StorageModule& storage, StorageEntry * base
         regular_executor->runTestCase(storage, baseEntry);
     }
 
+    // If the base entry did not complete, we cannot proceed to colorize
+    if (baseEntry -> hasTag(incompleteTag))
+    {
+	return false;
+    }
+
     // Load information about the base testcase
     char * base_testcase = baseEntry -> getBufferPointer(testCaseKey);
 
@@ -968,24 +1177,32 @@ bool RedPawnInputGenerator::colorize(StorageModule& storage, StorageEntry * base
 
         regular_executor->runTestCase(storage, testEntry);
 
-        // Inspect traces to see if it behaved the same
-        if (testEntry -> getBufferSize(traceBitsKey) == -1)
+	bool ranComplete = !testEntry -> hasTag(incompleteTag);
+	char * testTraceBits = nullptr;
+	unsigned int thisExecTime = 0;
+
+        // If it ran to completion, make sure it has trace bits and record the time taken
+        if (ranComplete)
         {
-            throw RuntimeException("The colorized testcase did not have trace bits. Did you forget to set alwaysSaveTraceBits in your executor?", RuntimeException::CONFIGURATION_ERROR);
+	    if (testEntry -> getBufferSize(traceBitsKey) == -1)
+	    {
+		throw RuntimeException("The colorized testcase did not have trace bits. Did you forget to set alwaysSaveTraceBits in your executor?", RuntimeException::CONFIGURATION_ERROR);
+	    }
+
+	    testTraceBits = testEntry -> getBufferPointer(traceBitsKey);
+	    thisExecTime = testEntry -> getUIntValue(execTimeKey);
         }
-        char * testTraceBits = testEntry -> getBufferPointer(traceBitsKey);
-        unsigned int thisExecTime = testEntry -> getUIntValue(execTimeKey);
 
         // A testcase is "the same" as the original if it has the same coverage map
         // and the execution time is within a factor of 2.
-        if ((memcmp(baseTraceBits, testTraceBits, traceBitsSize) == 0) &&
+        if (ranComplete && (memcmp(baseTraceBits, testTraceBits, traceBitsSize) == 0) &&
             (thisExecTime < 2 * baseExecTime))
         {
             // If testcase is the same, we keep these changes and continue onto next chunk.
             taintRegions.push_back(std::make_pair(curr_range_start, curr_range_end));
         } else {
 
-            // If testcase is not the same, we revert, split the chunk in half, and push both onto the heap
+            // If testcase is not the same or did not complete running, we revert, split the chunk in half, and push both onto the heap
 
             // Revert changes by copying from original buffer into the workspace buffer
             memcpy(dev_buffer + curr_range_start, base_testcase + curr_range_start, curr_range_size);
@@ -1044,6 +1261,58 @@ bool RedPawnInputGenerator::colorize(StorageModule& storage, StorageEntry * base
     return bytes_changed > 0;
 }
 
+/**
+ * @brief populate the replaceValues vector. If we have compare types, we can use those
+ * to only create the needed values. Otherwise, we can always create both the +/- 1 cases.
+ * The alwaysUsePlusMinusOne configuration parameter controls this behavior.
+ * @note RedQueen always uses +/-1 because they don't have the compare type.
+ */
+void RedPawnInputGenerator::createReplaceValues(bool left_hand_side, int compare_type, uint64_t value)
+{
+
+    replaceValues.clear();
+
+    // Always use the exact value. We do this even for GT and LT
+    replaceValues.push_back(value);
+
+    // If the compare type is unpopulated, treat as unknown and generate both +/-1
+    if (compare_type == CMP_TYPE_NONE)
+    {
+	replaceValues.push_back(value - 1);
+	replaceValues.push_back(value + 1);
+	return;
+    }
+
+    // If we're anything except LT or GT, then we just use equality
+    if (!(compare_type == CMP_TYPE_LT || compare_type == CMP_TYPE_GT))
+    {
+	return;
+    }
+
+    if (left_hand_side)
+    {
+        if (compare_type == CMP_TYPE_LT)
+        {
+	    //LOG_INFO << "Left side returning " << value -1;
+	    replaceValues.push_back(value - 1);
+        } else {
+	    //LOG_INFO << "Left side returning " << value +1;
+	    replaceValues.push_back(value + 1);
+        }
+    } else
+    {
+        if (compare_type == CMP_TYPE_LT)
+        {
+	    //LOG_INFO << "Right side returning " << value +1;
+	    replaceValues.push_back(value + 1);
+        } else {
+	    //LOG_INFO << "Right side returning " << value -1;
+	    replaceValues.push_back(value - 1);
+        }
+    }
+    return;
+}
+
 void RedPawnInputGenerator::printStats()
 {
     static uint64_t lastPrint = 0;
@@ -1060,9 +1329,8 @@ void RedPawnInputGenerator::printStats()
         LOG_INFO << "Current testcase ID: " << currTestCaseID << ", of size: " << size;
 
         // How long we've been working from the same seed
-        time_t now = time(0);
-        int secondsSpent = (int) difftime(now, timeStartedTestCase);
-        LOG_INFO << "Seconds spent on this testcase: " << secondsSpent;
+        float secondsSpent = (float) timeSpentOnTestCase / 1000;
+        LOG_INFO << "Seconds spent on this testcase: " << std::setprecision(2) << secondsSpent;
 
         // Testcases generated
         LOG_INFO << "Testcases generated from last seed testcase: " << testCasesAddedByLastSeed;

@@ -66,6 +66,12 @@ uint64_t DirectTransform::Decode(uint64_t input, int size)
     return input;
 }
 
+bool DirectTransform::ApplyCompareTypes()
+{
+    return true;
+}
+
+
 /**
  * @brief Flip bytes transform
  */
@@ -180,4 +186,52 @@ bool XORTransform::SolveTransform(uint64_t input1, uint64_t output1, uint64_t in
         return true;
     }
     return false;
+}
+
+/**
+ * @brief ToUpperStringTransform encode = convert char to uppercase
+ */
+uint8_t ToUpperTransform::Encode(uint8_t input)
+{
+    return toupper(input);
+}
+
+/**
+ * @brief ToUpperStringTransform decode = convert char to lowercase
+ */
+uint8_t ToUpperTransform::Decode(uint8_t input)
+{
+    return tolower(input);
+}
+
+/**
+ * @brief ToLowerStringTransform encode = convert char to lowercase
+ */
+uint8_t ToLowerTransform::Encode(uint8_t input)
+{
+    return tolower(input);
+}
+
+/**
+ * @brief ToLowerStringTransform decode = convert char to uppercase
+ */
+uint8_t ToLowerTransform::Decode(uint8_t input)
+{
+    return toupper(input);
+}
+
+/**
+ * @brief DirectStringTransform encode = return value as-is
+ */
+uint8_t DirectStringTransform::Encode(uint8_t input)
+{
+    return input;
+}
+
+/**
+ * @brief DirectStringTransform decode = return value as-is
+ */
+uint8_t DirectStringTransform::Decode(uint8_t input)
+{
+    return input;
 }

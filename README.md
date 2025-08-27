@@ -18,9 +18,9 @@ As of now, VMF can be run in Docker and on the following distributions of Linux:
 
 - CentOS 8 and 9
 - Kali
-- Oracle Linux 8 & 9
-- RedHat 8 & 9
-- Ubuntu 20.04, and 22.04
+- Oracle Linux 8 and 9
+- RedHat 8 and 9
+- Ubuntu 20.04, 22.04 and 24.04
 
 VMF depends on several open source projects, but uses a "batteries-included" philosophy to dependencies where practical.
 
@@ -64,6 +64,12 @@ is often installed by default. You can install this on Debian-based systems (inc
 ```bash
 sudo apt install libcurl-dev
 ```
+
+Note: You _may_ need to install a libcurl development package built specifically for your host's secure socket layer library via, e.g.,
+```bash
+sudo apt install libcurl4-openssl-dev
+```
+
 On CentOS, RHEL, or Fedora, try
 ```bash
 sudo yum install libcurl-devel

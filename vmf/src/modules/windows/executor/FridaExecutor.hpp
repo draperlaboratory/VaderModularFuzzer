@@ -75,6 +75,7 @@ private:
     std::string _sutCommandLine;
     ///sutArgv config options
     std::vector<std::string> _sut_argv;
+    bool _ignore_hangs;
     OVERLAPPED _overlapped;
     HANDLE _hPipe;
     HANDLE _hJob;
@@ -170,6 +171,8 @@ private:
     int crashed_tag;
     ///HUNG tag
     int hung_tag;
+    ///INCOMPLETE tag for liveness-only fuzzing
+    int incomplete_tag;
     ///RAN_SUCCESSFULLY tag
     int normal_tag;
     ///HAS_NEW_COVERAGE tag

@@ -41,6 +41,7 @@ list(APPEND CoreModules_SOURCES
     common/controller/RunOnceController.cpp
     common/controller/IterativeController.cpp
     common/controller/NewCoverageController.cpp
+    common/controller/BalancedController.cpp
     common/feedback/AFLCoverageUtil.cpp
     common/feedback/AFLFeedback.cpp
     common/feedback/AFLFavoredFeedback.cpp
@@ -74,6 +75,8 @@ list(APPEND CoreModules_SOURCES
     common/mutator/AFLCloneMutator.cpp
     common/mutator/AFLSpliceMutator.cpp
     common/mutator/DictionaryMutator.cpp
+    common/mutator/StackedMutator.cpp
+    common/mutator/MutatorSelector.cpp
     common/output/ComputeStats.cpp
     common/output/CorpusMinimization.cpp
     common/output/CSVMetadataOutput.cpp

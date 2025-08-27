@@ -53,6 +53,17 @@ public:
      * @return uint64_t the transformed value
      */
     virtual uint64_t Encode(uint64_t input, int size) = 0;
+
+    /**
+     * @brief Report whether this transform makes sense with +/- 1 compare types
+     *
+     * @return bool report applyCompareTypes status
+     */
+    virtual bool ApplyCompareTypes()
+    {
+        return false;
+    }
+
     virtual ~RedPawnEncodingTransform(){}
 };
 
@@ -85,6 +96,30 @@ public:
 };
 
 /**
+ * @brief Transforms that operate on a single char for strings
+ */
+class RedPawnStringTransform
+{
+public:
+    /**
+     * @brief Decoding routine for this transform
+     *
+     * @param input
+     * @return uint8_t the transformed value
+     */
+    virtual uint8_t Decode(uint8_t input) = 0;
+    /**
+     * @brief Encoding routing for this transform
+     *
+     * @param input
+     * @return uint8_t the transformed value
+     */
+    virtual uint8_t Encode(uint8_t input) = 0;
+
+    virtual ~RedPawnStringTransform(){}
+};
+
+/**
  * @brief Empty encoding transform that does not modify the input at all.
  * 
  */
@@ -92,6 +127,7 @@ class DirectTransform : public RedPawnEncodingTransform
 {
     uint64_t Decode(uint64_t input, int size);
     uint64_t Encode(uint64_t input, int size);
+    bool ApplyCompareTypes();
 };
 
 /**
@@ -132,5 +168,31 @@ class XORTransform : public RedPawnArithmeticTransform
     bool SolveTransform(uint64_t input1, uint64_t output1, uint64_t input2, uint64_t output2, uint64_t& sample_in, uint64_t sample_out, int size);
 };
 
+/**
+ * @brief Null string transform that maps each character to itself, used for finding direct strings
+ */
+class DirectStringTransform : public RedPawnStringTransform
+{
+    uint8_t Decode(uint8_t input);
+    uint8_t Encode(uint8_t input);
+};
+
+/**
+ * @brief String transform that tests if there is an ToUpper relationship between input and output
+ */
+class ToUpperTransform : public RedPawnStringTransform
+{
+    uint8_t Decode(uint8_t input);
+    uint8_t Encode(uint8_t input);
+};
+
+/**
+ * @brief String transform that tests if there is an ToLower relationship between input and output
+ */
+class ToLowerTransform : public RedPawnStringTransform
+{
+    uint8_t Decode(uint8_t input);
+    uint8_t Encode(uint8_t input);
+};
 
 }

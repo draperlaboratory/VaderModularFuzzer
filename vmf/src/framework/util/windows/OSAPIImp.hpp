@@ -18,6 +18,7 @@
  * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
  * ===========================================================================*/
 #pragma once
+#include <windows.h>
 #include "OSAPI.hpp"
 
 namespace vmf {
@@ -48,6 +49,15 @@ class OSAPIImp: public OSAPI
     
         virtual bool commandLineZip(std::string zipFilePath, std::string inputDir);
         virtual bool commandLineUnzip(std::string zipFilePath, std::string outputDir);
+
+        /**
+         * @brief This is the Windows version of the function that will accept a function pointer.  The pointer to
+         * that function will mean that that function will be called when an interrupt signal is received by VMF.
+         *
+         * @param handler this is the pointer to a function that will be run when an interrupt signal is received by
+         * VMF.
+         */
+        virtual void setSignalHandlers(void (*handler)(int));
 
         virtual ~OSAPIImp();
 };

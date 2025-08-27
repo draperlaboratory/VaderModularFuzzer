@@ -122,7 +122,7 @@ TEST(DictionaryMutatorTest, blankInputIntegrated)
 
         //Setup config data
         TestConfigInterface* config = testHelper.getConfig();
-        config->setStringVectorParam("DictionaryMutator", "dictionaryPaths", {"../test/unittest/inputs/DictionaryMutator/strings-blank.txt"});
+        config->setStringVectorParam("DictionaryMutator", "dictionaryPaths", {"test/unittest/inputs/DictionaryMutator/strings-blank.txt"});
         config->addSubmodule("DictionaryMutator", mutator);
         testHelper.initializeModulesAndStorage();
 
@@ -155,7 +155,7 @@ TEST(DictionaryMutatorTest, defaultInputIntegrated)
 
     // Copy over default strings dict to hard-coded default dictionary location
     std::filesystem::copy(
-        std::filesystem::path("../test/unittest/inputs/DictionaryMutator/strings.txt"),
+        std::filesystem::path("test/unittest/inputs/DictionaryMutator/strings.txt"),
         std::filesystem::path("strings.dict")
     );
 
@@ -170,7 +170,7 @@ TEST(DictionaryMutatorTest, defaultInputIntegrated)
     //Setup config data
     TestConfigInterface* config = testHelper.getConfig();
     config->setOutputDir("./");
-    config->setStringVectorParam("DictionaryMutator", "dictionaryPaths", {"../test/unittest/inputs/DictionaryMutator/strings-blank.txt"});
+    config->setStringVectorParam("DictionaryMutator", "dictionaryPaths", {"test/unittest/inputs/DictionaryMutator/strings-blank.txt"});
     config->addSubmodule("DictionaryMutator", mutator);
     testHelper.initializeModulesAndStorage();
 
@@ -233,7 +233,7 @@ TEST(DictionaryMutatorTest, noDefaultInputIntegrated)
 
     //Setup config data
     TestConfigInterface* config = testHelper.getConfig();
-    config->setStringVectorParam("DictionaryMutator", "dictionaryPaths", {"../test/unittest/inputs/DictionaryMutator/strings.txt"});
+    config->setStringVectorParam("DictionaryMutator", "dictionaryPaths", {"test/unittest/inputs/DictionaryMutator/strings.txt"});
     config->addSubmodule("DictionaryMutator", mutator);
     testHelper.initializeModulesAndStorage();
 
@@ -271,7 +271,7 @@ TEST(DictionaryMutatorTest, noDefaultInputIntegrated)
 }
 
 
-// Test of mutation without a misconfigured user provided dictionary (missing opening quote)
+// Test of mutation with a misconfigured user provided dictionary (missing opening quote)
 TEST(DictionaryMutatorTest, misconfiguredInputBeginingDoubleQuoteIntegrated)
 {
     try {
@@ -288,7 +288,7 @@ TEST(DictionaryMutatorTest, misconfiguredInputBeginingDoubleQuoteIntegrated)
         int testCaseKey = registry->registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_WRITE);
 
         //Setup config data
-        config->setStringVectorParam("DictionaryMutator", "dictionaryPaths", {"../test/unittest/inputs/DictionaryMutator/strings-misconfigured-beginning-double-quote.txt"});
+        config->setStringVectorParam("DictionaryMutator", "dictionaryPaths", {"test/unittest/inputs/DictionaryMutator/strings-misconfigured-beginning-double-quote.txt"});
         config->addSubmodule("DictionaryMutator", mutator);
         testHelper.initializeModulesAndStorage();
 
@@ -313,7 +313,7 @@ TEST(DictionaryMutatorTest, misconfiguredInputBeginingDoubleQuoteIntegrated)
 }
 
 
-// Test of mutation without a misconfigured user provided dictionary (missing opening quote)
+// Test of mutation with a misconfigured user provided dictionary (missing opening quote)
 TEST(DictionaryMutatorTest, misconfiguredInputEndingDoubleQuoteIntegrated)
 {
     try {
@@ -330,7 +330,7 @@ TEST(DictionaryMutatorTest, misconfiguredInputEndingDoubleQuoteIntegrated)
         int testCaseKey = registry->registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_WRITE);
 
         //Setup config data
-        config->setStringVectorParam("DictionaryMutator", "dictionaryPaths", {"../test/unittest/inputs/DictionaryMutator/strings-misconfigured-ending-double-quote.txt"});
+        config->setStringVectorParam("DictionaryMutator", "dictionaryPaths", {"test/unittest/inputs/DictionaryMutator/strings-misconfigured-ending-double-quote.txt"});
         config->addSubmodule("DictionaryMutator", mutator);
         testHelper.initializeModulesAndStorage();
 
@@ -355,6 +355,47 @@ TEST(DictionaryMutatorTest, misconfiguredInputEndingDoubleQuoteIntegrated)
 }
 
 
+// Test of mutation with a misconfigured user provided dictionary (only blank tokens provided)
+TEST(DictionaryMutatorTest, misconfiguredInputBlankTokens)
+{
+    try {
+        ModuleTestHelper testHelper =  ModuleTestHelper();
+
+        //Add mutators to testHelper
+        MutatorModule* mutator = new DictionaryMutator("DictionaryMutator");
+        testHelper.addModule(mutator);
+
+        TestConfigInterface* config = testHelper.getConfig();
+
+        // Register tags
+        StorageRegistry* registry = testHelper.getRegistry();
+        int testCaseKey = registry->registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_WRITE);
+
+        //Setup config data
+        config->setStringVectorParam("DictionaryMutator", "dictionaryPaths", {"test/unittest/inputs/DictionaryMutator/strings-blank-tokens.txt"});
+        config->addSubmodule("DictionaryMutator", mutator);
+        testHelper.initializeModulesAndStorage();
+
+        // Add a test case and mutate it
+        StorageModule* storage = testHelper.getStorage();
+        char buff1[] = {'V','M','F', '\n'};
+        StorageEntry* base_entry = storage->createNewEntry();
+        base_entry->allocateAndCopyBuffer(testCaseKey,3,buff1);
+        storage->saveEntry(base_entry);
+
+        StorageEntry* mod_entry = storage->createNewEntry();
+
+        mutator->mutateTestCase(*storage, base_entry, mod_entry, testCaseKey);
+
+        FAIL() << "Failed to throw expected exception";
+    } catch (RuntimeException e) {
+        EXPECT_EQ( e.getErrorCode(), RuntimeException::USAGE_ERROR);
+        EXPECT_STREQ( e.getReason().c_str(), "Blank token list");
+    } catch (...) {
+        FAIL() << "Expected RuntimeException(\"Failed to open strings file\", RuntimeException::USAGE_ERROR)";
+    }
+}
+
 // Test of mutation of multiple test cases
 TEST(DictionaryMutatorTest, correctlyConfiguredInputIntegrated)
 {
@@ -366,7 +407,7 @@ TEST(DictionaryMutatorTest, correctlyConfiguredInputIntegrated)
 
     //Setup config data
     TestConfigInterface* config = testHelper.getConfig();
-    std::string strings_path = "../test/unittest/inputs/DictionaryMutator/strings.txt";
+    std::string strings_path = "test/unittest/inputs/DictionaryMutator/strings.txt";
     config->setStringVectorParam("DictionaryMutator", "dictionaryPaths", {strings_path});
     config->addSubmodule("DictionaryMutator", mutator);
 
@@ -434,7 +475,7 @@ TEST(DictionaryMutatorTest, realisticallyConfiguredInputIntegrated)
     TestConfigInterface* config = testHelper.getConfig();
 
     //Setup config data
-    std::string strings_path = "../test/unittest/inputs/DictionaryMutator/png.dict";
+    std::string strings_path = "test/unittest/inputs/DictionaryMutator/png.dict";
     config->setStringVectorParam("DictionaryMutator", "dictionaryPaths", {strings_path});
     config->addSubmodule("DictionaryMutator", mutator);
 

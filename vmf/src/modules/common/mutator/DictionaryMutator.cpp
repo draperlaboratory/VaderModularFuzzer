@@ -101,7 +101,6 @@ void DictionaryMutator::registerStorageNeeds(StorageRegistry& registry)
  * @param lines the vector of tokens (all tokens are added to this list)
  * @throws RuntimeException if cannot open tokens list file
  * @throws RuntimeException if tokens list does not follow format
- * @throws RuntimeException if a token is blank
  */
 void DictionaryMutator::get_tokens(std::string dictionary_path, std::vector<char *>& lines) {
     // read in list of strings
@@ -146,11 +145,8 @@ void DictionaryMutator::get_tokens(std::string dictionary_path, std::vector<char
                 char* token = new char[end - start + 2];
                 std::strcpy(token, line.substr(start, end - start + 1).c_str());
                 lines.push_back(token);
-            } else {
-                LOG_ERROR << "Blank token for line: '" << line << "' in " << dictionary_path
-                    << " (start: " << start << ", end: "<< end << " line: '"<< line <<"')"; 
-                throw RuntimeException("Blank token", RuntimeException::USAGE_ERROR);
             }
+            // blank tokens are skipped over during initialization
         }
     }
     inputFile.close();

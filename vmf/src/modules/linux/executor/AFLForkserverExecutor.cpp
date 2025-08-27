@@ -257,7 +257,7 @@ void AFLForkserverExecutor::runOnForkserver(uint8_t *buffer, int size) {
         if (sut_hung == 1) attempts++;
         /* If we ran to completion, crashed, or hung twice, exit the loop */
         else break;
-    } while (attempts < MAX_HANG_ATTEMPTS);
+    } while ((attempts < MAX_HANG_ATTEMPTS) && (ignore_hangs == false));
 }
 
 int AFLForkserverExecutor::checkedWrite(int fd, uint8_t* buf, int size) {
@@ -321,6 +321,7 @@ bool AFLForkserverExecutor::deliverTestCase(uint8_t *buffer, int size) {
         return (res == size);
     }
 }
+
 bool AFLForkserverExecutor::requestProcess(void) {
     /* Write 4-byte on the timeout status of the last run to the
        control pipe to request that the forkserver spawn a SUT
@@ -369,7 +370,10 @@ void AFLForkserverExecutor::handleStatus(StorageModule& storage, StorageEntry *e
     /* Update status-specific metadata */
     switch (sut_status) {
         case AFL_STATUS_HUNG:
-            entry->addTag(hung_tag);
+            if (ignore_hangs)
+                entry->addTag(incomplete_tag);
+            else
+                entry->addTag(hung_tag);
             /* Update pointer to compare hanging cumulative  coverage */ 
             old_trace = virgin_hang;
             break;
@@ -394,7 +398,10 @@ void AFLForkserverExecutor::handleStatus(StorageModule& storage, StorageEntry *e
     entry->setValue(exec_time_key, static_cast<unsigned int>(time_taken));
 
     /* Check for new coverage, write new coverage tag and coverage bits to storage, as relevant*/
-    handleCoverageBitmap(storage,entry);
+    if ((ignore_hangs == true) && (sut_status == AFL_STATUS_HUNG))
+        LOG_INFO << "Ignoring coverage for hung testcase";
+    else
+        handleCoverageBitmap(storage,entry);
 
     // Add cmplog map if enabled
     if (cmp_log_enabled)
@@ -510,6 +517,9 @@ void AFLForkserverExecutor::loadConfig(ConfigInterface &config) {
     VmfUtil::createDirectory(output_dir.c_str());
     /* Configure SUT arguments */
     sut_argv = config.getStringVectorParam(getModuleName(),"sutArgv");
+
+    /* Do not ignore timeouts if a timeout value is provided */
+    ignore_hangs = config.getBoolParam(getModuleName(), "ignoreHangs", false);
 
     /* Detect stdin vs. file-based SUT test case delivery */
     snprintf(testcase_file, sizeof(testcase_file),
@@ -1651,6 +1661,7 @@ void AFLForkserverExecutor::registerStorageNeeds(StorageRegistry& registry) {
     }
     crashed_tag = registry.registerTag("CRASHED", StorageRegistry::WRITE_ONLY);
     hung_tag = registry.registerTag("HUNG", StorageRegistry::WRITE_ONLY);
+    incomplete_tag = registry.registerTag("INCOMPLETE", StorageRegistry::WRITE_ONLY);
     normal_tag = registry.registerTag("RAN_SUCCESSFULLY", StorageRegistry::WRITE_ONLY);
     has_new_coverage_tag = registry.registerTag("HAS_NEW_COVERAGE", StorageRegistry::WRITE_ONLY);
     coverage_count_key = registry.registerKey("COVERAGE_COUNT", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);

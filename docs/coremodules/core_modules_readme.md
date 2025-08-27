@@ -13,9 +13,11 @@ This document provides more detailed documentation for the VMF Core Modules.
     + [Gramatron Modules](#gramatron-modules)
     + [Gramatron Usage](#gramatron-usage)
 * [TrivialSeedInitialization](#trivialseedinitialization)
+* [StackedMutation](#stackedmutation)
 * [KleeInitialiation](#kleeinitialization)
 * [LoggerMetadataOutput](#loggermetadataoutput)
 * [MOPT](#mopt)
+* [Liveness-Only Fuzzing](#liveness-only-fuzzing)
 * [RedPawn](#redpawn)
 * [StatsOutput](#statsoutput)
 * [Controller Modules](#controller-modules)
@@ -240,6 +242,8 @@ For example
 token="/lib64/ld-linux-x86-64.so.2"
 ```
 
+Blank lines are skipped during load of dictionaries during the first call during the mutation phase.
+
 # ComputeStats
 The Compute Stats module produces runtime fuzzing statistics based on the contents of storage.  These statistics are written to the storage metadata.
 
@@ -366,6 +370,19 @@ This initialization module will initialize the storage module with a single stri
 
 To enable the module, `TrivialSeedInitialization` must be listed in the `vmfModules` section of the config file.  This example used the configuration file [basicModules_trivial.yaml](../../test/config/basicModules_trivial.yaml) which adds the `TrivialSeedInitialization` to the basic VMF configuration discussed early.
 
+## StackedMutation
+
+The `StackedMutator` class represents a stack of mutators, where one test is feed to an initial mutator and the output of that mutation is then fed to the next mutator in the stack.  This is meant to simluate the `havoc` stages of AFL-based fuzzers and is usable with all input generators that accept `MutatorModules`, such as [`MOPT`](#mopt) and `GeneticAlgorithmInputGenerator`.
+
+It accepts [the following parameters](./core_modules_configuration.md#section-stackedmutator)
+
+It can be visualized as a unix-like pipe of mutators according to the following diagram:
+![Mutator Pipeline](../img/StackedMutationApproach_From_02_24_TEM.PNG)
+
+All currently tracked statistics for mutators are tracked for this `StackedMutator` module as a whole i.e. no statistics about mutators used within the stack are tracked apart from the stack.
+
+An example of a configuration using stacked mutation can be found [here](../../test/config/basicModules_StackedMutator.yaml).
+
 ## KleeInitialization
 
 The Klee initialization module generates an initial corpus/seeds using symbolic execution. It relies on the third party tool, [KLEE](https://klee.github.io/), which must be `klee` must be installed and in your `$PATH` prior to using this module.  For installation directions, see [docs/external_projects.md/#klee](../external_projects.md#klee).
@@ -416,6 +433,10 @@ MOPTInputGenerator:
   corePeriodLength:  500000  # Number of testcases executed during core period
   pMin: 0                    # Minimum mutator probability (0 means ignore and use adaptive value)
   ```
+
+# Liveness-Only Fuzzing
+The option to ignore test cases that produce hangs in the system under test is provided under all executors with the boolean option `ignoreHangs`.  Setting it to true will cause all test cases that do hang to be marked as hung, be tagged with metadata that they are an ignored hanging test case using the `INCOMPLETE` tag, and their coverage additions are not added to the coverage map.  If it is provided with a specified timeout value the presence of a timeout value will be assumed to override it, in otherwords setting `ignoreHangs` to `false`.
+
 # RedPawn
 RedPawn is an input-to-state (I2S) analysis tool comparable to [RedQueen](https://www.ndss-symposium.org/wp-content/uploads/2019/02/ndss2019_04A-2_Aschermann_paper.pdf). Input-to-State analysis provides a lightweight alternative to full-blown taint tracking for overcoming common fuzzing bottlenecks such as "magic bytes", where there is a single correct value that random bitflip mutations are exceedingly unlikely to guess. RedPawn is able to extract or solve for the required value by inspecting comparison log data from the SUT, thus overcoming these limitations and achieving higher coverage. RedPawn is implemented as an InputGenerator module, the RedPawnInputGenerator.
 

@@ -268,6 +268,8 @@ void FridaExecutor::loadConfig(ConfigInterface &config) {
     defaultArgv[0] = (std::filesystem::path(binDir) / std::filesystem::path("vmf_frida_rtentry.exe")).string();
 
     _sut_argv = config.getStringVectorParam(getModuleName(),"sutArgv", defaultArgv);
+    _ignore_hangs = config.getBoolParam(getModuleName(),"ignoreTimeouts", false);
+
 
     stringStream.str("");
     auto args = _sut_argv.begin();
@@ -558,6 +560,7 @@ void FridaExecutor::registerStorageNeeds(StorageRegistry& registry) {
     }
     crashed_tag = registry.registerTag("CRASHED", StorageRegistry::WRITE_ONLY);
     hung_tag = registry.registerTag("HUNG", StorageRegistry::WRITE_ONLY);
+    incomplete_tag = registry.registerTag("INCOMPLETE", StorageRegistry::WRITE_ONLY);
     normal_tag = registry.registerTag("RAN_SUCCESSFULLY", StorageRegistry::WRITE_ONLY);
     has_new_coverage_tag = registry.registerTag("HAS_NEW_COVERAGE", StorageRegistry::WRITE_ONLY);
     coverage_count_key = registry.registerKey("COVERAGE_COUNT", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);
@@ -572,7 +575,10 @@ void FridaExecutor::handleStatus(StorageModule& storage, StorageEntry *entry) {
     /* Update status-specific metadata */
     switch (sut_status) {
         case FRIDA_STATUS_HUNG:
-            entry->addTag(hung_tag);
+            if (_ignore_hangs)   
+                entry->addTag(incomplete_tag);
+            else
+                entry->addTag(hung_tag);
             /* Update pointer to compare hanging cumulative  coverage */ 
             old_trace = virgin_hang;
             break;
@@ -604,7 +610,10 @@ void FridaExecutor::handleStatus(StorageModule& storage, StorageEntry *entry) {
     entry->setValue(exec_time_key, static_cast<unsigned int>(time_taken));
 
     /* Check for new coverage, write new coverage tag and coverage bits to storage, as relevant*/
-    handleCoverageBitmap(storage,entry);
+    if ((sut_status == FRIDA_STATUS_HUNG) && (_ignore_hangs == true))
+        LOG_INFO << "Ignoring coverage for hanging testcase";
+    else
+        handleCoverageBitmap(storage,entry);
 }
 
 void FridaExecutor::handleCoverageBitmap(StorageModule& storage, StorageEntry* entry)

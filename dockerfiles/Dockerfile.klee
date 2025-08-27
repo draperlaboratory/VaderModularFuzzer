@@ -12,7 +12,8 @@ RUN test -f /usr/share/doc/kitware-archive-keyring/copyright || wget -O - https:
     git \
     gnupg \
     lsb-core \
-    lsb-release
+    lsb-release \
+    cmake=3.28.3-0kitware1ubuntu22.04.1
 
 RUN lsb_release -a | grep -q "18.04" && ( \
       echo "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-12 main" >> /etc/apt/sources.list && \
@@ -33,7 +34,6 @@ RUN apt-get update \
        python3-pip \
        python3-setuptools \
        build-essential \
-       cmake \
        lld-14 
 
 
@@ -60,7 +60,7 @@ RUN set -ex \
     && mkdir -p build \
     && cd build \
     && cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. \
-    && make -j \
+    && make -j 8 \
     && make install \
     && set +ex
 

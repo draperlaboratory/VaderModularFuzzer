@@ -74,6 +74,7 @@ protected:
         StorageRegistry* registry = testHelper->getRegistry();
         normalTag = registry->registerTag("RAN_SUCCESSFULLY", StorageRegistry::READ_ONLY);
         crashedTag = registry->registerTag("CRASHED", StorageRegistry::READ_ONLY);
+        incompleteTag = registry->registerTag("INCOMPLETE", StorageRegistry::READ_ONLY);
         hungTag = registry->registerTag("HUNG", StorageRegistry::READ_ONLY);
         hasNewCoverageTag = registry->registerTag("HAS_NEW_COVERAGE", StorageRegistry::READ_ONLY);
         testCaseKey = registry->registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::WRITE_ONLY);
@@ -82,13 +83,11 @@ protected:
         //assume we are running from build_artifacts. 
         std::vector<std::string> argv;
 
-        if ( std::filesystem::exists("vmf_install/test/haystackSUT/haystack_libfuzzer.exe" ) ) {
-            argv.emplace_back( "vmf_install/test/haystackSUT/haystack_libfuzzer.exe" );
+        if ( std::filesystem::exists("build_artifacts\\haystack_libfuzzer.exe" ) ) {
+            argv.emplace_back( "build_artifacts\\haystack_libfuzzer.exe" );
         }
-        else if ( std::filesystem::exists("../test/haystackSUT/haystack_libfuzzer.exe" ) ) {
-            argv.emplace_back( "../test/haystackSUT/haystack_libfuzzer.exe" );
-        } else {
-            GTEST_COUT << "Cannot find exe from " << std::filesystem::current_path();
+        else {
+            GTEST_COUT << "Cannot find build_artifacts\\haystack_libfuzzer.exe from " << std::filesystem::current_path();
             GTEST_FAIL();
         }
         GTEST_COUT << "Testing with SUT: " << argv[0] << "\n";
@@ -121,6 +120,7 @@ protected:
     //Storage fields that are read or written by this unit test
     int normalTag;
     int crashedTag;
+    int incompleteTag;
     int hungTag;
     int hasNewCoverageTag;
     int testCaseKey;
@@ -198,6 +198,80 @@ TEST_F(FridaExecutorTest, basicExecTest)
         FAIL() << "Exception thrown:" << e.getReason();
     }
 
+}
+
+TEST_F(FridaExecutorTest, livenessOnlyTest)
+{
+    try{
+        config->setBoolParam(executor->getModuleName(),"debugLog",true);
+        config->setBoolParam(executor->getModuleName(),"ignoreTimeouts",true);
+
+        setupExecutorTest();
+
+        /* Run two test batch's 10 times to stress restart (on crash+hang) */
+        for( auto i = 0; i < 1; i++ ) {
+            //Add a test case to storage (this should not crash)
+            char buff1[] = {'A'};
+            StorageEntry* entry1 = storage->createNewEntry();
+            entry1->allocateAndCopyBuffer(testCaseKey,1,buff1);
+
+            std::unique_ptr<Iterator> newEntries = storage->getNewEntries();
+
+            //Now ask the executor to run the test case
+            newEntries->resetIndex();
+            executor->runTestCases(*storage, newEntries);
+
+            //Check that it ran normally
+            ASSERT_TRUE(entry1->hasTag(normalTag));
+
+            //Clear the new test cases
+            GTEST_COUT << "Clearing new and local entries\n";
+            entry1 = nullptr;
+            storage->clearNewAndLocalEntries();
+
+            //Add a test case with slightly more coverage to storage (this should not crash)
+            char buff2[] = {'n','e'};
+            StorageEntry* entry2 = storage->createNewEntry();
+            entry2->allocateAndCopyBuffer(testCaseKey,2,buff2);
+
+            //Add a test case that should crash
+            char buff3[] = {'n','e','e','d','l','e'};
+            StorageEntry* entry3 = storage->createNewEntry();
+            entry3->allocateAndCopyBuffer(testCaseKey,6,buff3);
+
+            //Add a test case that should have no new coverage and follow crashing cases
+            char buff4[] = {'f','o'};
+            StorageEntry* entry4 = storage->createNewEntry();
+            entry4->allocateAndCopyBuffer(testCaseKey,2,buff4);
+
+            //Add a test case that should hang
+            char buff5[] = {'n','e','e','d','l','e','H'};
+            StorageEntry* entry5 = storage->createNewEntry();
+            entry5->allocateAndCopyBuffer(testCaseKey,7,buff5);
+
+
+            //Now ask the executor to run the test cases
+            std::unique_ptr<Iterator> newEntries2 = storage->getNewEntries();
+            executor->runTestCases(*storage, newEntries2);
+
+            //Check that they ran as expected
+            ASSERT_TRUE(entry2->hasTag(normalTag));
+            ASSERT_TRUE(entry3->hasTag(crashedTag));
+            ASSERT_TRUE(entry4->hasTag(normalTag));
+            ASSERT_TRUE(entry5->hasTag(incompleteTag));
+            //Check that they have new coverage
+            if ( i == 0 ) {
+                ASSERT_TRUE(entry2->hasTag(hasNewCoverageTag));
+                ASSERT_TRUE(entry3->hasTag(hasNewCoverageTag));
+                ASSERT_FALSE(entry4->hasTag(hasNewCoverageTag));
+                ASSERT_FALSE(entry5->hasTag(hasNewCoverageTag));
+            }
+        }
+    }
+    catch(RuntimeException e)
+    {
+        FAIL() << "Exception thrown:" << e.getReason();
+    }
 }
 
 TEST_F(FridaExecutorTest, sutRestartTest)

@@ -441,6 +441,10 @@ int vmfFrida_initDriver( int argc, char **argv, int (*entry)(const unsigned char
         _hSUT = LoadLibrary(dll.c_str());
         _instrumentDLLs.insert( fs::path( dll ).filename().string() );
         entry = (int (*)(const unsigned char *data, size_t len)) GetProcAddress( _hSUT, fncName.c_str() );
+        if ( entry == nullptr ) {
+            fprintf(stderr, "Harness entry %s cannot be obtained from DLL %s\n", fncName.c_str(), dll.c_str() );
+            exit(-1);
+        }
         auto init = (int (*)(int *argc, char *(*argv)[1])) GetProcAddress( _hSUT, initName.c_str() );
         if ( init ) 
         {

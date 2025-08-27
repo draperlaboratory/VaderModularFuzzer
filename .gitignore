@@ -46,3 +46,11 @@ _deps
 # Helper scripts
 *.sh
 *.ps1
+
+# SUTs for UTs
+test/haystackSUT/haystack
+test/haystackSUT/haystack_AFL_shmem
+test/magicBytesSUT/magicbytes
+test/magicBytesSUT/magicbytes_cmplog
+test/unittest/inputs/AFLForkserverExecutorTest/mimeSUT/mime
+test/unittest/inputs/AFLForkserverExecutorTest/mimeSUT/mime_asan

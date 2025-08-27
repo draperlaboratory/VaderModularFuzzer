@@ -19,5 +19,9 @@
 #===============================================================================
 
 install(FILES ktest.py process_klee_output
-    DESTINATION ${VMF_INSTALL_BINDIR}        
+    DESTINATION ${VMF_INSTALL_BINDIR}
+)
+
+install(FILES ktest.py process_klee_output
+    DESTINATION ${VMF_BUILD_OUTPUT_DIR}
 )

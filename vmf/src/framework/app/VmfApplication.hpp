@@ -35,7 +35,7 @@ class VmfApplication
 {
 public:
 
-    #define VERSION_NUMBER "5.0.0"
+    #define VERSION_NUMBER "5.1.0"
 
     VmfApplication();
     ~VmfApplication();

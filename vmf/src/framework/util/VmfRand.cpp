@@ -21,6 +21,7 @@
 #include "VmfRand.hpp"
 #include "Logging.hpp"
 
+
 using namespace vmf;
 
 VmfRand::VmfRand() {
@@ -87,7 +88,7 @@ unsigned long VmfRand::randBetween(unsigned long min, unsigned long max) {
 unsigned long VmfRand::randBelow(unsigned long limit) {
   if (limit <= 1) { return 0; }
 
-  std::uniform_int_distribution<> bounds((unsigned long) VMF_RANDMIN, limit - 1);
+  std::uniform_int_distribution<unsigned long> bounds((unsigned long) VMF_RANDMIN, limit - 1);
   return bounds(this->gen);
 }
 
@@ -112,7 +113,7 @@ int VmfRand::randBetween(int min, int max) {
 int VmfRand::randBelow(int limit) {
     if (limit <= 1) { return 0; }
 
-    std::uniform_int_distribution<> bounds(VMF_RANDMIN, limit - 1);
+    std::uniform_int_distribution<int> bounds(VMF_RANDMIN, limit - 1);
     return bounds(this->gen);
 }
 
@@ -127,7 +128,7 @@ int VmfRand::randBelow(int limit) {
 int VmfRand::randBelowExcept(int limit, int exception) {
     if (limit <= 1) { return 0; }
 
-    std::uniform_int_distribution<> bounds(VMF_RANDMIN, limit - 1);
+    std::uniform_int_distribution<int> bounds(VMF_RANDMIN, limit - 1);
     int ret = bounds(this->gen);
     while (ret == exception) {
         ret = bounds(this->gen);

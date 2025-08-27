@@ -48,8 +48,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 # produce compile_commands.json for clangd support
 set(CMAKE_EXPORT_COMPILE_COMMANDS True)
 #############################################################
-project(VMF VERSION 5.0.0
-    LANGUAGES CXX )
+project(VMF VERSION 5.1.0
+    LANGUAGES CXX C )
 #############################################################
 
 # Export all symbols for windows
@@ -88,11 +88,6 @@ install(DIRECTORY vmf/src/scripts/bin/
   DESTINATION ${VMF_INSTALL_BINDIR}
   USE_SOURCE_PERMISSIONS)
 
-#Header files are needed for plog library
-install(DIRECTORY vmf/dependencies/plog/include/plog
-  DESTINATION ${CMAKE_INSTALL_PREFIX}/include/
-)
-
 install(DIRECTORY vmf/src/samples
   DESTINATION ${CMAKE_INSTALL_PREFIX}
   PATTERN "build" EXCLUDE)
@@ -101,14 +96,7 @@ install(DIRECTORY vmf/src/samples
 INSTALL(DIRECTORY test DESTINATION 
   DESTINATION ${CMAKE_INSTALL_PREFIX}
   PATTERN "*.cpp" EXCLUDE
-  PATTERN "*.txt" EXCLUDE
-  PATTERN "haystack" EXCLUDE
-  PATTERN "haystack_AFL_persist" EXCLUDE
-  PATTERN "haystack_AFL_deferred" EXCLUDE
-  PATTERN "haystack_AFL_shmem" EXCLUDE
-  PATTERN "magicbytes" EXCLUDE
-  PATTERN "magicbytes_cmplog" EXCLUDE    
-  PATTERN "setup_jerryscript" EXCLUDE
+  PATTERN "*.txt" EXCLUDE    
   PATTERN "test_only" EXCLUDE
   PATTERN "test_only/*" EXCLUDE
   PATTERN "unittest" EXCLUDE
@@ -118,37 +106,3 @@ INSTALL(DIRECTORY test DESTINATION
 INSTALL(DIRECTORY data DESTINATION 
   DESTINATION ${CMAKE_INSTALL_PREFIX}
 )
-
-#install haystack example executable
-file (COPY test/haystackSUT/haystack
-DESTINATION ${CMAKE_INSTALL_PREFIX}/test/haystackSUT
-USE_SOURCE_PERMISSIONS)
-
-#install haystack_AFL_persist example executable
-file (COPY test/haystackSUT/haystack_AFL_persist
-DESTINATION ${CMAKE_INSTALL_PREFIX}/test/haystackSUT
-USE_SOURCE_PERMISSIONS)
-
-#install haystack_AFL_deferred example executable
-file (COPY test/haystackSUT/haystack_AFL_deferred
-DESTINATION ${CMAKE_INSTALL_PREFIX}/test/haystackSUT
-USE_SOURCE_PERMISSIONS)
-
-#install haystack_AFL_shmem example executable
-file (COPY test/haystackSUT/haystack_AFL_shmem
-DESTINATION ${CMAKE_INSTALL_PREFIX}/test/haystackSUT
-USE_SOURCE_PERMISSIONS)
-
-#file (COPY test/haystackSUT/haystack_libfuzzer
-#DESTINATION ${CMAKE_INSTALL_PREFIX}/test/haystackSUT
-#USE_SOURCE_PERMISSIONS)
-
-#install magicbytes executable
-file (COPY test/magicBytesSUT/magicbytes
-DESTINATION ${CMAKE_INSTALL_PREFIX}/test/magicBytesSUT
-USE_SOURCE_PERMISSIONS)
-
-#install magicbytes_cmplog executable
-file (COPY test/magicBytesSUT/magicbytes_cmplog
-DESTINATION ${CMAKE_INSTALL_PREFIX}/test/magicBytesSUT/
-USE_SOURCE_PERMISSIONS)

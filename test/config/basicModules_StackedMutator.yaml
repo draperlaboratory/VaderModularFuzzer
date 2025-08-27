@@ -1,0 +1,98 @@
+vmfClassSet:
+  - &BIT_MUTATORS [AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator]
+  - &BYTE_MUTATORS [AFLFlipByteMutator, AFLFlip2ByteMutator, AFLFlip4ByteMutator]
+  - &OTHER_AFL [AFLRandomByteMutator, AFLDeleteMutator, AFLCloneMutator, AFLSpliceMutator]
+
+basicStack: &basicStack
+  children:
+    - classSet: *BIT_MUTATORS
+
+  
+vmfModules:
+  storage: #a storage module must be specified
+      className: SimpleStorage
+  controller: #a controller module must be specified
+      className: IterativeController
+      children:
+        - className: DirectoryBasedSeedGen
+        - className: GeneticAlgorithmInputGenerator
+        - className: AFLForkserverExecutor
+        - className: AFLFeedback
+        - className: SaveCorpusOutput
+        - className: ComputeStats
+        - className: StatsOutput
+  GeneticAlgorithmInputGenerator:
+      children:
+        - id: baseStack
+          className: StackedMutator
+
+        - id: uniformRandomSelectionFixSize
+          className: StackedMutator
+
+        - id: customRandomSelectionFixSize
+          className: StackedMutator
+
+        - id: baseStackRandomSize
+          className: StackedMutator
+
+        - id: baseStackDifferentSize
+          className: StackedMutator
+
+  baseStack: *basicStack
+  uniformRandomSelectionFixSize: *basicStack
+  customRandomSelectionFixSize: *basicStack
+  baseStackRandomSize: *basicStack
+  baseStackDifferentSize: *basicStack
+
+# Modules-specific parameters
+#(The SUT-specific portions of these all defined using YAML anchors)
+
+# Example stacks
+# baseStack: {AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator}
+# baseStack: {AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator}
+# baseStack: {AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator}
+# baseStack: {AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator}
+# baseStack:
+
+# Example stacks
+# uniformRandomSelectionFixSize: {AFLFlip4BitMutator, AFLFlip4BitMutator, AFLFlip4BitMutator}
+# uniformRandomSelectionFixSize: {AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator}
+# uniformRandomSelectionFixSize: {AFLFlip4BitMutator, AFLFlipBitMutator, AFLFlipBitMutator}
+# uniformRandomSelectionFixSize: {AFLFlip2BitMutator, AFLFlip4BitMutator, AFLFlip2BitMutator}
+uniformRandomSelectionFixSize:
+  mutatorSelector: uniformMutatorSelector
+
+# Example stacks
+# customRandomSelectionFixSize: {AFLFlipBitMutator, AFLFlip4BitMutator, AFLFlipBitMutator}
+# customRandomSelectionFixSize: {AFLFlipBitMutator, AFLFlip4BitMutator, AFLFlip4BitMutator}
+# customRandomSelectionFixSize: {AFLFlip2BitMutator, AFLFlip4BitMutator, AFLFlipBitMutator}
+# customRandomSelectionFixSize: {AFLFlip4BitMutator, AFLFlip4BitMutator, AFLFlip4BitMutator}
+customRandomSelectionFixSize:
+  mutatorSelector: WeightedRandomSelector
+  mutatorSelectionDistribution: [0.2, 0.2, 0.6]
+
+# Example stacks
+# baseStackRandomSize: {AFLFlipBitMutator}
+# baseStackRandomSize: {AFLFlipBitMutator}
+# baseStackRandomSize: {AFLFlipBitMutator, AFLFlip2BitMutator}
+# baseStackRandomSize: {AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator}
+baseStackRandomSize:
+  randomStackSize: true
+
+# Example stacks
+# baseStackDifferentSize: {AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator, AFLFlipBitMutator, AFLFlip2BitMutator}
+# baseStackDifferentSize: {AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator, AFLFlipBitMutator, AFLFlip2BitMutator}
+# baseStackDifferentSize: {AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator, AFLFlipBitMutator, AFLFlip2BitMutator}
+# baseStackDifferentSize: {AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator, AFLFlipBitMutator, AFLFlip2BitMutator}
+baseStackDifferentSize:
+  stackSize: 5
+
+
+IterativeController:
+  runTimeInMinutes: 1
+
+AFLForkserverExecutor:
+  sutArgv: *SUT_ARGV
+
+DirectoryBasedSeedGen:
+  inputDir: *INPUT_DIR

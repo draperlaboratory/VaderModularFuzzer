@@ -164,3 +164,10 @@ bool OSAPIImp::commandLineZip(std::string zipFilePath, std::string inputDir)
     return success;
 }
 
+void OSAPIImp::setSignalHandlers(sighandler_t handler)
+{
+    signal(SIGINT, handler);
+    signal(SIGTERM, handler);
+    signal(SIGHUP, handler);
+    signal(SIGQUIT, handler);
+}

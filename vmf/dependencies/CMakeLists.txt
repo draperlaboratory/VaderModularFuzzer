@@ -1,38 +1,40 @@
-# Suppress warnings in 3rd party code
-add_compile_options(-w)
-
-# Test libs
-set(INSTALL_GTEST off CACHE BOOL "" FORCE)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-set(gtest_disable_pthreads ON CACHE BOOL "" FORCE)
-set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
-add_subdirectory(googletest)
-
-if(WIN32)
-#windows-only dependencies
-if(NOT DEFINED FRIDA_PKG)
-  set(FRIDA_PKG "${CMAKE_CURRENT_SOURCE_DIR}/frida/frida-gum-devkit-16.4.8-windows-x86_64.tar.xz" CACHE STRING "Path to selected frida binary")
-endif()
-add_subdirectory(curl_windows)
-add_subdirectory(wingetopt)
-else()
-#linux-only dependencies
-add_subdirectory(klee)
-endif()
-
 
 # Product depdendency libs. These are built statically and linked to VMFFramework
+# Suppress warnings in 3rd party code
 set(BUILD_SHARED_LIBS off)
+add_compile_options(-w)
 add_compile_options(-fPIC)
-add_subdirectory(json11)
+set(DEPENDENCIES_DIRECTORY ${CMAKE_BINARY_DIR}/build_artifacts/deps)
+
+function(extract_and_build_dep PKG PKG_NAME INCLUDE_PATH)
+  message("-- Extracting ${PKG_NAME}")
+  file(ARCHIVE_EXTRACT INPUT ${PKG} DESTINATION  ${DEPENDENCIES_DIRECTORY}/${PKG_NAME})
+  file(GLOB matched_dirs ${DEPENDENCIES_DIRECTORY}/${PKG_NAME}/${PKG_NAME}-*)
+  list(GET matched_dirs 0 matched_dir)
+  file(RENAME ${matched_dir} ${DEPENDENCIES_DIRECTORY}/${INCLUDE_PATH})
+  add_subdirectory(${DEPENDENCIES_DIRECTORY}/${INCLUDE_PATH} ${DEPENDENCIES_DIRECTORY}/build/${PKG_NAME})
+endfunction()
+
+if(WIN32)
+    message("-- Including windows dependencies")
+    add_subdirectory(wingetopt)
+    add_subdirectory(curl_windows)
+
+    #windows-only dependencies
+    if(NOT DEFINED FRIDA_PKG)
+        set(
+            FRIDA_PKG "${CMAKE_CURRENT_SOURCE_DIR}/frida/frida-gum-devkit-16.4.8-windows-x86_64.tar.xz" 
+            CACHE STRING "Path to selected frida binary"
+        )
+    endif()
+else()
+    message("-- Including linux dependencies")
+    add_subdirectory(klee)
+endif()
+
+add_subdirectory(googletest)
 add_subdirectory(plog)
-add_subdirectory(restclient-cpp)
+add_subdirectory(yaml-cpp)
 add_subdirectory(uthash)
-
-#Disabled additional yaml targets
-set(YAML_CPP_BUILD_TESTS OFF CACHE BOOL "" FORCE) 
-set(YAML_CPP_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
-#Add library, but exclude all the targets
-add_subdirectory(yaml-cpp EXCLUDE_FROM_ALL)
-add_dependencies(yaml-cpp yaml-cpp)
-
+add_subdirectory(json11)
+add_subdirectory(restclient-cpp)

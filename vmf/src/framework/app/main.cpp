@@ -20,6 +20,8 @@
 #include "BaseException.hpp"
 #include "Logging.hpp"
 #include "VmfApplication.hpp"
+#include "OSAPI.hpp"
+//#include "OSAPIImp.hpp"
 
 #include <signal.h>
 #include <iostream>
@@ -70,7 +72,7 @@ int main(int argc, char** argv)
         {
             LOG_INFO << "----RUNNING VMF----";
             //Handler for Ctrl+C signal to shutdown controller in an orderly manner
-            signal(SIGINT, abort_signal);
+            OSAPI::instance().setSignalHandlers(abort_signal);
 
             vmfApplication->run();
 
