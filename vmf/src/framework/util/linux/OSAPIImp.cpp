@@ -25,7 +25,12 @@
 #include <filesystem>
 #include <libgen.h>         // dirname
 #include <unistd.h>         // readlink
+#ifdef __FreeBSD__
+#include <sys/syslimits.h>
+#include <sys/sysctl.h>
+#else
 #include <linux/limits.h>   // PATH_MAX
+#endif
 
 using namespace vmf;
 
@@ -100,7 +105,19 @@ std::string OSAPIImp::getExecutablePath()
     char result[PATH_MAX];
     const char *path = nullptr;
 
+    #ifdef __FreeBSD__
+    //no /proc/self/exe on FreeBSD
+    size_t count = sizeof(result);
+    int mib[4];
+    mib[0] = CTL_KERN;
+    mib[1] = KERN_PROC;
+    mib[2] = KERN_PROC_PATHNAME;
+    mib[3] = -1;
+    sysctl(mib, 4, result, &count, NULL, 0);
+    #else
     ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
+
+    #endif
     if (count > 0) {
         result[count] = 0;
         path = dirname(result);
@@ -164,7 +181,7 @@ bool OSAPIImp::commandLineZip(std::string zipFilePath, std::string inputDir)
     return success;
 }
 
-void OSAPIImp::setSignalHandlers(sighandler_t handler)
+void OSAPIImp::setSignalHandlers(__sighandler_t handler)
 {
     signal(SIGINT, handler);
     signal(SIGTERM, handler);

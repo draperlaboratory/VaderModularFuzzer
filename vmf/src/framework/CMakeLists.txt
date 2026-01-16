@@ -59,7 +59,10 @@ set(Framework_LINKLIST
   restclient-cpp
 )
 
-if(NOT WIN32)
+if (BSD)
+  #explicitly linking stdc++fs not needed on FreeBSD
+  list(APPEND Framework_LINKLIST)
+elseif(NOT WIN32)
   list(APPEND Framework_LINKLIST stdc++fs)
 else()
   list(APPEND Framework_LINKLIST wldap32 ws2_32 Crypt32.lib Wldap32 Normaliz)
