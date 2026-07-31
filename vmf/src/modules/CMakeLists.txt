@@ -97,8 +97,6 @@ endif()
 target_link_libraries(CoreModules
   PUBLIC
     VMFFramework
-  PRIVATE        
-    uthash
 )
 
 set(CoreModules_INCLUDES )
@@ -141,4 +139,3 @@ target_include_directories(CoreModules PUBLIC ${CoreModules_INCLUDES})
 set_vmf_compile_options(CoreModules)
 
 install(TARGETS CoreModules DESTINATION "${CMAKE_INSTALL_PREFIX}/plugins")
-

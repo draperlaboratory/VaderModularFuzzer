@@ -23,6 +23,7 @@
 #include "StorageEntry.hpp"
 #include "RuntimeException.hpp"
 #include "VmfRand.hpp"
+#include <vector>
 
 namespace vmf
 {
@@ -57,9 +58,8 @@ private:
 
     void random(StorageEntry* newEntry, char* buffer, int testCaseKey);
 
-    Array* doMult(Array* input, UT_array** recur, int recurlen);
+    Array* doMult(Array* input, const std::vector<const std::vector<int>*>& recur);
 
-    void getTwoIndices(UT_array* recur, int recurlen, int* firstIdx, int* secondIdx);
-    void swap(int *a, int *b);
+    void getTwoIndices(const std::vector<int>& recur, int* firstIdx, int* secondIdx);
 };
 }

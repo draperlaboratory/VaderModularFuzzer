@@ -1,0 +1,1196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VMF Configuration Space</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-2: #edf1f5;
+      --text: #17202a;
+      --muted: #5c6b7a;
+      --line: #c9d2dc;
+      --accent: #0f766e;
+      --accent-2: #1d4ed8;
+      --required: #b91c1c;
+      --optional: #5b5f00;
+      --presence: #7c3aed;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background: var(--bg);
+      font: 14px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    a {
+      color: var(--accent-2);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    header {
+      background: #14213d;
+      color: #fff;
+      padding: 28px clamp(18px, 4vw, 48px);
+    }
+
+    header h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 720;
+    }
+
+    header p {
+      max-width: 900px;
+      margin: 0;
+      color: #dbe5f2;
+      font-size: 16px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+      gap: 24px;
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    nav {
+      position: sticky;
+      top: 16px;
+      align-self: start;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+
+    nav h2 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    nav a {
+      display: block;
+      padding: 8px 10px;
+      border-radius: 6px;
+      color: var(--text);
+    }
+
+    nav a:hover {
+      background: var(--surface-2);
+      text-decoration: none;
+    }
+
+    main {
+      min-width: 0;
+    }
+
+    section {
+      margin-bottom: 24px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: clamp(16px, 2vw, 24px);
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 23px;
+    }
+
+    h3 {
+      margin: 20px 0 10px;
+      font-size: 17px;
+    }
+
+    p {
+      max-width: 980px;
+      margin: 0 0 12px;
+    }
+
+    .summary-grid,
+    .axis-grid,
+    .relationship-grid,
+    .decision-grid,
+    .explorer-layout {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfd;
+      padding: 14px;
+    }
+
+    .panel strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .panel ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+    }
+
+    .graph-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfd;
+      padding: 12px;
+    }
+
+    svg {
+      display: block;
+      min-width: 980px;
+      width: 100%;
+      height: auto;
+    }
+
+    .node rect {
+      fill: #fff;
+      stroke: #99a8b8;
+      stroke-width: 1.4;
+      rx: 8;
+    }
+
+    .node.main rect {
+      fill: #e6f4f1;
+      stroke: var(--accent);
+    }
+
+    .node.warn rect {
+      fill: #fff7ed;
+      stroke: #c2410c;
+    }
+
+    .node text {
+      font-size: 13px;
+      fill: var(--text);
+    }
+
+    .edge {
+      stroke: #65758a;
+      stroke-width: 1.4;
+      fill: none;
+      marker-end: url(#arrow);
+    }
+
+    .edge.data {
+      stroke: var(--accent);
+    }
+
+    .edge.control {
+      stroke: #c2410c;
+    }
+
+    .edge.optional {
+      stroke: var(--presence);
+      stroke-dasharray: 6 5;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 10px 0 0;
+      color: var(--muted);
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend i {
+      display: inline-block;
+      width: 24px;
+      border-top: 3px solid #65758a;
+    }
+
+    .legend .data-line {
+      border-color: var(--accent);
+    }
+
+    .legend .control-line {
+      border-color: #c2410c;
+    }
+
+    .legend .optional-line {
+      border-color: var(--presence);
+      border-top-style: dashed;
+    }
+
+    .decision-step {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfd;
+      padding: 14px;
+      min-height: 130px;
+    }
+
+    .decision-step::before {
+      content: attr(data-step);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      margin-bottom: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .decision-step strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 15px;
+    }
+
+    .decision-step ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+    }
+
+    .module-list {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+
+    .module-button {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      cursor: pointer;
+      text-align: left;
+      padding: 8px 10px;
+      font: inherit;
+    }
+
+    .module-button:hover,
+    .module-button.active {
+      border-color: var(--accent);
+      background: #e6f4f1;
+    }
+
+    .module-detail {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfd;
+      padding: 16px;
+      min-height: 280px;
+    }
+
+    .module-detail h3 {
+      margin-top: 0;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 8px 0 14px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin: 10px 0 14px;
+    }
+
+    input[type="search"],
+    select {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 7px 10px;
+      background: #fff;
+      color: var(--text);
+    }
+
+    input[type="search"] {
+      flex: 1 1 280px;
+    }
+
+    select {
+      flex: 0 1 210px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    th,
+    td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eef2f6;
+      font-size: 12px;
+      color: #344256;
+      text-transform: uppercase;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.95em;
+      background: #eef2f6;
+      border-radius: 4px;
+      padding: 1px 4px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      border-radius: 999px;
+      padding: 2px 8px;
+      color: #fff;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .required {
+      background: var(--required);
+    }
+
+    .optional {
+      background: var(--optional);
+    }
+
+    .presence {
+      background: var(--presence);
+    }
+
+    .none {
+      background: #64748b;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .source-note {
+      border-left: 4px solid var(--accent);
+      background: #eefaf7;
+      padding: 12px 14px;
+      margin-top: 14px;
+    }
+
+    footer {
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      padding: 0 24px 28px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 840px) {
+      .layout {
+        display: block;
+        padding: 14px;
+      }
+
+      nav {
+        position: static;
+        margin-bottom: 14px;
+      }
+
+      section {
+        padding: 16px;
+      }
+
+      th,
+      td {
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>VMF Configuration Space</h1>
+    <p>Relationship-focused HTML reference for VMF YAML composition, module topology, instance parameters, and source-backed defaults.</p>
+  </header>
+
+  <div class="layout">
+    <nav aria-label="Page sections">
+      <h2>Sections</h2>
+      <a href="#model">Model</a>
+      <a href="#relationships">Relationships</a>
+      <a href="#graph">Module Graph</a>
+      <a href="#dependency-graph">Dependency Graph</a>
+      <a href="#decision-tree">Decision Tree</a>
+      <a href="#module-explorer">Module Explorer</a>
+      <a href="#distributed">Distributed Mode</a>
+      <a href="#defaults">Defaults Explorer</a>
+      <a href="#source-notes">Source Notes</a>
+      <a href="configuration_space.md">Markdown Source</a>
+    </nav>
+
+    <main>
+      <section id="model">
+        <h2>Model</h2>
+        <p>VMF combines one or more YAML files into a single configuration. The resulting document chooses the campaign shape, module graph, execution mode, and behavior of each module instance.</p>
+        <div class="summary-grid">
+          <div class="panel">
+            <strong>YAML composition</strong>
+            Split reusable module graphs from SUT-specific anchors, paths, and framework settings.
+          </div>
+          <div class="panel">
+            <strong>Top-level sections</strong>
+            <code>vmfVariables</code>, <code>vmfFramework</code>, <code>vmfModules</code>, <code>vmfDistributed</code>, <code>vmfClassSet</code>, and module-specific sections.
+          </div>
+          <div class="panel">
+            <strong>Module graph</strong>
+            Required storage and root controller, with controller children and nested submodules.
+          </div>
+          <div class="panel">
+            <strong>Module parameters</strong>
+            A module reads from its <code>id</code> section when present, otherwise from its <code>className</code> section.
+          </div>
+        </div>
+      </section>
+
+      <section id="relationships">
+        <h2>Relationships</h2>
+        <p>These are the relationships that matter when reading or authoring a VMF configuration.</p>
+        <div class="relationship-grid">
+          <div class="panel">
+            <strong>Anchors feed parameters</strong>
+            <code>vmfVariables</code> commonly defines values such as <code>SUT_ARGV</code> and <code>INPUT_DIR</code>. Module sections then reference those values.
+          </div>
+          <div class="panel">
+            <strong>Topology selects modules</strong>
+            <code>vmfModules</code> determines which classes are instantiated and which modules are children of controllers, generators, outputs, or other modules.
+          </div>
+          <div class="panel">
+            <strong>Instance names select settings</strong>
+            A repeated class needs an <code>id</code>. Its settings must be under that <code>id</code>, as with <code>CorpusMinExecutor</code>.
+          </div>
+          <div class="panel">
+            <strong>Storage sort depends on feedback</strong>
+            Storage defaults sort by <code>FITNESS</code>, which feedback modules write. Changing sort keys changes how generators choose saved test cases.
+          </div>
+          <div class="panel">
+            <strong>Executors feed feedback and outputs</strong>
+            Executor coverage, crash, hang, and timing fields are consumed by feedback, statistics, corpus saving, and minimization.
+          </div>
+          <div class="panel">
+            <strong>Distributed mode adds CDMS controls</strong>
+            CDMS settings live in a separate mode: <code>vmfDistributed</code>, controller-level CDMS options, and server-facing modules.
+          </div>
+        </div>
+      </section>
+
+      <section id="graph">
+        <h2>Module Graph</h2>
+        <p>The graph below shows how top-level YAML sections relate to module families and where module-specific options attach.</p>
+        <div class="graph-wrap" role="img" aria-label="VMF configuration relationship graph">
+          <svg viewBox="0 0 1120 620">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L0,6 L9,3 z" fill="#65758a"></path>
+              </marker>
+            </defs>
+
+            <path class="edge" d="M170 70 C240 70 250 115 310 115"></path>
+            <path class="edge" d="M470 115 C520 80 590 80 640 115"></path>
+            <path class="edge" d="M470 115 C520 125 585 140 640 155"></path>
+            <path class="edge" d="M470 115 C520 168 585 198 640 230"></path>
+            <path class="edge" d="M470 115 C520 225 585 288 640 350"></path>
+            <path class="edge" d="M470 115 C520 270 585 372 640 470"></path>
+            <path class="edge" d="M790 230 C840 230 870 215 920 205"></path>
+            <path class="edge" d="M790 350 C840 350 870 365 920 385"></path>
+            <path class="edge" d="M170 170 C260 170 275 150 310 130"></path>
+            <path class="edge" d="M170 270 C245 270 255 178 310 140"></path>
+            <path class="edge" d="M170 370 C255 370 275 440 330 470"></path>
+            <path class="edge" d="M170 470 C255 470 280 470 330 470"></path>
+            <path class="edge" d="M470 470 C535 470 575 470 640 470"></path>
+            <path class="edge" d="M470 470 C545 430 575 365 640 350"></path>
+            <path class="edge" d="M470 470 C545 390 575 255 640 230"></path>
+
+            <g class="node main">
+              <rect x="30" y="38" width="140" height="64"></rect>
+              <text x="50" y="66">YAML files</text>
+              <text x="50" y="84">passed to vader</text>
+            </g>
+
+            <g class="node main">
+              <rect x="310" y="86" width="160" height="74"></rect>
+              <text x="334" y="118">Combined VMF</text>
+              <text x="334" y="138">configuration</text>
+            </g>
+
+            <g class="node">
+              <rect x="30" y="138" width="140" height="64"></rect>
+              <text x="54" y="166">vmfVariables</text>
+              <text x="54" y="184">anchors</text>
+            </g>
+
+            <g class="node">
+              <rect x="30" y="238" width="140" height="64"></rect>
+              <text x="54" y="266">vmfFramework</text>
+              <text x="54" y="284">runtime knobs</text>
+            </g>
+
+            <g class="node warn">
+              <rect x="30" y="338" width="140" height="64"></rect>
+              <text x="54" y="366">vmfModules</text>
+              <text x="54" y="384">topology</text>
+            </g>
+
+            <g class="node">
+              <rect x="30" y="438" width="140" height="64"></rect>
+              <text x="54" y="466">vmfDistributed</text>
+              <text x="54" y="484">CDMS mode</text>
+            </g>
+
+            <g class="node">
+              <rect x="330" y="438" width="140" height="64"></rect>
+              <text x="354" y="466">Instance</text>
+              <text x="354" y="484">parameters</text>
+            </g>
+
+            <g class="node">
+              <rect x="640" y="82" width="150" height="64"></rect>
+              <text x="660" y="110">Storage</text>
+              <text x="660" y="128">sort settings</text>
+            </g>
+
+            <g class="node main">
+              <rect x="640" y="168" width="150" height="124"></rect>
+              <text x="660" y="198">Controller</text>
+              <text x="660" y="216">initialization</text>
+              <text x="660" y="234">generation</text>
+              <text x="660" y="252">execution</text>
+              <text x="660" y="270">feedback/output</text>
+            </g>
+
+            <g class="node">
+              <rect x="640" y="318" width="150" height="64"></rect>
+              <text x="660" y="346">Output modules</text>
+              <text x="660" y="364">schedules</text>
+            </g>
+
+            <g class="node">
+              <rect x="640" y="438" width="150" height="64"></rect>
+              <text x="660" y="466">Distributed</text>
+              <text x="660" y="484">corpus flow</text>
+            </g>
+
+            <g class="node">
+              <rect x="920" y="172" width="160" height="64"></rect>
+              <text x="946" y="200">Mutator set</text>
+              <text x="946" y="218">and selectors</text>
+            </g>
+
+            <g class="node">
+              <rect x="920" y="352" width="160" height="64"></rect>
+              <text x="946" y="380">Nested executor</text>
+              <text x="946" y="398">for minimization</text>
+            </g>
+          </svg>
+        </div>
+      </section>
+
+      <section id="dependency-graph">
+        <h2>Module Dependency Graph</h2>
+        <p>This view emphasizes module dependencies rather than YAML sections. Solid gray lines show parent-child topology, green lines show runtime data dependencies, orange lines show control decisions, and dashed purple lines show optional or mode-specific paths.</p>
+        <div class="graph-wrap" role="img" aria-label="VMF module dependency graph">
+          <svg viewBox="0 0 1160 720">
+            <defs>
+              <marker id="arrow-dep" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L0,6 L9,3 z" fill="#65758a"></path>
+              </marker>
+            </defs>
+
+            <path class="edge" marker-end="url(#arrow-dep)" d="M170 80 C240 80 260 80 330 80"></path>
+            <path class="edge" marker-end="url(#arrow-dep)" d="M490 80 C555 80 575 80 640 80"></path>
+            <path class="edge" marker-end="url(#arrow-dep)" d="M490 80 C555 132 575 165 640 190"></path>
+            <path class="edge" marker-end="url(#arrow-dep)" d="M490 80 C555 232 575 300 640 330"></path>
+            <path class="edge" marker-end="url(#arrow-dep)" d="M490 80 C555 360 575 460 640 500"></path>
+            <path class="edge" marker-end="url(#arrow-dep)" d="M800 190 C850 190 870 190 920 190"></path>
+            <path class="edge data" marker-end="url(#arrow-dep)" d="M170 215 C260 215 280 330 330 330"></path>
+            <path class="edge data" marker-end="url(#arrow-dep)" d="M800 330 C860 330 875 330 920 330"></path>
+            <path class="edge data" marker-end="url(#arrow-dep)" d="M920 330 C860 405 815 465 800 500"></path>
+            <path class="edge data" marker-end="url(#arrow-dep)" d="M640 500 C555 500 520 330 490 330"></path>
+            <path class="edge control" marker-end="url(#arrow-dep)" d="M330 330 C280 405 235 500 170 500"></path>
+            <path class="edge optional" marker-end="url(#arrow-dep)" d="M800 500 C875 560 925 595 1000 595"></path>
+            <path class="edge optional" marker-end="url(#arrow-dep)" d="M170 630 C270 630 540 630 640 500"></path>
+
+            <g class="node main"><rect x="30" y="48" width="140" height="64"></rect><text x="54" y="76">vmfModules</text><text x="54" y="94">topology</text></g>
+            <g class="node main"><rect x="330" y="48" width="160" height="64"></rect><text x="358" y="76">Controller</text><text x="358" y="94">root loop</text></g>
+            <g class="node"><rect x="640" y="48" width="160" height="64"></rect><text x="668" y="76">Initialization</text><text x="668" y="94">seed sources</text></g>
+            <g class="node"><rect x="640" y="158" width="160" height="64"></rect><text x="668" y="186">InputGenerator</text><text x="668" y="204">case creation</text></g>
+            <g class="node"><rect x="920" y="158" width="160" height="64"></rect><text x="948" y="186">Mutators</text><text x="948" y="204">byte/grammar ops</text></g>
+            <g class="node"><rect x="640" y="298" width="160" height="64"></rect><text x="668" y="326">Executor</text><text x="668" y="344">SUT runs</text></g>
+            <g class="node"><rect x="920" y="298" width="160" height="64"></rect><text x="948" y="326">Feedback</text><text x="948" y="344">fitness/tags</text></g>
+            <g class="node main"><rect x="330" y="298" width="160" height="64"></rect><text x="358" y="326">Storage</text><text x="358" y="344">corpus state</text></g>
+            <g class="node"><rect x="640" y="468" width="160" height="64"></rect><text x="668" y="496">Output</text><text x="668" y="514">save/stats/min</text></g>
+            <g class="node warn"><rect x="30" y="468" width="140" height="64"></rect><text x="54" y="496">sortByKey</text><text x="54" y="514">selection bias</text></g>
+            <g class="node"><rect x="1000" y="563" width="130" height="64"></rect><text x="1022" y="591">CDMS</text><text x="1022" y="609">distributed</text></g>
+            <g class="node"><rect x="30" y="598" width="140" height="64"></rect><text x="54" y="626">Schedulers</text><text x="54" y="644">output cadence</text></g>
+          </svg>
+        </div>
+        <div class="legend">
+          <span><i></i> topology</span>
+          <span><i class="data-line"></i> data dependency</span>
+          <span><i class="control-line"></i> control decision</span>
+          <span><i class="optional-line"></i> optional / distributed</span>
+        </div>
+      </section>
+
+      <section id="decision-tree">
+        <h2>Configuration Decision Tree</h2>
+        <p>Use this path when choosing a VMF configuration shape before filling in module defaults.</p>
+        <div class="decision-grid">
+          <div class="decision-step" data-step="1">
+            <strong>Choose execution mode</strong>
+            <ul>
+              <li>Standalone: omit <code>vmfDistributed</code>.</li>
+              <li>Distributed: configure <code>vmfDistributed.serverURL</code> and server modules.</li>
+            </ul>
+          </div>
+          <div class="decision-step" data-step="2">
+            <strong>Choose platform executor</strong>
+            <ul>
+              <li>Linux AFL++: <code>AFLForkserverExecutor</code>.</li>
+              <li>Windows Frida: <code>FridaExecutor</code>.</li>
+            </ul>
+          </div>
+          <div class="decision-step" data-step="3">
+            <strong>Choose seed source</strong>
+            <ul>
+              <li>Files: <code>DirectoryBasedSeedGen.inputDir</code>.</li>
+              <li>Generated: KLEE, strings, dictionary, Gramatron, or trivial seed.</li>
+              <li>Distributed: server seed or corpus initialization.</li>
+            </ul>
+          </div>
+          <div class="decision-step" data-step="4">
+            <strong>Choose generation strategy</strong>
+            <ul>
+              <li>Simple GA: <code>GeneticAlgorithmInputGenerator</code>.</li>
+              <li>Adaptive AFL-style: <code>MOPTInputGenerator</code>.</li>
+              <li>CmpLog-guided: <code>RedPawnInputGenerator</code>.</li>
+            </ul>
+          </div>
+          <div class="decision-step" data-step="5">
+            <strong>Choose mutator family</strong>
+            <ul>
+              <li>AFL mutator set for byte-level fuzzing.</li>
+              <li>Dictionary or stacked mutators for targeted composition.</li>
+              <li>Gramatron mutators for grammar-aware campaigns.</li>
+            </ul>
+          </div>
+          <div class="decision-step" data-step="6">
+            <strong>Choose feedback and outputs</strong>
+            <ul>
+              <li><code>AFLFeedback</code> or <code>AFLFavoredFeedback</code>.</li>
+              <li>Save corpus, compute stats, minimize corpus, log or export metadata.</li>
+              <li>Distributed outputs only when CDMS is in use.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="module-explorer">
+        <h2>Interactive Module Explorer</h2>
+        <p>Select a module family to inspect its role, expected relationships, and source-backed options. Distributed-only modules remain grouped under Distributed Mode.</p>
+        <div class="explorer-layout">
+          <div class="module-list" id="module-list"></div>
+          <div class="module-detail" id="module-detail"></div>
+        </div>
+      </section>
+
+      <section id="distributed">
+        <h2>Distributed Mode</h2>
+        <p>Distributed mode is separated from standalone VMF configuration because it adds CDMS connection settings, corpus import/export modules, and server-facing output behavior.</p>
+        <div class="relationship-grid">
+          <div class="panel">
+            <strong>Connection</strong>
+            <code>vmfDistributed</code> configures server URL, proxy, retry behavior, tasking poll rate, and client name.
+          </div>
+          <div class="panel">
+            <strong>Controller handoff</strong>
+            Controller instances provide CDMS batch size and corpus update cadence through <code>CDMSCommandAndCorpusHandler</code>.
+          </div>
+          <div class="panel">
+            <strong>Corpus input</strong>
+            <code>ServerSeedInitialization</code> and <code>ServerCorpusInitialization</code> retrieve seed or corpus data from CDMS.
+          </div>
+          <div class="panel">
+            <strong>Corpus output</strong>
+            <code>ServerCorpusOutput</code>, <code>ServerCorpusMinOutput</code>, and <code>StatsOutput.sendToServer</code> publish data back to CDMS.
+          </div>
+        </div>
+        <h3>Distributed Defaults</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Module / Section</th>
+              <th>Option</th>
+              <th>Status</th>
+              <th>Default</th>
+              <th>Relationship / Notes</th>
+            </tr>
+          </thead>
+          <tbody id="distributed-body"></tbody>
+        </table>
+      </section>
+
+      <section id="defaults">
+        <h2>Defaults Explorer</h2>
+        <p>Filter standalone source-backed configuration options by module family, status, or text. Distributed-mode settings are listed in their own section above.</p>
+        <div class="controls">
+          <input id="search" type="search" placeholder="Search module, option, default, notes">
+          <select id="family">
+            <option value="">All families</option>
+          </select>
+          <select id="status">
+            <option value="">All statuses</option>
+            <option value="Required">Required</option>
+            <option value="Optional">Optional</option>
+            <option value="Presence-based">Presence-based</option>
+            <option value="None">None</option>
+          </select>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Family</th>
+              <th>Module / Section</th>
+              <th>Option</th>
+              <th>Status</th>
+              <th>Default</th>
+              <th>Relationship / Notes</th>
+            </tr>
+          </thead>
+          <tbody id="options-body"></tbody>
+        </table>
+      </section>
+
+      <section id="source-notes">
+        <h2>Source Notes</h2>
+        <div class="source-note">
+          Source code is authoritative when this page differs from prose in older docs. Refresh the option inventory with
+          <code>rg -n "get(String|StringVector|Int|IntVector|Float|FloatVector|Bool)Param\(|isParam\(" vmf/src</code>.
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Area</th>
+              <th>Code-backed detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Server seed initialization</td><td>Source reads <code>corpusTags</code> and <code>getMinCorpus</code>.</td></tr>
+            <tr><td>Gramatron seed generation</td><td>Source reads <code>PDAPath</code>.</td></tr>
+            <tr><td>Server corpus output</td><td>Source reads <code>serverDelayTimeinSecs</code>, including that spelling.</td></tr>
+            <tr><td>Windows Frida executor</td><td>Uses <code>ignoreTimeouts</code>; Linux AFL forkserver uses <code>ignoreHangs</code>.</td></tr>
+            <tr><td>Storage sort options</td><td>Read by <code>VmfApplication</code>, not by <code>SimpleStorage::init</code>.</td></tr>
+            <tr><td>Common controller settings</td><td><code>runTimeInMinutes</code> and <code>keepAllSeeds</code> are inherited by controller implementations. Distributed controller options are listed separately.</td></tr>
+            <tr><td>Stacked mutator selection</td><td><code>WeightedRandomSelector</code> requires <code>mutatorSelectionDistribution</code>.</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    Generated as a static companion to <code>docs/configuration_space.md</code>. It has no external runtime dependencies.
+  </footer>
+
+  <script>
+    const distributedOptions = [
+      ["vmfDistributed", "serverURL", "Required", "Required", "Required in distributed mode."],
+      ["vmfDistributed", "proxyURL", "Optional", "\"\"", "Empty string means no configured proxy."],
+      ["vmfDistributed", "clientName", "Optional", "VMF_instance", "Human-readable distributed client name."],
+      ["vmfDistributed", "retryTimeout", "Optional", "30000", "Milliseconds between CDMS retries."],
+      ["vmfDistributed", "retryCount", "Optional", "10", "Number of CDMS retries."],
+      ["vmfDistributed", "taskingPollRate", "Optional", "10000", "Milliseconds between tasking polls."],
+      ["vmfDistributed", "taskingInitialRandomDelayMax", "Optional", "-1", "-1 disables initial random delay."],
+      ["Controller instance", "batchSize", "Optional", "1000", "Used with CDMS corpus loading and updates."],
+      ["Controller instance", "corpusUpdateRateMins", "Optional", "5", "CDMS corpus update cadence."],
+      ["Controller instance", "corpusInitialUpdateMins", "Optional", "5", "Initial CDMS corpus update delay."],
+      ["Controller instance", "corpusUpdateTags", "Optional", "[\"RAN_SUCCESSFULLY\"]", "Tags selected for corpus update behavior."],
+      ["ServerSeedInitialization", "corpusTags", "Optional", "[\"RAN_SUCCESSFULLY\"]", "Source reads corpusTags."],
+      ["ServerSeedInitialization", "getMinCorpus", "Optional", "true", "Requests minimized corpus when true."],
+      ["ServerCorpusInitialization", "writeServerURL", "Optional", "true", "Writes CDMS file URL to storage when true."],
+      ["ServerCorpusInitialization", "corpusTags", "Optional", "[\"\"]", "Empty tag string retrieves all tags."],
+      ["StatsOutput", "sendToServer", "Optional", "false", "Sends stats to CDMS when true."],
+      ["StatsOutput", "outputRateInSeconds", "Optional", "5 or 20", "Default is 5; if sendToServer=true, default becomes 20."],
+      ["ServerCorpusOutput", "serverDelayTimeinSecs", "Optional", "30", "Source spelling uses lowercase in in Timein."],
+      ["ServerCorpusOutput", "serverDelayOverrideCount", "Optional", "-1", "-1 disables override behavior."],
+      ["ServerCorpusMinOutput", "Module-specific params", "None", "None found", "Uses distributed corpus minimization behavior."]
+    ];
+
+    const options = [
+      ["Framework and storage", "vmfFramework", "outputBaseDir", "Optional", "output", "Base output directory."],
+      ["Framework and storage", "vmfFramework", "logLevel", "Optional", "3", "0=Debug, 1=Info, 2=Warning, 3=Error."],
+      ["Framework and storage", "vmfFramework", "additionalPluginsDir", "Presence-based", "Not present", "Optional list of plugin directories; only read when present."],
+      ["Framework and storage", "vmfFramework", "seed", "Optional", "0", "0 selects a random seed; nonzero initializes reproducible RNG state."],
+      ["Framework and storage", "SimpleStorage instance", "sortByKey", "Optional", "FITNESS", "Read by VmfApplication when configuring StorageRegistry."],
+      ["Framework and storage", "SimpleStorage instance", "sortByType", "Optional", "FLOAT", "Storage key type for sorting."],
+      ["Framework and storage", "SimpleStorage instance", "sortOrder", "Optional", "DESCENDING", "ASCENDING or DESCENDING."],
+
+      ["Controllers", "Common controller base", "runTimeInMinutes", "Optional", "0", "0 means run until stopped manually."],
+      ["Controllers", "Common controller base", "keepAllSeeds", "Optional", "true", "If false, only interesting seeds are kept."],
+      ["Controllers", "BalancedController", "epochLengthInMinutes", "Optional", "30", "Length of each balancing epoch."],
+      ["Controllers", "BalancedController", "balanceMetric", "Optional", "time", "Valid values: time, uses, testcasesGenerated."],
+      ["Controllers", "NewCoverageController", "primaryInputGenerator", "Required", "Required", "Name of primary input generator submodule."],
+      ["Controllers", "NewCoverageController", "newCoverageInputGenerator", "Required", "Required", "Input generator to use after new coverage."],
+      ["Controllers", "IterativeController", "Module-specific params", "None", "None", "Uses common controller parameters."],
+      ["Controllers", "RunOnceController", "Module-specific params", "None", "None", "Uses common controller parameters."],
+      ["Controllers", "AnalysisController", "Module-specific params", "None", "None", "Uses common controller parameters."],
+
+      ["Initialization", "DirectoryBasedSeedGen", "inputDir", "Required", "Required", "Directory containing initial seed files."],
+      ["Initialization", "GramatronBasedSeedGen", "PDAPath", "Required", "Required", "JSON pushdown automata path."],
+      ["Initialization", "GramatronBasedSeedGen", "numTestCases", "Required", "Required", "Number of grammar-generated seed cases."],
+      ["Initialization", "TrivialSeedInitialization", "Module-specific params", "None", "None", "Creates built-in hello seed."],
+      ["Initialization", "DictionaryInitialization", "sutArgv", "Required", "Required", "Uses first entry as SUT path for string extraction."],
+      ["Initialization", "KleeInitialization", "bitcodeFilePath", "Required", "Required", "LLVM bitcode path."],
+      ["Initialization", "StringsInitialization", "sutArgv", "Required", "Required", "Uses first entry as SUT path for strings."],
+
+      ["Input generation and mutators", "GeneticAlgorithmInputGenerator", "enableMutationOfCrashes", "Optional", "false", "Controls whether crashed or hung cases can be mutated."],
+      ["Input generation and mutators", "MOPTInputGenerator", "numSwarms", "Optional", "5", "Number of particle swarms."],
+      ["Input generation and mutators", "MOPTInputGenerator", "pilotPeriodLength", "Optional", "50000", "Test cases per swarm during pilot phase."],
+      ["Input generation and mutators", "MOPTInputGenerator", "corePeriodLength", "Optional", "500000", "Test cases in the core period."],
+      ["Input generation and mutators", "MOPTInputGenerator", "pMin", "Optional", "0", "0 means adaptive minimum."],
+      ["Input generation and mutators", "RedPawnInputGenerator", "maxTimePerSeedInSeconds", "Optional", "600", "0 disables per-seed time limit."],
+      ["Input generation and mutators", "RedPawnInputGenerator", "colorizeMaxExecs", "Optional", "1000", "Execution bound for colorization."],
+      ["Input generation and mutators", "RedPawnInputGenerator", "batchSize", "Optional", "1000", "Generated cases per batch."],
+      ["Input generation and mutators", "RedPawnInputGenerator", "skipStaticLogEntries", "Optional", "true", "Static-log-entry optimization."],
+      ["Input generation and mutators", "RedPawnInputGenerator", "alwaysCreatePlusMinusOne", "Optional", "false", "Always create +/- 1 variations when true."],
+      ["Input generation and mutators", "RedPawnInputGenerator", "useDirectTransform", "Optional", "true", "Direct encoding transform."],
+      ["Input generation and mutators", "RedPawnInputGenerator", "useReverseBytesTransform", "Optional", "true", "Reverse-byte encoding transform."],
+      ["Input generation and mutators", "RedPawnInputGenerator", "useOffsetTransform", "Optional", "true", "Offset arithmetic transform."],
+      ["Input generation and mutators", "RedPawnInputGenerator", "useFactorTransform", "Optional", "true", "Factor arithmetic transform."],
+      ["Input generation and mutators", "RedPawnInputGenerator", "useXORTransform", "Optional", "true", "XOR arithmetic transform."],
+      ["Input generation and mutators", "RedPawnInputGenerator", "useDirectStringTransform", "Optional", "true", "Direct string transform."],
+      ["Input generation and mutators", "RedPawnInputGenerator", "useToLowerStringTransform", "Optional", "false", "Lowercase string transform."],
+      ["Input generation and mutators", "RedPawnInputGenerator", "useToUpperStringTransform", "Optional", "false", "Uppercase string transform."],
+      ["Input generation and mutators", "DictionaryMutator", "dictionaryPaths", "Optional", "[]", "Optional list of dictionary files."],
+      ["Input generation and mutators", "StackedMutator", "stackSize", "Optional", "Number of child mutators", "Cannot be zero."],
+      ["Input generation and mutators", "StackedMutator", "randomStackSize", "Optional", "false", "Uses fixed stack size by default."],
+      ["Input generation and mutators", "StackedMutator", "mutatorSelector", "Optional", "staticMutatorSelector", "staticMutatorSelector, uniformMutatorSelector, or WeightedRandomSelector."],
+      ["Input generation and mutators", "WeightedRandomSelector", "mutatorSelectionDistribution", "Required", "Required when selected", "Float list; must match mutator count and be normalized."],
+      ["Input generation and mutators", "AFL mutators", "Module-specific params", "None", "None", "No direct ConfigInterface reads."],
+      ["Input generation and mutators", "Gramatron mutators", "Module-specific params", "None", "None found", "Depend on grammar-related storage from Gramatron seed generation."],
+
+      ["Executors", "AFLForkserverExecutor", "sutArgv", "Required", "Required", "SUT command line. @@ selects file-based test delivery; otherwise stdin."],
+      ["Executors", "AFLForkserverExecutor", "ignoreHangs", "Optional", "false", "Treats timeouts as non-hangs when true."],
+      ["Executors", "AFLForkserverExecutor", "enableCoreDumpCheck", "Optional", "true", "Verifies core pattern unless disabled."],
+      ["Executors", "AFLForkserverExecutor", "enableAFLDebug", "Optional", "false", "Enables AFL debug behavior."],
+      ["Executors", "AFLForkserverExecutor", "debugLog", "Optional", "false", "Redirects SUT stdout/stderr to files when true."],
+      ["Executors", "AFLForkserverExecutor", "stdout", "Presence-based", "stdout", "Used only when debugLog is true and parameter is present."],
+      ["Executors", "AFLForkserverExecutor", "stderr", "Presence-based", "stderr", "Used only when debugLog is true and parameter is present."],
+      ["Executors", "AFLForkserverExecutor", "timeoutInMs", "Presence-based", "Calibration fallback", "Omitted means calibrate, with 1000ms fallback."],
+      ["Executors", "AFLForkserverExecutor", "memoryLimitInMB", "Optional", "128", "If useASAN=true and omitted, memory limit becomes 0 unlimited."],
+      ["Executors", "AFLForkserverExecutor", "mapSize", "Presence-based", "Autodetect or 8388608", "Manual map size override when present."],
+      ["Executors", "AFLForkserverExecutor", "maxCalibrationCases", "Optional", "300", "Maximum seed cases used for calibration."],
+      ["Executors", "AFLForkserverExecutor", "alwaysWriteTraceBits", "Optional", "false", "Always writes trace bits when true."],
+      ["Executors", "AFLForkserverExecutor", "traceBitsOnNewCoverage", "Optional", "true", "Writes trace bits only for new coverage when true."],
+      ["Executors", "AFLForkserverExecutor", "writeStats", "Optional", "true", "Writes cumulative coverage metadata."],
+      ["Executors", "AFLForkserverExecutor", "customExitCode", "Presence-based", "Disabled", "Enables custom crash exit-code detection when present."],
+      ["Executors", "AFLForkserverExecutor", "cmpLogEnabled", "Optional", "false", "Enables CmpLog shared-memory handling."],
+      ["Executors", "AFLForkserverExecutor", "useASAN", "Optional", "false", "AddressSanitizer mode."],
+      ["Executors", "AFLForkserverExecutor", "useLSAN", "Optional", "false", "LeakSanitizer mode."],
+      ["Executors", "AFLForkserverExecutor", "useMSAN", "Optional", "false", "MemorySanitizer mode."],
+      ["Executors", "AFLForkserverExecutor", "useUBSAN", "Optional", "false", "UndefinedBehaviorSanitizer mode."],
+      ["Executors", "FridaExecutor", "sutArgv", "Optional", "vmf_frida_rtentry.exe", "Windows Frida runtime entrypoint from VMF binary directory."],
+      ["Executors", "FridaExecutor", "ignoreTimeouts", "Optional", "false", "Windows executor timeout-ignore setting."],
+      ["Executors", "FridaExecutor", "debugLog", "Optional", "false", "Redirects SUT stdout/stderr when true."],
+      ["Executors", "FridaExecutor", "stdout", "Presence-based", "stdout", "Also causes redirection when present."],
+      ["Executors", "FridaExecutor", "stderr", "Presence-based", "stderr", "Also causes redirection when present."],
+      ["Executors", "FridaExecutor", "timeoutInMs", "Optional", "1000", "Manual timeout duration."],
+      ["Executors", "FridaExecutor", "memoryLimitInMB", "Optional", "128", "SUT memory limit."],
+      ["Executors", "FridaExecutor", "mapSize", "None", "65536", "Fixed Frida map size; not configurable through YAML."],
+      ["Executors", "FridaExecutor", "alwaysWriteTraceBits", "Optional", "false", "Always writes trace bits when true."],
+      ["Executors", "FridaExecutor", "traceBitsOnNewCoverage", "Optional", "true", "Writes trace bits only for new coverage when true."],
+      ["Executors", "FridaExecutor", "writeStats", "Optional", "true", "Writes cumulative coverage metadata."],
+
+      ["Feedback", "AFLFeedback", "useCustomWeights", "Optional", "false", "Enables custom fitness weighting."],
+      ["Feedback", "AFLFeedback", "sizeWeight", "Optional", "1.0", "Used when custom weighting is active."],
+      ["Feedback", "AFLFeedback", "speedWeight", "Optional", "5.0", "Used when custom weighting is active."],
+      ["Feedback", "AFLFavoredFeedback", "useCustomWeights", "Optional", "false", "Inherited from AFLFeedback."],
+      ["Feedback", "AFLFavoredFeedback", "sizeWeight", "Optional", "1.0", "Inherited from AFLFeedback."],
+      ["Feedback", "AFLFavoredFeedback", "speedWeight", "Optional", "5.0", "Inherited from AFLFeedback."],
+      ["Feedback", "AFLFavoredFeedback", "favoredWeight", "Optional", "5.0", "Multiplier for favored test cases."],
+
+      ["Output modules", "ComputeStats", "statsRateInSeconds", "Optional", "1", "Rate for full stats recomputation."],
+      ["Output modules", "CorpusMinimization", "frequencyInMinutes", "Optional", "30", "0 disables periodic minimization and leaves shutdown-only behavior."],
+      ["Output modules", "CorpusMinimization", "minimizeOnShutdown", "Optional", "true", "Runs minimization during shutdown when true."],
+      ["Output modules", "CSVMetadataOutput", "outputRateInSeconds", "Optional", "5", "CSV write interval."],
+      ["Output modules", "CSVMetadataOutput", "outputFileName", "Optional", "metadata.csv", "Written under VMF output directory."],
+      ["Output modules", "LoggerMetadataOutput", "outputRateInSeconds", "Optional", "5", "Metadata logging interval."],
+      ["Output modules", "SaveCorpusOutput", "tagsToSave", "Optional", "[\"CRASHED\", \"HUNG\"]", "Unique saved cases are always written under testcases/unique."],
+      ["Output modules", "SaveCorpusOutput", "recordTestMetadata", "Optional", "false", "Records mutator IDs next to saved tests when true."],
+      ["Output modules", "StatsOutput", "sendToServer", "Optional", "false", "Sends stats to CDMS when true; see distributed mode."],
+      ["Output modules", "StatsOutput", "outputRateInSeconds", "Optional", "5 or 20", "Default is 5; if sendToServer=true, default becomes 20."]
+    ];
+
+    const moduleExplorer = [
+      {
+        name: "Framework and storage",
+        role: "Global VMF runtime settings plus corpus storage ordering.",
+        relationships: [
+          "vmfFramework controls output path, logging, plugin loading, and RNG seed.",
+          "Storage sort settings are read from the storage instance section, usually SimpleStorage.",
+          "The default sort key FITNESS is produced by feedback modules and affects input selection."
+        ],
+        families: ["Framework and storage"]
+      },
+      {
+        name: "Controllers",
+        role: "Own the main control loop and decide how child module families are invoked.",
+        relationships: [
+          "Controllers are the root module under vmfModules.controller.",
+          "All controller implementations inherit runTimeInMinutes and keepAllSeeds.",
+          "NewCoverageController names the input generators it switches between.",
+          "Distributed controller helper settings are separated under Distributed Mode."
+        ],
+        families: ["Controllers"]
+      },
+      {
+        name: "Initialization",
+        role: "Populate initial storage entries before the fuzzing loop starts.",
+        relationships: [
+          "DirectoryBasedSeedGen depends on inputDir.",
+          "KleeInitialization, StringsInitialization, and DictionaryInitialization depend on SUT-specific paths or sutArgv.",
+          "Server initialization modules are distributed-only and are shown under Distributed Mode."
+        ],
+        families: ["Initialization"]
+      },
+      {
+        name: "Input generation and mutators",
+        role: "Choose saved test cases and produce mutated inputs for executors.",
+        relationships: [
+          "Input generators are controller children.",
+          "Mutators are children of input generators or StackedMutator.",
+          "StackedMutator changes the relationship from one mutation to a sequence of mutations.",
+          "WeightedRandomSelector requires a distribution matching the child mutator count."
+        ],
+        families: ["Input generation and mutators"]
+      },
+      {
+        name: "Executors",
+        role: "Run the SUT, collect execution status, timing, and coverage-related data.",
+        relationships: [
+          "Executors are controller children, except nested executors such as CorpusMinExecutor.",
+          "AFLForkserverExecutor uses sutArgv and interprets @@ as file-based input delivery.",
+          "Executor trace settings affect feedback, stats, and corpus minimization.",
+          "Linux AFL and Windows Frida use different timeout-ignore option names."
+        ],
+        families: ["Executors"]
+      },
+      {
+        name: "Feedback",
+        role: "Evaluate executor results, tag interesting cases, and write fitness values.",
+        relationships: [
+          "Feedback consumes executor output fields.",
+          "Storage defaults sort by FITNESS, so feedback weights influence which cases are favored later.",
+          "AFLFavoredFeedback extends AFLFeedback with favoredWeight."
+        ],
+        families: ["Feedback"]
+      },
+      {
+        name: "Output modules",
+        role: "Persist corpus data, compute or display metrics, and run periodic maintenance.",
+        relationships: [
+          "Output modules are scheduled by controllers through OutputScheduler, except controllers that run outputs directly.",
+          "CorpusMinimization requires an executor submodule.",
+          "StatsOutput can optionally publish to CDMS; server-specific outputs are in Distributed Mode."
+        ],
+        families: ["Output modules"]
+      },
+      {
+        name: "Distributed Mode",
+        role: "Connect VMF instances to CDMS for tasking, corpus exchange, stats, and corpus minimization.",
+        relationships: [
+          "vmfDistributed feeds CDMSClient connection and retry behavior.",
+          "Controller-level distributed settings control batch size and corpus update cadence.",
+          "Server initialization modules pull corpus data from CDMS.",
+          "Server output modules and StatsOutput.sendToServer publish data back."
+        ],
+        distributed: true
+      }
+    ];
+
+    const familySelect = document.getElementById("family");
+    const statusSelect = document.getElementById("status");
+    const searchInput = document.getElementById("search");
+    const tbody = document.getElementById("options-body");
+    const distributedBody = document.getElementById("distributed-body");
+    const moduleList = document.getElementById("module-list");
+    const moduleDetail = document.getElementById("module-detail");
+
+    function code(text) {
+      const escaped = String(text)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+      return `<code>${escaped}</code>`;
+    }
+
+    function badge(status) {
+      const className = status.toLowerCase().replace("-", "");
+      if (status === "Required") return `<span class="badge required">${status}</span>`;
+      if (status === "Presence-based") return `<span class="badge presence">${status}</span>`;
+      if (status === "None") return `<span class="badge none">${status}</span>`;
+      return `<span class="badge optional">${status}</span>`;
+    }
+
+    function optionTable(rows) {
+      if (!rows.length) {
+        return "<p>No direct configuration options are listed for this group.</p>";
+      }
+      return `
+        <table>
+          <thead>
+            <tr>
+              <th>Module / Section</th>
+              <th>Option</th>
+              <th>Status</th>
+              <th>Default</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `
+              <tr>
+                <td>${code(row[1] ?? row[0])}</td>
+                <td>${code(row[2] ?? row[1])}</td>
+                <td>${badge(row[3] ?? row[2])}</td>
+                <td>${code(row[4] ?? row[3])}</td>
+                <td>${row[5] ?? row[4]}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function explorerRows(item) {
+      if (item.distributed) {
+        return distributedOptions.map(row => ["Distributed mode", row[0], row[1], row[2], row[3], row[4]]);
+      }
+      return options.filter(row => item.families.includes(row[0]));
+    }
+
+    function renderExplorer(selectedName = moduleExplorer[0].name) {
+      moduleList.innerHTML = moduleExplorer.map(item => `
+        <button class="module-button${item.name === selectedName ? " active" : ""}" type="button" data-module="${item.name}">
+          ${item.name}
+        </button>
+      `).join("");
+
+      const selected = moduleExplorer.find(item => item.name === selectedName) || moduleExplorer[0];
+      const rows = explorerRows(selected);
+      moduleDetail.innerHTML = `
+        <h3>${selected.name}</h3>
+        <p>${selected.role}</p>
+        <div class="pill-row">
+          <span class="badge optional">${rows.length} option rows</span>
+          ${selected.distributed ? '<span class="badge presence">Separated mode</span>' : '<span class="badge none">Standalone defaults</span>'}
+        </div>
+        <strong>Relationships</strong>
+        <ul>
+          ${selected.relationships.map(item => `<li>${item}</li>`).join("")}
+        </ul>
+        <h3>Options</h3>
+        ${optionTable(rows)}
+      `;
+
+      moduleList.querySelectorAll(".module-button").forEach(button => {
+        button.addEventListener("click", () => renderExplorer(button.dataset.module));
+      });
+    }
+
+    function render() {
+      const family = familySelect.value;
+      const status = statusSelect.value;
+      const query = searchInput.value.trim().toLowerCase();
+      const rows = options.filter(row => {
+        const matchesFamily = !family || row[0] === family;
+        const matchesStatus = !status || row[3] === status;
+        const matchesQuery = !query || row.join(" ").toLowerCase().includes(query);
+        return matchesFamily && matchesStatus && matchesQuery;
+      });
+
+      tbody.innerHTML = rows.map(row => `
+        <tr>
+          <td>${row[0]}</td>
+          <td>${code(row[1])}</td>
+          <td>${code(row[2])}</td>
+          <td>${badge(row[3])}</td>
+          <td>${code(row[4])}</td>
+          <td>${row[5]}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderDistributed() {
+      distributedBody.innerHTML = distributedOptions.map(row => `
+        <tr>
+          <td>${code(row[0])}</td>
+          <td>${code(row[1])}</td>
+          <td>${badge(row[2])}</td>
+          <td>${code(row[3])}</td>
+          <td>${row[4]}</td>
+        </tr>
+      `).join("");
+    }
+
+    Array.from(new Set(options.map(row => row[0]))).forEach(family => {
+      const option = document.createElement("option");
+      option.value = family;
+      option.textContent = family;
+      familySelect.appendChild(option);
+    });
+
+    familySelect.addEventListener("change", render);
+    statusSelect.addEventListener("change", render);
+    searchInput.addEventListener("input", render);
+    renderDistributed();
+    renderExplorer();
+    render();
+  </script>
+</body>
+</html>
