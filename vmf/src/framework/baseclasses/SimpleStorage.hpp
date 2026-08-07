@@ -31,6 +31,7 @@
 #include <vector>
 #include <list>
 #include <unordered_map>
+#include <functional>
 
 namespace vmf{
 /**
@@ -89,6 +90,14 @@ public:
 
     //This method returns the one and only metadata storage entry
     virtual StorageEntry& getMetadata();
+
+    //These methods provide a way to retrieve all entries that are designated with both tags provided
+    virtual std::unique_ptr<Iterator> getSavedEntriesByIntersection(int tagA, int tagB);
+    virtual std::unique_ptr<Iterator> getNewEntriesByIntersection(int tagA, int tagB);
+
+    //These methods return entries SORTED by the given lambda (which usually compares based on a key)
+    virtual std::unique_ptr<Iterator> getKeySortedSavedEntriesByTag(int tagId, std::function<bool(StorageEntry*,StorageEntry*)> lessThanFunc);
+    virtual std::unique_ptr<Iterator> getKeySortedNewEntriesByTag(int tagId, std::function<bool(StorageEntry*,StorageEntry*)> lessThanFunc);
 
 private:
     static bool removeEntryIfPresent(std::list<StorageEntry*>& list, StorageEntry* entry);

@@ -18,8 +18,12 @@
  * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
  * ===========================================================================*/
 #include "SimpleStorage.hpp"
+#include "SimpleIterator.hpp"
+#include "StorageEntry.hpp"
 #include "StorageKeyHelper.hpp"
 #include "Logging.hpp"
+#include "plog/Log.h"
+#include <memory>
 
 using namespace vmf;
 
@@ -603,5 +607,81 @@ StorageEntry& SimpleStorage::getMetadata()
     else
     {
         throw RuntimeException("Storage must be initialized before use.", RuntimeException::USAGE_ERROR);
+    }
+}
+
+std::unique_ptr<Iterator> SimpleStorage::getSavedEntriesByIntersection(int tagA, int tagB)
+{
+    checkThatTagIsValid(tagA, numTags); checkThatTagIsValid(tagB, numTags);
+    std::list<vmf::StorageEntry*> intersection = {};
+    auto thatList = tagList[tagB];
+    for(auto const entryA : tagList[tagA])
+    {
+        // DEV'S NOTE: find will compare by ADDRESS NOT ENTRY DATA
+        if(std::find(thatList.begin(), thatList.end(), entryA) != thatList.end())
+        {
+            intersection.emplace_back(entryA);
+        }
+    }
+
+    SimpleIterator* theIterator = new SimpleIterator(intersection);
+    std::unique_ptr<Iterator> returnPointer(theIterator);
+    return returnPointer;
+}
+
+std::unique_ptr<Iterator> SimpleStorage::getNewEntriesByIntersection(int tagA, int tagB)
+{
+    checkThatTagIsValid(tagA, numTags); checkThatTagIsValid(tagB, numTags);
+    std::list<vmf::StorageEntry*> intersection = {};
+    auto thatList = newTagList[tagB];
+    for(auto const entryA : newTagList[tagA])
+    {
+        // DEV'S NOTE: find will compare by ADDRESS NOT ENTRY DATA
+        if(std::find(thatList.begin(), thatList.end(), entryA) != thatList.end())
+        {
+            intersection.emplace_back(entryA);
+        }
+    }
+
+    SimpleIterator* theIterator = new SimpleIterator(intersection);
+    std::unique_ptr<Iterator> returnPointer(theIterator);
+    return returnPointer;
+}
+
+std::unique_ptr<Iterator> SimpleStorage::getKeySortedSavedEntriesByTag(int tagId, 
+    std::function<bool(StorageEntry*,StorageEntry*)> lessThanFunc)
+{
+    checkThatTagIsValid(tagId, numTags);
+    std::list<vmf::StorageEntry*>& entries = tagList[tagId];
+    entries.sort(lessThanFunc);
+    if(entries.size() > 0)
+    {
+        SimpleIterator* theIterator = new SimpleIterator(entries);
+        std::unique_ptr<Iterator> returnPointer(theIterator);
+        return returnPointer;
+    }
+    else
+    {
+        LOG_WARNING << "No entries with the tag \"" << tagNameMap[tagId] << "\"";
+        return nullptr;
+    }
+}
+
+std::unique_ptr<Iterator> SimpleStorage::getKeySortedNewEntriesByTag(int tagId,
+    std::function<bool(StorageEntry*,StorageEntry*)> lessThanFunc)
+{
+    checkThatTagIsValid(tagId, numTags);
+    std::list<vmf::StorageEntry*>& newEntries = newTagList[tagId];
+    newEntries.sort(lessThanFunc);
+    if(newEntries.size() > 0)
+    {
+        SimpleIterator* theIterator = new SimpleIterator(newEntries);
+        std::unique_ptr<Iterator> returnPointer(theIterator);
+        return returnPointer;
+    }
+    else
+    {
+        LOG_WARNING << "No new entries with the tag \"" << tagNameMap[tagId] << "\"";
+        return nullptr;
     }
 }

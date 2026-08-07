@@ -103,7 +103,8 @@ void AFLFeedback::registerStorageNeeds(StorageRegistry& registry)
     fitnessKey = registry.registerKey("FITNESS", StorageRegistry::FLOAT, StorageRegistry::WRITE_ONLY);
 }
   
-
+void AFLFeedback::evaluateDiffTestCaseResults(StorageModule& storage, std::vector<std::unique_ptr<Iterator>>& entries)
+{ LOG_ERROR << "AFLFeedback does not support differential fuzzing feedback."; return; }
 
 void AFLFeedback::evaluateTestCaseResults(StorageModule& storage, std::unique_ptr<Iterator>& entries)
 {

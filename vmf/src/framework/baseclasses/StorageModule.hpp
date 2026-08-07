@@ -23,7 +23,9 @@
 #include "StorageEntry.hpp"
 #include "StorageEntryListener.hpp"
 #include "Iterator.hpp"
+#include <list>
 #include <memory>
+#include <functional>
 
 namespace vmf
 {
@@ -255,6 +257,34 @@ public:
      * @return StorageEntry& the metadata object
      */
     virtual StorageEntry& getMetadata() = 0;
+
+    /**
+     * @brief Get the saved entries that have been previously tagged with all the provided tags.
+     *
+     * Returns an iterator that can be used to step through all of the tagged entries.
+     * Entries are sorted using the sort by fields that were configured in the StorageRegistry.
+     *
+     * @param tagA the tag handle (as returned from a call to StoragRegistry.registerTag)
+     * @param tagB 
+     * @return std::unique_ptr<Iterator> with entries (if any)
+     */
+    virtual std::unique_ptr<Iterator> getSavedEntriesByIntersection(int tagA, int tagB) = 0;
+
+    //These methods return entries SORTED by the corresponding key
+    virtual std::unique_ptr<Iterator> getKeySortedSavedEntriesByTag(int tagId, std::function<bool(StorageEntry*,StorageEntry*)> lessThanFunc) = 0;
+    virtual std::unique_ptr<Iterator> getKeySortedNewEntriesByTag(int tagId, std::function<bool(StorageEntry*,StorageEntry*)> lessThanFunc) = 0;
+
+    /**
+     * @brief Get the new entries with all the provided tags.
+     *
+     * Returns an iterator that can be used to step through all of the tagged entries.
+     * Entries are sorted using the sort by fields that were configured in the StorageRegistry.
+     *
+     * @param tagA the tag handle (as returned from a call to StoragRegistry.registerTag)
+     * @param tagB 
+     * @return std::unique_ptr<Iterator> with entries (if any)
+     */
+    virtual std::unique_ptr<Iterator> getNewEntriesByIntersection(int tagA, int tagB) = 0;
 
     /**
      * @brief Convenience method to determine if a module is actually a storage module
