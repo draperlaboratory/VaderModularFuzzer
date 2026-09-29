@@ -1,6 +1,6 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+# Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
 # <vmf@draper.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -23,6 +23,7 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/test/unittest)
 add_subdirectory(${PROJECT_SOURCE_DIR}/test/unittest/inputs/KleeInitializer)
 add_subdirectory(${PROJECT_SOURCE_DIR}/test/haystackSUT)
 add_subdirectory(${PROJECT_SOURCE_DIR}/test/magicBytesSUT)
+add_subdirectory(${PROJECT_SOURCE_DIR}/test/unittest/inputs/cmpmapTestSUT)
 add_subdirectory(${PROJECT_SOURCE_DIR}/test/unittest/inputs/AFLForkserverExecutorTest/mimeSUT)
 add_subdirectory(${PROJECT_SOURCE_DIR}/test/unittest/inputs/AFLForkserverExecutorTest/haystackSUT)
 add_subdirectory(${PROJECT_SOURCE_DIR}/test/unittest/inputs/DictionaryMutator)

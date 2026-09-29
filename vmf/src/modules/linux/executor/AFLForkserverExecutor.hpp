@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -145,7 +145,7 @@ protected:
     static const int PORCELAIN = 255;
 
     ///Maximum number of attempts to retry testcase for hanging SUT
-    static const int MAX_HANG_ATTEMPTS = 2;
+    int max_hang_attempts = 1;
 
     /* Default configuration values */
     ///Default map size value (8MiB)
@@ -176,6 +176,9 @@ protected:
     static const bool DEFAULT_USE_MSAN = false;
     ///Default for useUBSAN (false)
     static const bool DEFAULT_USE_UBSAN = false;
+
+    ///Default for number of times to rety a SUT for hang determination
+    static const int DEFAULT_HANG_RETRY = 0;
 
     ///Timeout for expected automatic responses from Forkserver/SUT (10s)
     static const int NOBLOCK_LONG_TIMEOUT = 10000;
@@ -234,8 +237,6 @@ protected:
 
     ///Filename for temporary file for testcase
     char testcase_file[PATH_MAX];
-    ///Temporary file to connect fuzzer/forkserver for testcase delivery
-    int testcase_fd = 0;
 
     /* Records for calibrating test case execution times */
     ///Total time taken
@@ -263,23 +264,28 @@ protected:
     ///PID for forkserver to request SUT processes from
     int forkserver_pid = 0;
     /* Timeout values to catch a hanging SUT */
+    ///Whether to run calibration algorithm for determining appropriate SUT timeout value
+    bool use_heuristic_timeout = false;
     ///The current timeout value
     unsigned int timeout_dur = 0;
     ///The timeout to use on a first attempt to run the SUT
     unsigned int timeout_short = 0;
-    ///The timouet to use on a second attempt to run the SUT
-    unsigned int timeout_long = 0;
 
     ///Number of calibration tests
     int num_calib = 0;
     ///Flag that we've established timeouts
     bool calibrated = false;
+    
+    ///Flag that we're executing calibration
+    bool running_calibration = false;
 
     /* Keys/tags for storage */
     ///TEST_CASE handle
     int test_case_key;
     ///EXEC_TIME_US handle
     int exec_time_key;
+    ///EXEC_TIMESTAMP_US handle
+    int exec_timestamp_key;
     ///AFL_EXEC_STATUS handle
     int exec_status_key;
     ///AFL_TRACE_BITS handle, this field is conditionally registered for
@@ -333,7 +339,7 @@ protected:
     ///sutArgv config options
     std::vector<std::string> sut_argv;
     ///liveness-only fuzzing, will ignore hanging testcases
-    bool ignore_hangs;
+    bool ignore_timeouts;
     ///memoryLimitInMB config option
     int sut_mem_limit;
     ///True for stdin interface
@@ -352,6 +358,10 @@ protected:
     bool use_custom_exitcode;
     ///True if additional AFL debug info should be printed
     bool enable_afl_debug = false;
+    ///Path to a user-provided sandboxing program (e.g. firejail)
+    std::string sandboxer = "";
+    ///Arguments to user-provided sandboxing program (e.g. -private=./)
+    std::vector<std::string> sandboxer_args = {};
 
     //Special fuzzing modes detected by signatures in the binary
     ///Binary has persistent mode signature
@@ -361,7 +371,20 @@ protected:
     ///Binary has shared memory delivery mode signature
     bool is_shared_mem_binary = false;
 
+    /* sandboxing features */
+    ///Sandboxing program
+    char* wrapper = nullptr;
+    ///Sandboxing program args
+    char* wrapper_args = nullptr;
+
     /* Other internal helper functions */
+
+    /**
+     * @brief verify the given configuration for internal logical consistency.  
+     * This will either return or throw an exception with the specific invalid configuration error.
+     */
+    void verifyConfig(ConfigInterface &config);
+
     /**
      * @brief Configures internal options using configuration opertions
      * passed to this ExecutorModule from Module
@@ -389,10 +412,15 @@ protected:
     bool startForkserver();
 
     /**
+     * @brief Disconnects forkserver and deletes coverage traces
+     */
+    void releaseResources(void);
+
+    /**
      * @brief Kills fokserver process group and releases
      * shared memory segments.
      */
-    void releaseResources(void);
+    void disconnectForkserver();
 
     /**
      * @brief Initializes pipes to communicate with forkserver/SUT
@@ -405,10 +433,14 @@ protected:
     void initFuzzerIO();
   
     /**
-     * @brief Initializes the coverage maps and shared memory region where coverage
-     * data is updated
+     * @brief Initializes the connection to the SUT for observing testcase coverage
      */
     bool initCoverageMaps(void);
+
+    /**
+     * @brief Initializes the coverage maps where coverage data is stored in VMF
+     */
+    void initializeTraces();
 
     /**
      * @brief Extracts and verifies the forkserver's version information from
@@ -653,7 +685,7 @@ protected:
      * calculate the long timeout
      * @return int Calculated long timeout value
      */
-    static int calculateLongTimeout(int timeout);
+    static int calculateBackoffTime(int timeout);
 
     /**
      * @brief Update internal timeout values from the provided (short)
@@ -663,6 +695,11 @@ protected:
      * current timeout values
      */
     void setTimeouts(int timeout);
+
+    /**
+     * @brief Restart the forkserver child process.
+     */
+    bool restartForkserver(void);
 
     /**
      * @brief Kill the SUT process spawned by the forkserver,

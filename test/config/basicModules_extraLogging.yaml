@@ -27,6 +27,13 @@ vmfModules:
         - className: AFLDeleteMutator
         - className: AFLCloneMutator
         - className: AFLSpliceMutator
+        - className: AFLDWordAddSubMutator
+        - className: AFLInteresting8Mutator
+        - className: AFLInteresting16Mutator
+        - className: AFLInteresting32Mutator
+        - className: AFLOverwriteCopyMutator
+        - className: AFLOverwriteFixedMutator
+        - className: AFLWordAddSubMutator
 # Modules-specific parameters
 #(The SUT-specific portions of these all defined using YAML anchors)
 AFLForkserverExecutor:

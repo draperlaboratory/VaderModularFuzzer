@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -59,10 +59,17 @@ std::string ModuleFactory::getModuleName(int id)
  * 
  * @param className the class name for the module (this should match the actual class name)
  * @param buildFunc the builder function
+ * @throws RuntimeException if a module has already been register with the module factory
  */
 void ModuleFactory::registerModule(std::string className, TModuleBuildMethod buildFunc)
 {
-    factoryMap.insert(std::pair<std::string,TModuleBuildMethod>(className, buildFunc));
+	std::pair result = factoryMap.insert(std::pair<std::string,TModuleBuildMethod>(className, buildFunc));
+	if(false == result.second) 
+	{
+		LOG_ERROR << "Duplicate module name detected while registering: " << className;
+		throw RuntimeException("Repeat module register attempted, unable to build",
+				 RuntimeException::CONFIGURATION_ERROR);
+	}
 }
 
 /**

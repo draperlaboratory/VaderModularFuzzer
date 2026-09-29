@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -88,6 +88,10 @@ private:
     int execTimeKey;
     int mutatorIdKey;
     int coverageCountKey;
+    int testcaseParentIdKey;
+    int generationKey;
+    int numChildrenKey;
+
 
     // User-configurable parameters
     int colorizeMaxExecs = 1000;
@@ -102,7 +106,7 @@ private:
     uint64_t testCasesAddedByLastSeed;
     uint64_t testCasesInQueue;
     uint64_t timeStartedRunningTestcase, timeSpentOnTestCase;
-    uint64_t currTestCaseID;
+    uint64_t baseTestCaseID;
 
     bool hasValidated = false;
 
@@ -112,8 +116,10 @@ private:
     std::mt19937_64 rng;
     std::uniform_int_distribution<uint32_t> uni_uint;
     VmfRand* rand;
-
+    
     char * base_testcase, * colorized_testcase;
+    uint32_t baseTestCaseGeneration;
+
     int size;
     uint64_t currentInsLogIndex = 0;
     uint64_t currentRtnLogIndex = 0;

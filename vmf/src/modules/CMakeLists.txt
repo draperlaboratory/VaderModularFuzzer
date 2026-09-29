@@ -1,6 +1,6 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+# Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
 # <vmf@draper.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -67,6 +67,13 @@ list(APPEND CoreModules_SOURCES
     common/mutator/AFLFlip2BitMutator.cpp
     common/mutator/AFLFlip4BitMutator.cpp
     common/mutator/AFLFlipByteMutator.cpp
+    common/mutator/AFLDWordAddSubMutator.cpp
+    common/mutator/AFLInteresting8Mutator.cpp
+    common/mutator/AFLInteresting16Mutator.cpp
+    common/mutator/AFLInteresting32Mutator.cpp
+    common/mutator/AFLOverwriteCopyMutator.cpp
+    common/mutator/AFLOverwriteFixedMutator.cpp
+    common/mutator/AFLWordAddSubMutator.cpp
     common/mutator/AFLFlip2ByteMutator.cpp
     common/mutator/AFLFlip4ByteMutator.cpp
     common/mutator/AFLRandomByteAddSubMutator.cpp
@@ -97,6 +104,7 @@ endif()
 target_link_libraries(CoreModules
   PUBLIC
     VMFFramework
+    yaml-cpp
   PRIVATE        
     uthash
 )
@@ -139,6 +147,7 @@ endif()
 target_include_directories(CoreModules PUBLIC ${CoreModules_INCLUDES})
 
 set_vmf_compile_options(CoreModules)
+
 
 install(TARGETS CoreModules DESTINATION "${CMAKE_INSTALL_PREFIX}/plugins")
 

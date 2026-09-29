@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -74,9 +74,17 @@
 #define CMP_TYPE_INS 0
 #define CMP_TYPE_RTN 1
 
-/** Version information. This version of the data structure matches AFL 4.30c **/
-#define CMPLOG_MAJOR_VERSION 4
-#define CMPLOG_MINOR_VERSION 30
+/** Version information. 
+ * This version of the data structure matches AFL 4.30c
+ * 
+ * 4.34c through 5.00c make backwards compatible changes (defining semantics for some of the unused bytes), 
+ * so those versions can be treated the same and will work corectly with RedPawn.
+ **/
+#define CMPLOG_MIN_MAJOR_VERSION 4
+#define CMPLOG_MIN_MINOR_VERSION 30
+
+#define CMPLOG_MAX_MAJOR_VERSION 5
+#define CMPLOG_MAX_MINOR_VERSION 0
 
 namespace vmf
 {

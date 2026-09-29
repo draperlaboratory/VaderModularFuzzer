@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -59,27 +59,56 @@ Module *AFLForkserverExecutor::build(std::string name) {
 
 void AFLForkserverExecutor::releaseResources() {
   /* Fetch forkserver group ID */
-  int pgrp = getpgid(forkserver_pid);
-  /* Kill all processes in that group */
-  if (pgrp > 0) killpg(pgrp, SIGTERM);
-  /* Kill the forkserver */
-  kill(forkserver_pid, SIGTERM);
-
-  /* Release shared memory */
-  shmctl(shm_id, IPC_RMID, NULL);
-  if (cmp_log_enabled)
-    shmctl(cmplog_shm_id, IPC_RMID, NULL);
-
-  /* Now kill forkserver and its child processes after giving them
-     the chance to terminate gracefully */
-  /* Kill all processes in that group */
-  if (pgrp > 0) killpg(pgrp, SIGKILL);
-  /* Kill the forkserver */
-  kill(forkserver_pid, SIGKILL);
+  disconnectForkserver();
 
   delete[] virgin_trace;
   delete[] virgin_hang;
   delete[] virgin_crash;
+}
+
+void vmf::AFLForkserverExecutor::disconnectForkserver()
+{
+    int pgrp = 0;
+    if (forkserver_pid != 0)
+        pgrp = getpgid(forkserver_pid);
+    /* Kill all processes in that group */
+    if (pgrp > 0)
+        killpg(pgrp, SIGTERM);
+    /* Kill the forkserver */
+    if (forkserver_pid != 0)
+        kill(forkserver_pid, SIGTERM);
+
+    /* Release shared memory */
+    shmdt(trace_bits);
+    shmctl(shm_id, IPC_RMID, NULL);
+    LOG_DEBUG << "Released " << shm_id;
+    if (cmp_log_enabled){
+        shmdt(cmplog_bits);
+        shmctl(cmplog_shm_id, IPC_RMID, NULL);
+        LOG_DEBUG << "Released " << cmplog_shm_id;
+    }
+
+    if (is_shared_mem_binary){
+        shmdt(shm_testcase_len);
+        shmctl(shm_testcase_id, IPC_RMID, NULL);
+        LOG_DEBUG << "Released " << cmplog_shm_id;
+    }
+
+    /* Now kill forkserver and its child processes after giving them
+       the chance to terminate gracefully */
+    /* Kill all processes in that group */
+    if (pgrp > 0)
+        killpg(pgrp, SIGKILL);
+    /* Kill the forkserver */
+    if (forkserver_pid != 0)
+        kill(forkserver_pid, SIGKILL);
+
+    /* Release all file descriptors */
+    if (!sut_use_stdin){
+        LOG_DEBUG << "Disconnecting file handle to SUT";
+        close(sut_test_read);
+    }
+    LOG_DEBUG << "Disconnected forkserver";
 }
 
 /**
@@ -92,6 +121,7 @@ AFLForkserverExecutor::AFLForkserverExecutor(std::string name) :
 }
 
 AFLForkserverExecutor::~AFLForkserverExecutor() {
+    LOG_DEBUG << "~AFLForkserverExecutor";
     releaseResources();
 }
 
@@ -113,10 +143,10 @@ void AFLForkserverExecutor::init(ConfigInterface& config) {
     }
 
     if (map_size == 0) {
-        /* If no configured size, use autodetection if it worked and DEFAULT_MAP_SIZE otherwise*/
+        /* If no configured size, use auto-detection if it worked and DEFAULT_MAP_SIZE otherwise*/
         if (map_size_from_debug_info != 0) {
             map_size = map_size_from_debug_info;
-            LOG_INFO << "Map size autodetection succeeded. Using size " << map_size << ".";
+            LOG_INFO << "Map size auto-detection succeeded. Using size " << map_size << ".";
         } else {
             map_size = DEFAULT_MAP_SIZE;
             LOG_WARNING << "Unable to automatically detect map size and no size specified. Using default of " << map_size << ".";
@@ -124,7 +154,7 @@ void AFLForkserverExecutor::init(ConfigInterface& config) {
     } else {
         /* If configured a size, issue warning if different from auto detected size */
         if (map_size != map_size_from_debug_info && map_size_from_debug_info != 0) {
-            LOG_WARNING << "Using manually configured map size of " << map_size << " but autodetection found size " << map_size_from_debug_info;
+            LOG_WARNING << "Using manually configured map size of " << map_size << " but auto-detection found size " << map_size_from_debug_info;
         } else {
             LOG_INFO << "Using map size of " << map_size;
         }
@@ -132,6 +162,8 @@ void AFLForkserverExecutor::init(ConfigInterface& config) {
 
     if (!startForkserver())
         throw RuntimeException("Failed to launch SUT", RuntimeException::UNEXPECTED_ERROR);
+    
+    initializeTraces();
 }
 
 bool AFLForkserverExecutor::verifyCorePattern(void) {
@@ -191,7 +223,8 @@ void AFLForkserverExecutor::runOnForkserver(uint8_t *buffer, int size) {
     timeout_dur = timeout_short;
 
     /* Retry if the SUT hangs */
-    do {
+    while (attempts <= max_hang_attempts)
+    {
         /* Reset SUT hung status flag */
         sut_hung = 0;
 
@@ -212,6 +245,8 @@ void AFLForkserverExecutor::runOnForkserver(uint8_t *buffer, int size) {
             LOG_ERROR << "Failed to request a new process from the forkserver";
             return;
         }
+
+        LOG_DEBUG << "Executing with timeout " << timeout_dur;
 
         /* Record the SUT's execution-time for this testcase */
         uint64_t start_time = VmfUtil::getCurTime();
@@ -253,11 +288,20 @@ void AFLForkserverExecutor::runOnForkserver(uint8_t *buffer, int size) {
         /* Identify SUT execution status */
         updateStatus();
 
+        ++attempts;
+
         /* Retry a limited number of times */
-        if (sut_hung == 1) attempts++;
+        /* BUG(nqe0407) I tried setting sut_hung to 0 on a hang and it caused a segfault. */
+        if ((sut_hung == 1) && (ignore_timeouts == false)) {
+            timeout_dur = calculateBackoffTime(timeout_dur);
+            if ((attempts <= max_hang_attempts) && (ignore_timeouts == false)){
+                LOG_DEBUG << "Confirming hang with increased timeout " << timeout_dur << " ms."; 
+            }
+        }
         /* If we ran to completion, crashed, or hung twice, exit the loop */
-        else break;
-    } while ((attempts < MAX_HANG_ATTEMPTS) && (ignore_hangs == false));
+        else 
+            break;
+    } 
 }
 
 int AFLForkserverExecutor::checkedWrite(int fd, uint8_t* buf, int size) {
@@ -272,7 +316,7 @@ int AFLForkserverExecutor::checkedWrite(int fd, uint8_t* buf, int size) {
         /* Check for incomplete the write */
         if ((wrote != remaining) && (wrote > 0) && (total != wrote)) {
             if (wrote > 0) { /* Check for forward progress */
-                /* Update ofsset by amount written */
+                /* Update offset by amount written */
                 offset += wrote;
                 /* Reduce remaining amount to be written */
                 remaining -= wrote;
@@ -370,7 +414,7 @@ void AFLForkserverExecutor::handleStatus(StorageModule& storage, StorageEntry *e
     /* Update status-specific metadata */
     switch (sut_status) {
         case AFL_STATUS_HUNG:
-            if (ignore_hangs)
+            if (ignore_timeouts)
                 entry->addTag(incomplete_tag);
             else
                 entry->addTag(hung_tag);
@@ -397,8 +441,18 @@ void AFLForkserverExecutor::handleStatus(StorageModule& storage, StorageEntry *e
     /* Record SUT execution time */
     entry->setValue(exec_time_key, static_cast<unsigned int>(time_taken));
 
+    if (running_calibration == false)
+    {
+        /* Record SUT execution time stamp (for calculation of how far into the run it took to generate this testcase) */
+        unsigned int timestamp = VmfUtil::getCurTime() - VmfUtil::getStartTime();
+        if (entry->getUIntValue(exec_timestamp_key) == 0)
+            entry->setValue(exec_timestamp_key, timestamp);
+        else 
+            LOG_DEBUG << "Timestamp already set for " << entry->getID();
+    }
+
     /* Check for new coverage, write new coverage tag and coverage bits to storage, as relevant*/
-    if ((ignore_hangs == true) && (sut_status == AFL_STATUS_HUNG))
+    if ((ignore_timeouts == true) && (sut_status == AFL_STATUS_HUNG))
         LOG_INFO << "Ignoring coverage for hung testcase";
     else
         handleCoverageBitmap(storage,entry);
@@ -482,12 +536,11 @@ void AFLForkserverExecutor::writeOrOverwriteTraceBits(StorageModule& storage, St
 
 void AFLForkserverExecutor::updateStatus(void) {
     if (sut_hung) { /* Check for timeout */
-        timeout_dur = timeout_long;
         killSUT();
         sut_status = AFL_STATUS_HUNG;
         return;
     } else if (*reinterpret_cast<uint32_t*>(trace_bits) == EXEC_FAIL) {
-        /* Forkserer failed fork a new SUT instance */
+        /* Forkserver failed fork a new SUT instance */
         sut_status = AFL_STATUS_ERROR;
         throw RuntimeException("Forkserver encountered an unknown error",
                                RuntimeException::UNEXPECTED_ERROR);
@@ -512,28 +565,58 @@ bool AFLForkserverExecutor::isCrash(int status) {
     return crashed;
 }
 
+void AFLForkserverExecutor::verifyConfig(ConfigInterface &config) {
+    /* Verify that ignoreHangs OR ignoreTimeouts is defined, NOT both */
+    if (config.isParam(getModuleName(), "ignoreHangs") && config.isParam(getModuleName(), "ignoreTimeouts")){
+        LOG_ERROR << "Cannot specify both `ignoreHangs` and `ignoreTimeouts`, see docs/coremodules/core_modules_configuration.md#aflforkserverexecutorignorehangs";
+        throw RuntimeException("Cannot specify both `ignoreHangs` and `ignoreTimeouts`",
+                            RuntimeException::CONFIGURATION_ERROR);
+    } 
+    if (config.isParam(getModuleName(), "ignoreTimeouts") && config.isParam(getModuleName(), "confirmHangsCount")){
+        if ((config.getBoolParam(getModuleName(), "ignoreTimeouts")) && (config.getIntParam(getModuleName(), "confirmHangsCount") > 0)){
+            LOG_WARNING << "`ignoreTimeouts` will cause `confirmHangsCount` to be ignored, see docs/coremodules/core_modules_configuration.md#aflforkserverexecutorignorehangs";
+        }
+    } 
+    if (config.isParam(getModuleName(), "ignoreHangs")) {
+        LOG_WARNING << "`ignoreHangs` is deprecated, see docs/coremodules/core_modules_configuration.md#aflforkserverexecutorignorehangs";
+    }
+    if (config.isParam(getModuleName(), "sandboxer") == false) {
+        LOG_WARNING << " Execution of a SUT outside of a sandboxing mechanism may cause changes to your host system";
+    }
+    return;
+}
+
 void AFLForkserverExecutor::loadConfig(ConfigInterface &config) {
+    verifyConfig(config); // this function either throws or returns
     std::string output_dir = config.getOutputDir() + "/forkserver";
     VmfUtil::createDirectory(output_dir.c_str());
     /* Configure SUT arguments */
     sut_argv = config.getStringVectorParam(getModuleName(),"sutArgv");
-
+    
     /* Do not ignore timeouts if a timeout value is provided */
-    ignore_hangs = config.getBoolParam(getModuleName(), "ignoreHangs", false);
-
-    /* Detect stdin vs. file-based SUT test case delivery */
-    snprintf(testcase_file, sizeof(testcase_file),
-             "%s/testcase_file",  output_dir.c_str());
-    testcase_fd = open(testcase_file, O_RDWR | O_CREAT | O_TRUNC, 0600);
-    sut_test_write = testcase_fd;
-    sut_test_read = sut_test_write;
-    sut_use_stdin = true;
+    if (config.isParam(getModuleName(), "ignoreHangs")) {
+        ignore_timeouts = config.getBoolParam(getModuleName(), "ignoreHangs", false);
+    } else if (config.isParam(getModuleName(), "ignoreTimeouts")) {
+        ignore_timeouts = config.getBoolParam(getModuleName(), "ignoreTimeouts", false);
+        LOG_DEBUG << "ignoreTimeouts: " << ignore_timeouts;
+    }
+    
     for(auto& s: sut_argv) {
         if (s == "@@") {
             sut_use_stdin = false;
             LOG_INFO << "AFL Exec configured to use file SUT input ("
-                     << testcase_file << ")";
+                    << testcase_file << ")";
         }
+    }
+
+    if (sut_use_stdin == false) {
+        /* Detect stdin vs. file-based SUT test case delivery */
+        snprintf(testcase_file, sizeof(testcase_file),
+                "%s/testcase_file",  output_dir.c_str());
+        LOG_DEBUG << "Opening testcase file " << testcase_file;
+        sut_test_write = open(testcase_file, O_RDWR | O_CREAT | O_TRUNC, 0600);
+        sut_test_read = sut_test_write; /* Close of SUT write occurs with close of sut_test_read */
+        sut_use_stdin = true;
     }
 
     enable_afl_debug = config.getBoolParam(getModuleName(), "enableAFLDebug", false);
@@ -551,20 +634,35 @@ void AFLForkserverExecutor::loadConfig(ConfigInterface &config) {
             stderr_file = config.getStringParam(getModuleName(), "stderr");
         std::string errfile_path = output_dir + "/" + stderr_file;
         sut_stderr = fileno(fopen(errfile_path.c_str(), "a"));
+        LOG_DEBUG << "Sending debug logs to " << outfile_path << " and " << errfile_path;
     } else {
         sut_stdout = open("/dev/null", O_RDWR);
         sut_stderr = open("/dev/null", O_RDWR);
     }
-
-    /* Configure manual SUT timeout */  
-    if(config.isParam(getModuleName(),"timeoutInMs")) {
+    
+    /* Determine timeout with a heuristic */
+    if (config.getBoolParam(getModuleName(),"useHeuristicTimeout", false)) {
+        use_manual_timeout = false; 
+    } else if(config.isParam(getModuleName(),"timeoutInMs")) {
+        /* Configure manual SUT timeout */  
         use_manual_timeout = true;
+        
+        /* Since timeout is manually specified we can consider the runner as 'calibrated' */
+        calibrated = true;
+
         manual_timeout_ms = config.getIntParam(getModuleName(),"timeoutInMs");
+
+        LOG_WARNING << "Using manual timeout of " << manual_timeout_ms << " ms";
+        
+        /* Set a default timeout value in case we can't calibrate */
+        setTimeouts(manual_timeout_ms);
     } else {
         use_manual_timeout = false;
         /* Set a default timeout value in case we can't calibrate */
         setTimeouts(DEFAULT_TIMEOUT_MS);
+        calibrated_timeout = DEFAULT_TIMEOUT_MS;
     }
+
     /* Configure SUT memory limit */
     sut_mem_limit = config.getIntParam(getModuleName(), "memoryLimitInMB", DEFAULT_SUT_MB_LIMIT);
     /* Configure Coverage bitmap size. 0 means not configured which gets autodetected later. */
@@ -597,8 +695,17 @@ void AFLForkserverExecutor::loadConfig(ConfigInterface &config) {
     use_ubsan = config.getBoolParam(getModuleName(), "useUBSAN", DEFAULT_USE_UBSAN);
     /* Default SUT memory limit to unlimited if configured to use ASAN */
     if (use_asan && !config.isParam(getModuleName(), "memoryLimitInMB"))
-      sut_mem_limit = 0;
+    sut_mem_limit = 0;
 
+    max_hang_attempts = config.getIntParam(getModuleName(),"confirmHangsCount", DEFAULT_HANG_RETRY);
+
+    use_heuristic_timeout = config.getBoolParam(getModuleName(),"useHeuristicTimeout", false);
+
+    /* Configure any potential sandboxing applications */
+    if (config.isParam(getModuleName(), "sandboxer")) {
+        sandboxer = config.getStringParam(getModuleName(), "sandboxer");
+        sandboxer_args = config.getStringVectorParam(getModuleName(), "sandboxerArgs", {});
+    }
 }
 
 void AFLForkserverExecutor::detectBinarySignatures() {
@@ -615,6 +722,13 @@ void AFLForkserverExecutor::detectBinarySignatures() {
     struct stat st;
     stat(sut_argv[0].c_str(), &st);
     int file_size = st.st_size;
+    int file_type = st.st_mode;
+
+    if ((file_type & S_IFMT) != S_IFREG)
+    {
+	    throw RuntimeException("SUT is not a regular file. Please reconfigure the SUT path to a binary.",
+			      RuntimeException::UNEXPECTED_ERROR);
+    }
 
     /* Map SUT into memory */
     char* f_data = (char *) mmap(0, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
@@ -692,26 +806,21 @@ bool AFLForkserverExecutor::startForkserver() {
 bool AFLForkserverExecutor::initCoverageMaps(void) {
     /* Create a shared-memory region */
     shm_id = shmget(IPC_PRIVATE, map_size, IPC_CREAT | IPC_EXCL | 0600);
-    if (shm_id < 0) return false;
+    LOG_DEBUG << "Acquired shared memory segment " << shm_id;
+    if (shm_id < 0) {
+        LOG_ERROR << "Failed to get shared memory for the coverage map";
+        return false;
+    }
     /* Attach our coverage map to the shared memory region */
     trace_bits = static_cast<uint8_t*>(shmat(shm_id, NULL, 0));
     if (trace_bits == reinterpret_cast<void*>(-1)) return false;
-
-    virgin_trace = new uint8_t[map_size];
-    virgin_hang = new uint8_t[map_size];
-    virgin_crash = new uint8_t[map_size];
-
-    old_trace = virgin_trace;
-  
-    memset(virgin_trace, PORCELAIN, map_size);
-    memset(virgin_hang, PORCELAIN, map_size);
-    memset(virgin_crash, PORCELAIN, map_size);
 
     /* CmpLog */
     if (cmp_log_enabled)
     {
         /* Create and attach shared region for cmplog maps */
         cmplog_shm_id = shmget(IPC_PRIVATE, sizeof(struct cmp_map), IPC_CREAT | IPC_EXCL | 0600);
+        LOG_DEBUG << "Acquired cmplog shared memory segment " << cmplog_shm_id;
         if (cmplog_shm_id < 0) return false;
         cmplog_bits = static_cast<uint8_t*>(shmat(cmplog_shm_id, NULL, 0));
         if (cmplog_bits == reinterpret_cast<void*>(-1)) return false;
@@ -735,6 +844,19 @@ bool AFLForkserverExecutor::initCoverageMaps(void) {
     }
 
     return true;
+}
+
+void vmf::AFLForkserverExecutor::initializeTraces()
+{
+    virgin_trace = new uint8_t[map_size];
+    virgin_hang = new uint8_t[map_size];
+    virgin_crash = new uint8_t[map_size];
+
+    old_trace = virgin_trace;
+
+    memset(virgin_trace, PORCELAIN, map_size);
+    memset(virgin_hang, PORCELAIN, map_size);
+    memset(virgin_crash, PORCELAIN, map_size);
 }
 
 int AFLForkserverExecutor::processFSVersion(int msg) {
@@ -842,7 +964,7 @@ void AFLForkserverExecutor::processMapSizeMsg(int msg) {
 }
 
 void AFLForkserverExecutor::processFSOptions(int msg) {
-    /* WARNING: The order of options processed matters for correct FS handhaking */
+    /* WARNING: The order of options processed matters for correct FS handshaking */
     /* Extract options from forkserver message */
     int hasopt_mapsize = msg & FS_OPT_MAPSIZE;
     int hasopt_shmtest = msg & FS_OPT_SHMTESTDELIV;
@@ -892,7 +1014,6 @@ void AFLForkserverExecutor::processFSOptionsLegacy(int msg) {
     if (hasopt_autodict)
         receiveAutoDict();
 }
-
 
 void AFLForkserverExecutor::handshakeResp(int msg) {
     int resp = msg ^ 0xffffffff;
@@ -1048,7 +1169,7 @@ bool AFLForkserverExecutor::initFuzzerSUTIO() {
     CTRL_PIPE_WR = control[WRITE_PIPE];
     STAT_PIPE_RD = status[READ_PIPE];
 
-    /* Close duplicated and now uneccessary descriptors */
+    /* Close duplicated and now unnecessary descriptors */
     close(control[READ_PIPE]);
     close(status[WRITE_PIPE]);
 
@@ -1064,8 +1185,22 @@ void AFLForkserverExecutor::initFuzzerIO() {
 bool AFLForkserverExecutor::launchSUT() {
     initSUT();
 
-    /* Set up exec args */
     std::vector<char *> argvp;
+
+    argvp.reserve(sut_argv.size() + sandboxer_args.size() + 1);
+    
+    /* Start with any sandboxer command wrapping */
+    if (sandboxer.empty() == false) 
+    {
+        argvp.push_back(const_cast<char *>(sandboxer.data()));
+        
+        /* Concatenate any sandboxer arguments */
+        for (const std::string& a : sandboxer_args) {
+            argvp.push_back(const_cast<char*>(a.c_str()));
+        }
+    }
+    
+    /* Set SUT up exec args */
     for (auto &s : sut_argv) {
         if (s == "@@") 
             argvp.push_back(testcase_file);
@@ -1461,33 +1596,28 @@ void AFLForkserverExecutor::validateVersionCompatibility() {
     /* In the case of CmpLog, we must check data structure compatibility.*/
     if (cmp_log_enabled)
     {
-        bool allowed = true;
 
         if (major_version == 0)
         {
             throw RuntimeException("The SUT uses old instrumentation (<4.20c) which is incompatible with RedPawn.", RuntimeException::UNEXPECTED_ERROR);
         }
 
-        /* Check major version is the same */
-        if (major_version != CMPLOG_MAJOR_VERSION)
-            allowed = false;
-
-        /* Disallow if minor version is too old */
-        if (minor_version < CMPLOG_MINOR_VERSION)
-            allowed = false;
+        /* Check to see if compiler version is within accepted range.*/
+        bool meetsMinimumVersion = major_version > CMPLOG_MIN_MAJOR_VERSION || (major_version == CMPLOG_MIN_MAJOR_VERSION && minor_version >= CMPLOG_MIN_MINOR_VERSION);
+        bool newerThanSupported = major_version > CMPLOG_MAX_MAJOR_VERSION || (major_version == CMPLOG_MAX_MAJOR_VERSION && minor_version > CMPLOG_MAX_MINOR_VERSION);
 
         /* Print a warning if using future version, which may or may not work */
-        if (allowed && minor_version > CMPLOG_MINOR_VERSION)
+        if (newerThanSupported)
         {
-            LOG_WARNING << "You are using a newer version of the CmpLog instrumentation than VMF was expecting. It may or may not work.";
+            LOG_WARNING << "You are using a newer version of the CmpLog instrumentation than VMF was expecting (" << CMPLOG_MAX_MAJOR_VERSION << "." << CMPLOG_MAX_MINOR_VERSION << "). It may or may not work.";
         }
 
-        if (!allowed)
+        if (!meetsMinimumVersion)
         {
             char message[256];
             snprintf(message, sizeof(message),
                      "RedPawn error: SUT reported instrumentation version %d.%d, but RedPawn requires %d.%d",
-                     major_version, minor_version, CMPLOG_MAJOR_VERSION, CMPLOG_MINOR_VERSION);
+                     major_version, minor_version, CMPLOG_MIN_MAJOR_VERSION, CMPLOG_MIN_MINOR_VERSION);
             throw RuntimeException(message, RuntimeException::UNEXPECTED_ERROR);
         } else {
             LOG_INFO << "CmpLog version validation passed.";
@@ -1496,66 +1626,83 @@ void AFLForkserverExecutor::validateVersionCompatibility() {
 }
 
 void AFLForkserverExecutor::runCalibrationCases(StorageModule& storage, std::unique_ptr<Iterator>& iterator) {
-
+    running_calibration = true;
     /* Remove existing timeouts to prep for calibration */
     setTimeouts(DEFAULT_TIMEOUT_MS);
 
-    while(iterator->hasNext()) {
-        StorageEntry* entry = iterator->getNext();
-        /* Fetch fuzzer-generated input bytes and size from entry */
-        int size = entry->getBufferSize(test_case_key);
-        uint8_t* buffer = reinterpret_cast<uint8_t*>(entry->getBufferPointer(test_case_key));
-
-        /* Dispatch test to forkserver */
-        runOnForkserver(buffer, size);
-
-        /* Calibration test cases shouldn't crash */
-        if (AFL_STATUS_ERROR == sut_status)
-        {
-            throw RuntimeException("An initial testcase failed encountered and error while calibrating. "
-                                   "Make sure that VMF can run the target.", RuntimeException::UNEXPECTED_ERROR);
-
+    if (use_heuristic_timeout){
+        if(!iterator->hasNext()) {
+            throw RuntimeException("Runtime calibration requires test cases", RuntimeException::UNEXPECTED_ERROR);
         }
-        else if (AFL_STATUS_CRASHED == sut_status)
-        {
-            LOG_WARNING << "An initial test case crashed during calibration -- ignoring test case #" << entry->getID();
-            continue;
+        while(iterator->hasNext()) {
+            StorageEntry* entry = iterator->getNext();
+            /* Fetch fuzzer-generated input bytes and size from entry */
+            int size = entry->getBufferSize(test_case_key);
+            uint8_t* buffer = reinterpret_cast<uint8_t*>(entry->getBufferPointer(test_case_key));
+
+            /* Dispatch test to forkserver */
+            runOnForkserver(buffer, size);
+
+            /* Calibration test cases shouldn't crash */
+            if (AFL_STATUS_ERROR == sut_status)
+            {
+                throw RuntimeException("An initial testcase failed encountered and error while calibrating. "
+                                    "Make sure that VMF can run the target.", RuntimeException::UNEXPECTED_ERROR);
+
+            }
+            else if (AFL_STATUS_CRASHED == sut_status)
+            {
+                LOG_WARNING << "An initial test case crashed during calibration -- ignoring test case #" << entry->getID();
+                continue;
+            }
+            else if (AFL_STATUS_HUNG == sut_status)
+            {
+                LOG_WARNING << "An initial test case hung during calibration -- ignoring test case #" << entry->getID();
+                continue;
+            }
+            //else the status is AFL_STATUS_OK
+
+            /* Verify that we're collecting coverage */
+            int found_bytes = cov_util.countBytes(trace_bits, map_size);
+            if (found_bytes == 0)
+                throw RuntimeException("No coverage data was received from running "
+                                    "the target, but it did not crash. "
+                                    "This likely means it is not instrumented.",
+                                    RuntimeException::UNEXPECTED_ERROR);
+                                    
+            /* Record number of calibration tests */
+            num_calib++;
+
+            /* Tracking maximum and total time taken */
+            if (time_taken > max_time)
+                max_time = time_taken;
+            sum_time += time_taken;
+
+            LOG_INFO << "Testcase " << num_calib << ", uid = " << entry->getID() << ", size = " << size
+                    << ", found bytes: " << found_bytes
+                    << ", time taken: " << time_taken << " us";
+
+            if (num_calib >= max_calib)
+                break;
         }
-        else if (AFL_STATUS_HUNG == sut_status)
-        {
-            LOG_WARNING << "An initial test case hung during calibration -- ignoring test case #" << entry->getID();
-            continue;
+
+        if (num_calib != max_calib){
+            LOG_WARNING << "Fewer calibration testcases than the max (" << max_calib << ") requested were executed.";
         }
-        //else the status is AFL_STATUS_OK
 
-        /* Verify that we're collecting coverage */
-        int found_bytes = cov_util.countBytes(trace_bits, map_size);
-        if (found_bytes == 0)
-            throw RuntimeException("No coverage data was received from running "
-                                   "the target, but it did not crash. "
-                                   "This likely means it is not instrumented.",
-                                   RuntimeException::UNEXPECTED_ERROR);
-                                   
-        /* Record number of calibration tests */
-        num_calib++;
+        /* Use calibration metrics to decide on timeout values */
+        calibrateTimeout(max_time, sum_time);
+        /* Save our calculated timeout to a static member variable (for use by any other executor instances)*/
+        calibrated_timeout = timeout_dur;
+    } else {
 
-        /* Tracking maximum and total time taken */
-        if (time_taken > max_time)
-            max_time = time_taken;
-        sum_time += time_taken;
-
-        LOG_INFO << "Testcase " << num_calib << ", uid = " << entry->getID() << ", size = " << size
-                 << ", found bytes: " << found_bytes
-                 << ", time taken: " << time_taken << " us";
-
-        if (num_calib >= max_calib)
-            break;
+        LOG_DEBUG << "Using hard-coded timeout value of " << timeout_dur;
     }
 
-    /* Use calibration metrics to decide on timeout values */
-    calibrateTimeout(max_time, sum_time);
-    /* Save our calculated timeout to a static member variable (for use by any other executor instances)*/
-    calibrated_timeout = timeout_dur;
+    running_calibration = false;
+    
+    /* Remember that we're calibrated, regardless of timeout configuration method */
+    calibrated = true;
 }
 
 void AFLForkserverExecutor::calibrateTimeout(unsigned max_time, unsigned sum_time) {
@@ -1586,16 +1733,13 @@ void AFLForkserverExecutor::calibrateTimeout(unsigned max_time, unsigned sum_tim
     if ((num_calib == 0) && !use_manual_timeout) {
         /* Use the default timeout value if we didn't run any calibration tests */
         timeout = DEFAULT_TIMEOUT_MS;
-        LOG_WARNING << "Using a UNCALIBRATED default timeout.";
+        LOG_WARNING << "Using an UNCALIBRATED default timeout.";
     }
 
     /* Update the executor's internal timeout values */
     setTimeouts(timeout);
-    /* Remember that we're calibrated */
-    calibrated = true;
 
     LOG_INFO << "Using a first-attempt timeout of " << timeout_short << " ms";
-    LOG_INFO << "Using a second-attempt timeout of " << timeout_long << " ms";
 }
 
 int AFLForkserverExecutor::calculateTimeout(unsigned avg_time, unsigned max_time, unsigned sum_time) {
@@ -1622,7 +1766,7 @@ int AFLForkserverExecutor::calculateTimeout(unsigned avg_time, unsigned max_time
     return timeout;
 }
 
-int AFLForkserverExecutor::calculateLongTimeout(int timeout) {
+int AFLForkserverExecutor::calculateBackoffTime(int timeout) {
     return (timeout * 2) + 100;
 }
 
@@ -1631,11 +1775,34 @@ void AFLForkserverExecutor::setTimeouts(int timeout) {
     timeout_dur = timeout;
     /* Set the first (shorter) of two timeouts */
     timeout_short = timeout_dur;
-    /* Store a longer timeout for when the SUT hangs on its first try */
-    timeout_long = calculateLongTimeout(timeout_short);
 
-    LOG_DEBUG << "Setting timeouts to: (" << timeout_dur
-              << "/" << timeout_short << "/" << timeout_long << ")";
+    LOG_INFO << "Setting timeout to " << timeout << " ms.";
+}
+
+bool AFLForkserverExecutor::restartForkserver(void)
+{
+    LOG_DEBUG << "Restarting forkserver";
+    if (forkserver_pid > 0) {
+        kill(forkserver_pid, SIGINT);
+        int status;
+        // waitpid blocks until the specific child PID exits
+        pid_t reaped_pid = waitpid(forkserver_pid, &status, 0);
+
+        if (reaped_pid == -1) {
+            throw RuntimeException("waitpid failed to reap the forkserver process!");
+        }
+
+        // Check how the child process actually died
+        if (WIFEXITED(status)) {
+            LOG_INFO << "Child exited normally with code: " << WIFSIGNALED(status);
+        } 
+        else if (WIFSIGNALED(status)) {
+            LOG_INFO << "Child was terminated by signal: " << WTERMSIG(status);
+        }
+        forkserver_pid = 0;
+    }
+    disconnectForkserver();
+    return startForkserver();
 }
 
 void AFLForkserverExecutor::killSUT(void) {
@@ -1644,16 +1811,18 @@ void AFLForkserverExecutor::killSUT(void) {
         sut_pid = -1;
     }
     /* Then hear from the forkserver */
-    if (readStatus(&sut_exitcode, NOBLOCK_LONG_TIMEOUT) != 4)
-      throw RuntimeException("Failed to get SUT exit code from forkserver"
-                             "after killing the hung SUT",
-                             RuntimeException::UNEXPECTED_ERROR);
+    if (readStatus(&sut_exitcode, NOBLOCK_LONG_TIMEOUT) != 4)   
+        if (restartForkserver() == false)
+            throw RuntimeException("Failed to get SUT exit code from forkserver "
+                                    "after killing the hung SUT",
+                                    RuntimeException::UNEXPECTED_ERROR);
 
 }
 
 void AFLForkserverExecutor::registerStorageNeeds(StorageRegistry& registry) {
     test_case_key = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_ONLY);
     exec_time_key = registry.registerKey("EXEC_TIME_US", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);
+    exec_timestamp_key = registry.registerUIntKey("EXEC_TIMESTAMP_US", StorageRegistry::READ_WRITE, 0);
     if(always_write_trace || coverage_only_trace)
     {
         //If either of these is set, trace bits will be written
@@ -1671,6 +1840,7 @@ void AFLForkserverExecutor::registerStorageNeeds(StorageRegistry& registry) {
         cmpLogMapKey = registry.registerKey("CMPLOG_MAP_BITS", StorageRegistry::BUFFER_TEMP, StorageRegistry::WRITE_ONLY);
     }
 }
+
 void AFLForkserverExecutor::registerMetadataNeeds(StorageRegistry& registry) {
     cumulative_coverage_metadata = registry.registerKey("TOTAL_BYTES_COVERED", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);
 }

@@ -1,3 +1,22 @@
+#===============================================================================
+# Vader Modular Fuzzer (VMF)
+# Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
+# <vmf@draper.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 (only) as 
+# published by the Free Software Foundation.
+#  
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#  
+# @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
+#===============================================================================
 
 # Product depdendency libs. These are built statically and linked to VMFFramework
 # Suppress warnings in 3rd party code
@@ -23,7 +42,7 @@ if(WIN32)
     #windows-only dependencies
     if(NOT DEFINED FRIDA_PKG)
         set(
-            FRIDA_PKG "${CMAKE_CURRENT_SOURCE_DIR}/frida/frida-gum-devkit-16.4.8-windows-x86_64.tar.xz" 
+            FRIDA_PKG "${CMAKE_CURRENT_SOURCE_DIR}/frida/frida-gum-devkit-17.9.10-windows-x86_64.tar.xz" 
             CACHE STRING "Path to selected frida binary"
         )
     endif()

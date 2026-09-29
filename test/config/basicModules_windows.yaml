@@ -24,6 +24,13 @@ vmfModules:
         - className: AFLDeleteMutator
         - className: AFLCloneMutator
         - className: AFLSpliceMutator
+        - className: AFLDWordAddSubMutator
+        - className: AFLInteresting8Mutator
+        - className: AFLInteresting16Mutator
+        - className: AFLInteresting32Mutator
+        - className: AFLOverwriteCopyMutator
+        - className: AFLOverwriteFixedMutator
+        - className: AFLWordAddSubMutator
 # Modules-specific parameters
 
 DirectoryBasedSeedGen:

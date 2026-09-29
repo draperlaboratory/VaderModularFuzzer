@@ -1,3 +1,4 @@
 [submodule "submodules/klee"]
 	path = submodules/klee
 	url = https://github.com/klee/klee
+	branch = v3.2

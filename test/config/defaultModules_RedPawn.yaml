@@ -30,6 +30,13 @@ vmfModules:
       - className: AFLDeleteMutator
       - className: AFLCloneMutator
       - className: AFLSpliceMutator
+      - className: AFLDWordAddSubMutator
+      - className: AFLInteresting8Mutator
+      - className: AFLInteresting16Mutator
+      - className: AFLInteresting32Mutator
+      - className: AFLOverwriteCopyMutator
+      - className: AFLOverwriteFixedMutator
+      - className: AFLWordAddSubMutator
   RedPawnInputGenerator:
     children:
       - id: colorizationExecutor
@@ -49,6 +56,7 @@ DirectoryBasedSeedGen:
 CorpusMinExecutor: #Executor used only for corpus minimization
   sutArgv: *SUT_ARGV
   alwaysWriteTraceBits: true
+  writeStats: false # Needed to prevent un-wanted modification of COVERED TUPLES
 
 colorizationExecutor: #Red Pawn colorization executor
   sutArgv: *SUT_ARGV

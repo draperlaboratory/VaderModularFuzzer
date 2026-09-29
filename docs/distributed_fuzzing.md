@@ -32,7 +32,7 @@ The following topics will be addressed in this document:
       + [Filtering Scenario Files](#filtering-scenario-files)
    + [Assign VMF Fuzzers to Run a Scenario](#assign-vmf-fuzzers-to-run-a-scenario)
       + [Scenario States](#scenario-states)
-  f + [Viewing Fuzzing Results](#viewing-fuzzing-results)
+   + [Viewing Fuzzing Results](#viewing-fuzzing-results)
    + [Viewing Fuzzing Metrics](#viewing-fuzzing-metrics)
    + [Stopping and Shutting Down](#stopping-and-shutting-down)
    + [Settings and Logs](#settings-and-logs)
@@ -173,6 +173,17 @@ Click `Create` to create the scenario.  The scenario will now appear in the `Clu
 ![UI Image](./img/UI_NewScenario.png)
 
 If you would like, create a second scenario using `distributedDefaultModules.yaml` instead of `distributedBasicModules.yaml'.
+
+### Importing a Scenario file
+
+To import an existing Scenario file, go to the `Cluster Tasking` section and click on the `Add Scenario` button:
+
+![UI Image](./img/UI_AddScenarioButton.png)
+
+On the bottom of this form, click on the `Import Scenario(s)` button, and select the Scenario files to upload. They will populate in the list of Scenarios.
+ 
+Documentation on the Scenario file can be [docs/scenario_file.md](found in the docs).
+
 
 ### Add a Scenario - Windows
 To execute distributed fuzzing on windows using the Frida executor you will need to upload the following files:

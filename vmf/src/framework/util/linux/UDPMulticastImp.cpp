@@ -1,7 +1,6 @@
-
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,6 +17,7 @@
  *  
  * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
  * ===========================================================================*/
+
 #include "UDPMulticastImp.hpp"
 #include "RuntimeException.hpp"
 #include "Logging.hpp"
@@ -89,6 +89,7 @@ void UDPMulticastImp::buildSocket(std::string address, int port)
     //
     
     mreq.imr_multiaddr.s_addr = inet_addr(group);
+    mreq.imr_interface.s_addr = htonl(INADDR_ANY);
     if (
         setsockopt(
             fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*) &mreq, sizeof(mreq)

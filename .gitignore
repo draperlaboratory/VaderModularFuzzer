@@ -54,3 +54,7 @@ test/magicBytesSUT/magicbytes
 test/magicBytesSUT/magicbytes_cmplog
 test/unittest/inputs/AFLForkserverExecutorTest/mimeSUT/mime
 test/unittest/inputs/AFLForkserverExecutorTest/mimeSUT/mime_asan
+test/unittest/inputs/AFLForkserverExecutorTest/FridaExecutorTest/haystack_libfuzzer
+
+# MacOSX
+.DS_Store

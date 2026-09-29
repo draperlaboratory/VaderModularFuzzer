@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -64,10 +55,12 @@ Module *FridaExecutor::build(std::string name) {
 
 void FridaExecutor::releaseResources() {
   if ( _sut_stderr_file != NULL ) {
+    LOG_DEBUG << "Closing stderr file";
     fclose( _sut_stderr_file );
     _sut_stderr_file = NULL;
   }
   if ( _sut_stdout_file != NULL ) {
+    LOG_DEBUG << "Closing stdout file";
     fclose( _sut_stdout_file );
     _sut_stdout_file = NULL;
   }
@@ -119,6 +112,7 @@ void FridaExecutor::runCalibrationCases(StorageModule& storage, std::unique_ptr<
 }
 
 void FridaExecutor::runTestCase(StorageModule& storage, StorageEntry* entry) {
+    int nRetry = _confirm_hangs_count;
     /* Fetch fuzzer-generated input bytes and size from entry */
     uint32_t size = entry->getBufferSize(test_case_key);
     uint8_t* buffer = reinterpret_cast<uint8_t*>(entry->getBufferPointer(test_case_key));
@@ -127,8 +121,15 @@ void FridaExecutor::runTestCase(StorageModule& storage, StorageEntry* entry) {
         throw RuntimeException("test case has unallocated buffer", RuntimeException::UNEXPECTED_ERROR);
     }
     /* Run the test */
-    execTestCase(buffer, size);
-
+    _timeout_dur_with_backoff = timeout_dur;
+    do {
+        execTestCase(buffer, size);
+        // so the issue is passing the backoff.
+        if(_confirm_hangs_count && sut_status == FRIDA_STATUS_HUNG) {
+            LOG_DEBUG << "Retrying with back off on attempt " << nRetry << " for status " << sut_status << " (hung == "<< FRIDA_STATUS_HUNG <<", confirmHangs == " << _confirm_hangs_count << ")";
+            _timeout_dur_with_backoff = _timeout_dur_with_backoff * 2 + 100;
+        }
+    } while((_confirm_hangs_count > 0) && (sut_status == FRIDA_STATUS_HUNG) && (nRetry-- > 0));
     /* Record execution stats */
     handleStatus(storage, entry);
 }
@@ -155,6 +156,7 @@ void FridaExecutor::waitForResultsThenReady( uint32_t size ) {
     const int goSize = sizeof(DWORD) * 3;
     const int doneSize = sizeof(DWORD) * 4;
     int nRetry = 0;
+    //_timeout_dur_with_backoff = timeout_dur;
 
 	goSignal[0] = FRIDA_RT_GO;
     goSignal[1] = (DWORD)++_nTest; // Allowing truncation, used for ensuring consistency of sequence
@@ -168,7 +170,6 @@ void FridaExecutor::waitForResultsThenReady( uint32_t size ) {
         }
         readySignal[2] = FRIDA_STATUS_UNKNOWN;
         numBytes = 0;
-        LOG_DEBUG << " nTest " << _nTest << " size " << size;
         result = TransactNamedPipe( _hPipe, 
             goSignal,
             goSize, 
@@ -178,7 +179,9 @@ void FridaExecutor::waitForResultsThenReady( uint32_t size ) {
             &_overlapped );
         if (!result) { /* Results are not ready */
             if ( GetLastError() == ERROR_IO_PENDING) { // Waiting?
-                DWORD dwWaitResult = WaitForSingleObject(_overlapped.hEvent, timeout_dur);
+                DWORD dwWaitResult = WaitForSingleObject(_overlapped.hEvent, _timeout_dur_with_backoff);
+                // We only backoff once.
+                //timeout_dur_with_backoff = timeout_dur;
                 if (dwWaitResult == WAIT_OBJECT_0) {
                     if ( GetOverlappedResult(_hPipe, &_overlapped, &numBytes, FALSE) != 0) {
                         if ( numBytes == 16 ) {
@@ -229,7 +232,6 @@ void FridaExecutor::waitForResultsThenReady( uint32_t size ) {
 }
 
 void FridaExecutor::loadConfig(ConfigInterface &config) {
-    
     std::string output_dir = config.getOutputDir() + "/frida_exec";
     VmfUtil::createDirectory(output_dir.c_str());
     const int maxVar = 32767;
@@ -268,7 +270,22 @@ void FridaExecutor::loadConfig(ConfigInterface &config) {
     defaultArgv[0] = (std::filesystem::path(binDir) / std::filesystem::path("vmf_frida_rtentry.exe")).string();
 
     _sut_argv = config.getStringVectorParam(getModuleName(),"sutArgv", defaultArgv);
-    _ignore_hangs = config.getBoolParam(getModuleName(),"ignoreTimeouts", false);
+    _confirm_hangs_count = config.getIntParam(getModuleName(),"confirmHangsCount", 0);
+
+    if (config.isParam(getModuleName(), "ignoreHangs") && config.isParam(getModuleName(), "ignoreTimeouts"))
+    {
+        // TODO: update this once Frida config options section added to docs    
+        LOG_ERROR << "Cannot specify both `ignoreHangs` and `ignoreTimeouts`, see docs/coremodules/core_modules_configuration.md#fridaexecutorignoretimeouts";
+        throw RuntimeException("Cannot specify both `ignoreHangs` and `ignoreTimeouts`",
+                               RuntimeException::CONFIGURATION_ERROR);
+    }
+    else if (config.isParam(getModuleName(), "ignoreHangs")) {
+        // TODO: update this once Frida config options section added to docs    
+        LOG_WARNING << "`ignoreHangs` is deprecated, see docs/modules/coremodules/core_modules_configuration.md#fridaexecutorignoretimeouts";
+        _ignore_timeouts = config.getBoolParam(getModuleName(),"ignoreHangs", false);
+    }
+    else if (config.isParam(getModuleName(), "ignoreTimeouts")) 
+        _ignore_timeouts = config.getBoolParam(getModuleName(),"ignoreTimeouts", false);
 
 
     stringStream.str("");
@@ -311,7 +328,7 @@ void FridaExecutor::loadConfig(ConfigInterface &config) {
         _sut_stderr_file = NULL;
     }
 
-    _start_retry = DEFAULT_START_RETRY; // No a configuration item yet. 
+    _start_retry = DEFAULT_START_RETRY; // No a configuration item yet.
 
     /* Configure manual SUT timeout */  
     timeout_dur = config.getIntParam(getModuleName(),"timeoutInMs", DEFAULT_TIMEOUT_MS);
@@ -553,6 +570,7 @@ bool FridaExecutor::initSharedMemory(void) {
 void FridaExecutor::registerStorageNeeds(StorageRegistry& registry) {
     test_case_key = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_ONLY);
     exec_time_key = registry.registerKey("EXEC_TIME_US", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);
+    exec_timestamp_key = registry.registerUIntKey("EXEC_TIMESTAMP_US", StorageRegistry::READ_WRITE, 0);
     if(always_write_trace || coverage_only_trace)
     {
         //If either of these is set, trace bits will be written
@@ -570,15 +588,15 @@ void FridaExecutor::registerMetadataNeeds(StorageRegistry& registry) {
     cumulative_coverage_metadata = registry.registerKey("TOTAL_BYTES_COVERED", StorageRegistry::UINT, StorageRegistry::WRITE_ONLY);
 }
 
-
 void FridaExecutor::handleStatus(StorageModule& storage, StorageEntry *entry) {
     /* Update status-specific metadata */
     switch (sut_status) {
         case FRIDA_STATUS_HUNG:
-            if (_ignore_hangs)   
+            if (_ignore_timeouts){
                 entry->addTag(incomplete_tag);
-            else
+            }else{
                 entry->addTag(hung_tag);
+            }
             /* Update pointer to compare hanging cumulative  coverage */ 
             old_trace = virgin_hang;
             break;
@@ -603,14 +621,21 @@ void FridaExecutor::handleStatus(StorageModule& storage, StorageEntry *entry) {
             /* Handle unexpected errors as crashes, since this afford some potential for investigating behavior. */
             LOG_ERROR << "Unexpected result: " << sut_status << " from SUT"; 
             break;
-            
     }
 
     /* Record SUT execution time */
     entry->setValue(exec_time_key, static_cast<unsigned int>(time_taken));
 
+    /* Record SUT execution time stamp (for calculation of how far into the run it took to generate this testcase) */
+    unsigned int timestamp = VmfUtil::getCurTime() - VmfUtil::getStartTime();
+    LOG_DEBUG << "Setting timestamp for testcase " << entry->getID() << " to " << timestamp << " (From executor " << getModuleName() << ")";
+    if (entry->getUIntValue(exec_timestamp_key) == 0)
+        entry->setValue(exec_timestamp_key, timestamp);
+    else
+        LOG_DEBUG << "Timestamp already set for " << entry->getID();
+
     /* Check for new coverage, write new coverage tag and coverage bits to storage, as relevant*/
-    if ((sut_status == FRIDA_STATUS_HUNG) && (_ignore_hangs == true))
+    if ((sut_status == FRIDA_STATUS_HUNG) && (_ignore_timeouts == true))
         LOG_INFO << "Ignoring coverage for hanging testcase";
     else
         handleCoverageBitmap(storage,entry);

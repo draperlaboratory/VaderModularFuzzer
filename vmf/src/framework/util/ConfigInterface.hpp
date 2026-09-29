@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -192,6 +192,28 @@ public:
      * @throws RuntimeException if the parameter is not found
      */
     virtual std::vector<int> getIntVectorParam(std::string moduleName, std::string paramName, std::vector<int> defaultValue) = 0;
+
+    /**
+     * @brief Get a required unsigned integer based parameter from the config file(s)
+     * 
+     * @param moduleName the name of the module (use getModuleName())
+     * @param paramName the name of the parameter, which must match the name that is in the config file
+     * @return unsigned int the associated value
+     * @throws RuntimeException if the parameter is not found
+     */
+    virtual unsigned getUnsignedIntParam(std::string moduleName, std::string paramName) = 0;
+
+    /**
+     * @brief Get an optional unsigned integer based parameter from the config file(s)
+     * If the parameter is not found in the config file, the provided default value will be returned instead.
+     *
+     * @param moduleName the name of the module (use getModuleName())
+     * @param paramName the name of the parameter, which must match the name that is in the config file
+     * @param defaultValue the default to return if the parameter is not found
+     * @return unsigned int the associated value
+     * @throws RuntimeException if the parameter is not found
+     */
+     virtual unsigned getUnsignedIntParam(std::string moduleName, std::string paramName, unsigned defaultValue) = 0;
 
     /**
      * @brief Get a required float based parameter from the config file(s)

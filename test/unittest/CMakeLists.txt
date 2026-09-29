@@ -1,6 +1,6 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+# Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
 # <vmf@draper.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -21,9 +21,11 @@
 # required by gtest
 find_package(Threads REQUIRED)
 
-add_library(VmfTestLib STATIC
+add_library(VmfTestLib SHARED
     TestConfigInterface.cpp
-    ModuleTestHelper.cpp)
+    ModuleTestHelper.cpp  
+    LogFileUtils.cpp
+)
 target_include_directories(VmfTestLib PRIVATE
     ${PROJECT_SOURCE_DIR}/include
     ../../vmf/src/framework/app/
@@ -50,10 +52,12 @@ set(TEST_SRCS
   StorageModuleTestFloat.cpp
   AFLMutatorTest.cpp
   GAInputGenTest.cpp
+  MOPTInputGeneratorTest.cpp
   DictionaryMutatorTest.cpp
   StackedMutatorTest.cpp
   TrivialSeedInitializationTest.cpp
   OutputSchedulerTest.cpp
+  SaveCorpusOutputTest.cpp
   MOPTTest.cpp
 )
 
@@ -67,6 +71,7 @@ else()
     list(APPEND TEST_SRCS
       linux/AFLForkserverExecutorTest.cpp
       linux/DictionaryInitializationTest.cpp
+      linux/RedPawnInputGeneratorTest.cpp
 	  )
 
     find_program(KLEE_EXEC klee)
@@ -106,7 +111,7 @@ target_link_libraries(VmfTest
 
 # install public headers + lib
 
-set(PUBLIC_TEST_HEADERS TestConfigInterface.hpp ModuleTestHelper.hpp )
+set(PUBLIC_TEST_HEADERS TestConfigInterface.hpp ModuleTestHelper.hpp LogFileUtils.hpp)
 install(FILES ${PUBLIC_TEST_HEADERS} DESTINATION ${CMAKE_INSTALL_PREFIX}/include/vmf/test COMPONENT CPP_INCLUDES)
 install(TARGETS VmfTestLib LIBRARY DESTINATION ${VMF_INSTALL_LIBDIR})
 

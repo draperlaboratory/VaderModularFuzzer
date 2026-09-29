@@ -17,6 +17,10 @@
 
 **Objective function** – what the fuzzer is instructed to find/solve for. The objective function is often a proxy for the true objective of the fuzz operator (e.g. maximize code coverage instead of maximize bugs, since bugs are unknown but code coverage is measurable)
 
+**Seed testcase** – Seed test cases are the set of all test cases supplied at the beginning of a fuzzing campaign. These are distinguished from calibration test cases for their execution time and bug oracle results (crash/hang).
+
+**Calibration testcase** – A successfully executing testcase on the SUT used for calculating how long "reasonable" representative inputs are expected to take to execute on the SUT.  This type of testcase is only associated with an execution time.
+
 ## VMF-specific terms and diagrams
 
 **VMF framework** - Module base classes intended to be extended to provide specific capabilities, plus the common application, utilities, and unmodifiable/unextendible classes​.

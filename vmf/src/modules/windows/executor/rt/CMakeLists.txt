@@ -1,6 +1,6 @@
-# =============================================================================
+#===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+# Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
 # <vmf@draper.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -11,12 +11,12 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
-#  
+# 
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #  
 # @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
-# ===========================================================================
+#===============================================================================
 set(FRIDA_ARTIFACTS "*.lib")
 if(WIN32)
   file(ARCHIVE_EXTRACT INPUT ${FRIDA_PKG} DESTINATION ${CMAKE_BINARY_DIR}/include/frida PATTERNS "*.h" )

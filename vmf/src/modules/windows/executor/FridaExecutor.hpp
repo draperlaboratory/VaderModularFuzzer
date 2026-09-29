@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -75,17 +66,19 @@ private:
     std::string _sutCommandLine;
     ///sutArgv config options
     std::vector<std::string> _sut_argv;
-    bool _ignore_hangs;
+    int _confirm_hangs_count;
+    bool _ignore_timeouts = false;
     OVERLAPPED _overlapped;
     HANDLE _hPipe;
     HANDLE _hJob;
     bool _debugLog;
-    FILE *_sut_stdout_file;
-    FILE *_sut_stderr_file;
+    FILE *_sut_stdout_file = NULL;
+    FILE *_sut_stderr_file = NULL;
     HANDLE _stdout;
     HANDLE _stderr;
     uint64_t _nTest;
     uint64_t _nTimeoutRaw;
+    unsigned int _timeout_dur_with_backoff;
     PROCESS_INFORMATION _pi;
 
     HANDLE _hMapFile;
@@ -161,6 +154,8 @@ private:
     int test_case_key;
     ///EXEC_TIME_US handle
     int exec_time_key;
+    ///EXEC_TIMESTAMP_US handle
+    int exec_timestamp_key;
     ///AFL_EXEC_STATUS handle
     int exec_status_key;
     ///AFL_TRACE_BITS handle, this field is conditionally registered for

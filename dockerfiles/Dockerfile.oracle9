@@ -1,48 +1,71 @@
 FROM oraclelinux:9 AS deps
 
-RUN  dnf install --assumeyes \
-       ca-certificates \
-       curl \
-       gdb \
-       git \
-       gnupg 
+# General dependencies
+RUN set -eux \
+    && dnf install --assumeyes \
+        ca-certificates \
+        curl \
+        gdb \
+        git \
+        gnupg
 
-RUN  dnf install --assumeyes \
-       graphviz \
-       clang \
-       libcurl-devel \
-       llvm-devel \
-       lld \
-       python3-devel \
-       python3-pip \
-       python3-setuptools \
-       cmake \
-       zlib-devel
+# Development dependencies
+RUN set -eux \
+    && dnf install --assumeyes \
+        clang \
+        cmake \
+        graphviz \
+        libcurl-devel \
+        lld \
+        llvm-devel \
+        python3-devel \
+        python3-pip \
+        python3-setuptools \
+        zlib-devel \
+        libselinux-devel
 
-ENV LLVM_CONFIG=llvm-config-18
+# Additional development dependencies
+# Enable Oracle Linux CodeReady Builder to install Doxygen.
+RUN set -eux \
+    && dnf install --assumeyes dnf-plugins-core \
+    && dnf config-manager --set-enabled ol9_codeready_builder \
+    && dnf install --assumeyes \
+        doxygen \
+    && dnf config-manager --set-disabled ol9_codeready_builder
 
 FROM deps AS aflpp
 
+# Clone and build firejail
+RUN git clone --depth 1 https://github.com/netblue30/firejail.git /usr/local/src/firejail \
+    && cd /usr/local/src/firejail \
+    && ./configure --prefix=/usr --enable-selinux \
+    && make \
+    && make install-strip 
 
 # Clone and build AFL++
-RUN set -ex \
+RUN set -eux \
     && cd /usr/local/src \
-    && git clone --depth 1 -b v4.30c https://github.com/AFLplusplus/AFLplusplus.git \
+    && git clone --depth 1 -b v5.00c https://github.com/AFLplusplus/AFLplusplus.git \
     && cd AFLplusplus \
     && make all \
     && make install \
-    && set +ex
+    && command -v afl-cc \
+    && command -v afl-fuzz \
+    && command -v afl-showmap \
+    && afl-cc --version \
+    && afl-cc --help
 
 FROM aflpp AS vmf
 
 # Clone, build, install VMF
-RUN set -ex \
+RUN set -eux \
     && cd /usr/local/src \
-    && git clone --depth 1 https://github.com/draperlaboratory/vadermodularfuzzer.git vmf\
+    && mkdir vmf \
+    && git clone --depth 1 https://github.com/draperlaboratory/vadermodularfuzzer.git vmf \
     && cd vmf \
     && mkdir -p build \
     && cd build \
     && cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. \
     && make -j \
     && make install \
-    && set +ex
+    && command -v vader

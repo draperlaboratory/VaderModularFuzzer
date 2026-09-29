@@ -29,3 +29,4 @@ CorpusMinimization:
 CorpusMinExecutor:
   sutArgv: *SUT_ARGV
   alwaysWriteTraceBits: true
+  writeStats: false # Needed to prevent un-wanted modification of COVERED TUPLES

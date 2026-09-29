@@ -1,17 +1,8 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2024 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
- *  
- * Effort sponsored by the U.S. Government under Other Transaction number
- * W9124P-19-9-0001 between AMTC and the Government. The U.S. Government
- * Is authorized to reproduce and distribute reprints for Governmental purposes
- * notwithstanding any copyright notation thereon.
- *  
- * The views and conclusions contained herein are those of the authors and
- * should not be interpreted as necessarily representing the official policies
- * or endorsements, either expressed or implied, of the U.S. Government.
- *  
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 (only) as 
  * published by the Free Software Foundation.
@@ -30,7 +21,9 @@
 #include "FridaExecutor.hpp"
 #include "../ModuleTestHelper.hpp"
 #include "Logging.hpp"
+#include "LogFileUtils.hpp"
 #include <filesystem>
+#include "Windows.h"
 
 
 using namespace vmf;
@@ -42,7 +35,7 @@ protected:
   FridaExecutorTest()
     {
         //This provides basic VMF logging, which is useful for debugging storage registration errors
-        Logging::initConsoleLog();
+        // Logging::initConsoleLog();
     }
 
     void SetUp() override {
@@ -52,23 +45,30 @@ protected:
         testHelper->addModule(executor);
 
         config = testHelper->getConfig();
+        config->setIntParam(config->VMF_FRAMEWORK_KEY, "logLevel", 0);
+        config->setBoolParam(executor->getModuleName(),"debugLog",true);
         storage = testHelper->getStorage();
+        
+        //This module requires the output directory parameter
+        config->setOutputDir(OUTPUT_DIR);
+        Logging::init(*config);
+        //Module is now fully initialized and ready for further testing
+        executorTestSetup = true;
     }
 
     void TearDown() override {
+        if (executorTestSetup)
+            Logging::shutdown();
+
         //The ModuleTestHelper destructor will also delete any added modules
         delete testHelper;
 
-        //Clear the output directory so there is a fresh one for each test
         std::filesystem::remove_all(OUTPUT_DIR);
     }
 
     //Module specific test setup
     void setupExecutorTest()
     {
-        //This module requires the output directory parameter
-        config->setOutputDir(OUTPUT_DIR);
-
         //Register for relevant storage handles that we need to read or write within the unit test
         //(the module's registerStorageNeeds method is called automatically by the ModuleTestHelper)
         StorageRegistry* registry = testHelper->getRegistry();
@@ -88,13 +88,14 @@ protected:
         }
         else {
             GTEST_COUT << "Cannot find build_artifacts\\haystack_libfuzzer.exe from " << std::filesystem::current_path();
-            GTEST_FAIL();
+            FAIL();
         }
         GTEST_COUT << "Testing with SUT: " << argv[0] << "\n";
 
         config->setStringVectorParam(executor->getModuleName(), "sutArgv",argv);
 
         config->dump();
+        GTEST_COUT << "\n";
         
         //Initialize everything using the ModuleTestHelper class
         try
@@ -107,7 +108,7 @@ protected:
         }
 
         config->dump();
-        //Module is now fully initialized and ready for further testing
+        GTEST_COUT << "\n";
     }
 
     std::string OUTPUT_DIR = "./unittest_output/";
@@ -124,12 +125,100 @@ protected:
     int hungTag;
     int hasNewCoverageTag;
     int testCaseKey;
+
+    // Flag for signaling with TearDown logic
+    bool executorTestSetup = false;
 };
 
 TEST_F(FridaExecutorTest, basicExecTest)
 {
     try{
-        config->setBoolParam(executor->getModuleName(),"debugLog",true);
+        setupExecutorTest();
+
+        /* Run two test batch's 10 times to stress restart (on crash+hang) */
+        for( auto i = 0; i < 10; i++ ) {
+            //Add a test case to storage (this should not crash)
+            char buff1[] = {'A'};
+            StorageEntry* entry1 = storage->createNewEntry();
+            entry1->allocateAndCopyBuffer(testCaseKey,1,buff1);
+
+            std::unique_ptr<Iterator> newEntries = storage->getNewEntries();
+
+            //Now ask the executor to run the test case
+            newEntries->resetIndex();
+            executor->runTestCases(*storage, newEntries);
+
+            //Check that it ran normally
+            ASSERT_TRUE(entry1->hasTag(normalTag));
+
+            //Clear the new test cases
+            GTEST_COUT << "Clearing new and local entries\n";
+            entry1 = nullptr;
+            storage->clearNewAndLocalEntries();
+
+            //Add a test case with slightly more coverage to storage (this should not crash)
+            char buff2[] = {'n','e'};
+            StorageEntry* entry2 = storage->createNewEntry();
+            entry2->allocateAndCopyBuffer(testCaseKey,2,buff2);
+
+            //Add a test case that should crash
+            char buff3[] = {'n','e','e','d','l','e'};
+            StorageEntry* entry3 = storage->createNewEntry();
+            entry3->allocateAndCopyBuffer(testCaseKey,6,buff3);
+
+            //Add a test case that should have no new coverage and follow crashing cases
+            char buff4[] = {'f','o'};
+            StorageEntry* entry4 = storage->createNewEntry();
+            entry4->allocateAndCopyBuffer(testCaseKey,2,buff4);
+
+            //Add a test case that should hang
+            char buff5[] = {'n','e','e','d','l','e','H'};
+            StorageEntry* entry5 = storage->createNewEntry();
+            entry5->allocateAndCopyBuffer(testCaseKey,7,buff5);
+
+
+            //Now ask the executor to run the test cases
+            std::unique_ptr<Iterator> newEntries2 = storage->getNewEntries();
+            executor->runTestCases(*storage, newEntries2);
+
+            //Check that they ran as expected
+            ASSERT_TRUE(entry2->hasTag(normalTag));
+            ASSERT_TRUE(entry3->hasTag(crashedTag));
+            ASSERT_TRUE(entry4->hasTag(normalTag));
+            ASSERT_TRUE(entry5->hasTag(hungTag));
+            //Check that they have new coverage
+            if ( i == 0 ) {
+                ASSERT_TRUE(entry2->hasTag(hasNewCoverageTag));
+                ASSERT_TRUE(entry3->hasTag(hasNewCoverageTag));
+                ASSERT_FALSE(entry4->hasTag(hasNewCoverageTag));
+                ASSERT_TRUE(entry5->hasTag(hasNewCoverageTag));
+            }
+
+            // Assert that no retries are performed for hung testcases
+            std::vector<fs::directory_entry> logs = LogFileUtil::getAllLogs(OUTPUT_DIR + "/logs");
+            bool confirmed_hangs_detected = false;
+            for (auto &l : logs)
+                confirmed_hangs_detected |= LogFileUtil::getProofOf(l.path().string(), R"(Retrying with back off on attempt \d+ for status 1)");
+            ASSERT_FALSE(confirmed_hangs_detected) << "Hang confirmations detected in the log";
+
+            
+            // Assert default timeout value is used
+            bool confirmed_custom_timeout = false;
+            for (auto &l : logs)
+                confirmed_custom_timeout |= LogFileUtil::getProofOf(l.path().string(), R"(Raw timeout count \d+ with duration 1000)");
+            ASSERT_TRUE(confirmed_custom_timeout) << "Default timeout not detected in the log";
+        }
+    }
+    catch(RuntimeException e)
+    {
+        FAIL() << "Exception thrown:" << e.getReason();
+    }
+}
+
+TEST_F(FridaExecutorTest, customTimeoutTest)
+{
+    try{
+        config->setIntParam(executor->getModuleName(),"timeoutInMs", 2000);
 
         setupExecutorTest();
 
@@ -191,13 +280,19 @@ TEST_F(FridaExecutorTest, basicExecTest)
                 ASSERT_FALSE(entry4->hasTag(hasNewCoverageTag));
                 ASSERT_TRUE(entry5->hasTag(hasNewCoverageTag));
             }
+
+            // Assert custom timeout value is used
+            std::vector<fs::directory_entry> logs = LogFileUtil::getAllLogs(OUTPUT_DIR + "/logs");
+            bool confirmed_custom_timeout = false;
+            for (auto &l : logs)
+                confirmed_custom_timeout |= LogFileUtil::getProofOf(l.path().string(), R"(Raw timeout count \d+ with duration 2000)");
+            ASSERT_TRUE(confirmed_custom_timeout) << "Custom timeout not detected in the log";
         }
     }
     catch(RuntimeException e)
     {
         FAIL() << "Exception thrown:" << e.getReason();
     }
-
 }
 
 TEST_F(FridaExecutorTest, livenessOnlyTest)
@@ -271,6 +366,24 @@ TEST_F(FridaExecutorTest, livenessOnlyTest)
     catch(RuntimeException e)
     {
         FAIL() << "Exception thrown:" << e.getReason();
+    }
+}
+
+TEST_F(FridaExecutorTest, livenessOnlyTestDoubleConfiguration)
+{
+    try{
+        config->setBoolParam(executor->getModuleName(),"debugLog",true);
+        config->setBoolParam(executor->getModuleName(),"ignoreTimeouts",true);
+        config->setBoolParam(executor->getModuleName(),"ignoreHangs",true);
+
+        testHelper->initializeModulesAndStorage();
+        FAIL() << "Did not throw expected exception";
+    }
+    catch (RuntimeException e)
+    {
+        GTEST_COUT << "Expected exception thrown: " << e.getReason() << std::endl;
+        ASSERT_EQ(e.getErrorCode(), RuntimeException::CONFIGURATION_ERROR);
+        ASSERT_STREQ(e.getReason().c_str(), std::string("Cannot specify both `ignoreHangs` and `ignoreTimeouts`").c_str());
     }
 }
 
@@ -364,5 +477,62 @@ TEST_F(FridaExecutorTest, coverageStability)
     {
         FAIL() << "Exception thrown:" << e.getReason();
     }
+}
 
+TEST_F(FridaExecutorTest, confirmHangs)
+{
+    try{
+        const int MAX_HANG_RETRIES = 5;
+        config->setBoolParam(executor->getModuleName(),"debugLog",true);
+        config->setIntParam(executor->getModuleName(),"confirmHangsCount",MAX_HANG_RETRIES);
+
+        setupExecutorTest();
+
+        /* Run two test batch's 10 times to stress restart (on crash+hang) */
+        for( auto i = 0; i < 1; i++ ) {
+            //Add a test case to storage (this should not crash)
+            char buff1[] = {'A'};
+            StorageEntry* entry1 = storage->createNewEntry();
+            entry1->allocateAndCopyBuffer(testCaseKey,1,buff1);
+
+            std::unique_ptr<Iterator> newEntries = storage->getNewEntries();
+
+            //Now ask the executor to run the test case
+            newEntries->resetIndex();
+            executor->runTestCases(*storage, newEntries);
+
+            //Check that it ran normally
+            ASSERT_TRUE(entry1->hasTag(normalTag));
+
+            //Clear the new test cases
+            GTEST_COUT << "Clearing new and local entries\n";
+            entry1 = nullptr;
+            storage->clearNewAndLocalEntries();
+
+            //Add a test case that should hang
+            char buff5[] = {'n','e','e','d','l','e','H'};
+            StorageEntry* entry5 = storage->createNewEntry();
+            entry5->allocateAndCopyBuffer(testCaseKey,7,buff5);
+
+
+            //Now ask the executor to run the test cases
+            std::unique_ptr<Iterator> newEntries2 = storage->getNewEntries();
+            executor->runTestCases(*storage, newEntries2);
+
+            //Check that they ran as expected
+            ASSERT_TRUE(entry5->hasTag(hungTag));
+            //Check that they have new coverage
+            ASSERT_TRUE(entry5->hasTag(hasNewCoverageTag));
+
+            std::vector<fs::directory_entry> logs = LogFileUtil::getAllLogs(OUTPUT_DIR + "/logs");
+            bool confirmed_hangs_detected = false;
+            for (auto &l : logs)
+                confirmed_hangs_detected |= LogFileUtil::getProofOf(l.path().string(), R"(Retrying with back off on attempt \d+ for status 1)");
+            ASSERT_TRUE(confirmed_hangs_detected) << "No hang confirmations detected in the log";
+        }
+    }
+    catch(RuntimeException e)
+    {
+        FAIL() << "Exception thrown:" << e.getReason();
+    }
 }

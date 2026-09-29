@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -99,8 +99,11 @@ void MOPTInputGenerator::registerStorageNeeds(StorageRegistry& registry)
 {
     normalTag = registry.registerTag("RAN_SUCCESSFULLY", StorageRegistry::READ_ONLY);
     moptMutatorIdKey = registry.registerIntKey("MOPT_MUTATOR_ID", StorageRegistry::READ_WRITE, -1);
-    mutatorIdKey = registry.registerIntKey("MUTATOR_ID", StorageRegistry::WRITE_ONLY, 1);
+    mutatorIdKey = registry.registerIntKey("MUTATOR_ID", StorageRegistry::WRITE_ONLY, -1);
     testCaseKey = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_WRITE);
+    testcaseParentIdKey = registry.registerUIntKey("PARENT_ID", StorageRegistry::WRITE_ONLY, 0);
+    generationKey = registry.registerUIntKey("GENERATION", StorageRegistry::WRITE_ONLY, 0);
+    numChildrenKey = registry.registerUIntKey("NUM_CHILDREN", StorageRegistry::READ_WRITE, 0);
 }
 
 
@@ -120,6 +123,9 @@ void MOPTInputGenerator::addNewTestCases(StorageModule& storage)
             mutator->mutateTestCase(storage, baseTestCase, newEntry, testCaseKey);
             newEntry->setValue(moptMutatorIdKey, pickedMutator + 1); //The id is simply the index into the mutators vector plus 1
             newEntry->setValue(mutatorIdKey, mutator->getID());
+            newEntry->setValue(testcaseParentIdKey, (unsigned int)baseTestCase->getID());
+            newEntry->setValue(generationKey, baseTestCase->getUIntValue(generationKey) + 1U);
+            baseTestCase->setValue(numChildrenKey, baseTestCase->getUIntValue(numChildrenKey) + 1U);
             mopt->updateExecCount(pickedMutator);
             testCasesRan++;
         }

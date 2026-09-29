@@ -1,7 +1,7 @@
 vmfClassSet:
   - &BIT_MUTATORS [AFLFlipBitMutator, AFLFlip2BitMutator, AFLFlip4BitMutator]
   - &BYTE_MUTATORS [AFLFlipByteMutator, AFLFlip2ByteMutator, AFLFlip4ByteMutator]
-  - &OTHER_AFL [AFLRandomByteMutator, AFLDeleteMutator, AFLCloneMutator, AFLSpliceMutator]
+  - &OTHER_AFL [AFLRandomByteMutator, AFLDeleteMutator, AFLCloneMutator, AFLSpliceMutator, AFLDWordAddSubMutator, AFLInteresting8Mutator, AFLInteresting16Mutator, AFLInteresting32Mutator, AFLOverwriteCopyMutator, AFLOverwriteFixedMutator, AFLWordAddSubMutator]
 
 basicStack: &basicStack
   children:

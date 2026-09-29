@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -40,6 +40,11 @@ VmfApplication::VmfApplication()
 {
     //These will be overwritten when config is read
     taskingSleepTime = std::chrono::milliseconds(0);
+
+    // Record the start time of the fuzzing campaign, all subsequent gets 
+    // will use the microsecond start time recorded from here to determine
+    // time into the fuzzing campaign
+    VmfUtil::setStartTime();
 }
 
 
@@ -331,7 +336,7 @@ void VmfApplication::loadAndInitModules()
     }
 
     //Check for seed specification
-    int seed = myConfig->getIntParam(myConfig->VMF_FRAMEWORK_KEY, "seed", 0);
+    int seed = myConfig->getUnsignedIntParam(myConfig->VMF_FRAMEWORK_KEY, "seed", 0);
     if (seed != 0)
     {
         LOG_INFO << "VMF using seeded RNG, seed = " << seed;
@@ -532,20 +537,24 @@ void VmfApplication::printUsage()
  */
 void VmfApplication::run()
 {
-    if(distributedMode)
-    {
-        runDistributed();
-    }
-    else
-    {
-        runStandalone();
-    }
+    try {
+        if(distributedMode)
+        {
+            runDistributed();
+        }
+        else
+        {
+            runStandalone();
+        }
 
-    LOG_INFO << "----SHUTTING DOWN VMF MODULES----";
-    myModuleManager.shutdownModules(*myStorage);
+        LOG_INFO << "----SHUTTING DOWN VMF MODULES----";
+        myModuleManager.shutdownModules(*myStorage);
 
-    LOG_INFO << "----VMF TERMINATED----";
-    Logging::shutdown();
+        LOG_INFO << "----VMF TERMINATED----";
+        Logging::shutdown();
+    } catch (...) {
+        LOG_INFO << "----VMF CRASHED----";
+    }
 }
 
 /**

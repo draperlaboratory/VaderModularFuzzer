@@ -18,11 +18,13 @@ This document provides more detailed documentation for the VMF Core Modules.
 * [LoggerMetadataOutput](#loggermetadataoutput)
 * [MOPT](#mopt)
 * [Liveness-Only Fuzzing](#liveness-only-fuzzing)
+* [Testcase Lineage Tracking](#testcase-lineage-tracking)
 * [RedPawn](#redpawn)
 * [StatsOutput](#statsoutput)
 * [Controller Modules](#controller-modules)
     + [AnalysisController](#analysiscontroller)
     + [IterativeController](#iterativecontroller)
+    + [BalancedController](#balancedcontroller)
     + [NewCoverageController](#newcoveragecontroller)
     + [RunOnceController](#runoncecontroller)
 * [Distributed Fuzzing Modules and Configuration Options](#distributed-fuzzing-modules-and-configuration-options)
@@ -75,6 +77,13 @@ The following core modules are provided along with VMF.  A brief summary of each
 |AFLDeleteMutator|Mutator|Creates new test cases by deleting a random chunk|
 |AFLCloneMutator|Mutator|Creates new test cases by copying a random chunk|
 |AFLSpliceMutator|Mutator|Creates new test cases by splicing two test cases together|
+|AFLDWordAddSubMutator|Mutator|Creates new test cases by adding and subtracting bounded random values from a random double|
+|AFLInteresting8Mutator|Mutator|Creates new test cases by seting a byte to an interesting value|
+|AFLInteresting16Mutator|Mutator|Creates new test cases by seting a word to an interesting value|
+|AFLInteresting32Mutator|Mutator|Creates new test cases by seting a dword to an interesting value|
+|AFLOverwriteCopyMutator|Mutator|Creates new test cases by overwriting bytes with another randomly selected chunk of bytes|
+|AFLOverwriteFixedMutator|Mutator|Creates new test cases by overwritting existing bytes with fixed bytes|
+|AFLWordAddSubMutator|Mutator|Creates new test cases by adding and subtracting bounded random values from a random word|
 |GramatronGenerateMutator|Mutator|Generates new test cases from the configured grammar|
 |GramatronRandomMutator|Mutator|Generates test cases by regenerating from the grammar starting at a random location|
 |GramatronRecursiveMutator|Mutator|Generates test cases by expanding recursive features in a test case|
@@ -179,6 +188,87 @@ AFLForkserverExecutor:
 ```
 ASAN significantly increases SUT memory usage. To accomodate this, enabling `useASAN` will disable the SUT process's memory limit (unless explicitly specified with `memoryLimitInMB`.
 
+## Sandboxing
+
+AFLForkserverExecutor supports execution of SUTs using sandboxing progams like [`firejail`](https://github.com/netblue30/firejail) or [`bubblewrap`](https://github.com/containers/bubblewrap).  For an explanation of some of the concerns of executing SUTs without some sort of protection of your host system, see the [Safety Considerations section of VMF's harnessing guide]  (../fuzz_harnessing.md#safety-considerations).  Details on how to use these features can be found [in the configuration documentation](./core_modules_configuration.md#aflforkserverexecutorsandboxer).  Some example configurations for sandboxing programs include the following:
+
+| Sandboxing Program (`sandboxer`) | Sample Configuration (`sandboxerArgs`) | Notes |
+|-|-|-|
+| `firejail` | `--private=<path to vmf_install> --keep-fd=all` |`--keep-fd` must be specified for `firejail` versions greater than `0.9.68` and not for versions less than or equal to `0.9.68`.  See [the firejail release notes](https://firejail.wordpress.com/download-2/release-notes/) for the update under `firejail 0.9.70` and for full sandboxing options consult the `firejail --help` documentation and the [`sandboxerArgs` in the sandboxed VMF example configuration](../../test/config/basicModules_sandboxed.yaml#L39).|
+| `bwrap` | `--ro-bind /bin /bin --ro-bind /usr /usr --ro-bind /lib /lib --ro-bind /lib64 /lib64 --ro-bind /etc /etc --dev /dev --proc /proc --tmpfs /tmp --tmpfs /run --tmpfs /tmp-bwrap --bind . /tmp-bwrap --chdir /tmp-bwrap` ||
+| `nsjail` | `-Mo -R /bin -R /lib -R /lib64 -R /usr -R /etc -R /bin -R /sys -T /home/user -B <path to>/vmf_install:/home/user/vmf_install --cwd /home/user/vmf_install --rlimit_as 10 --pass_fd 198 --pass_fd 199 --` |`AFLForkserverExecutor` resource limitation logic will interact with resource limitation done by `nsjail`, the number provided for `--rlimit_as` must be equal or lesser to the limit imposed by the `AFLForkserverExecutor`, the file descriptors used by `AFLForkserverExecutor` must also be explicitly passed to `nsjail` in order for the executor to maintain a connection to the SUT|
+
+Note that environment for the `AFLForkserverExecutor` may differ from your own shell requiring things like absolute path to the sandboxing binary (e.g. `/usr/bin/firejail` as opposed to `firejail`).
+
+
+## Hang determination and timeout calibration
+
+When executing a SUT, it is possible for the SUT to get into a state of constant execution without making meaningful progress in a task.  To account for this case an executor must also determine when this may be happening during the execution of a SUT.  VMF provides a mechanism for such "hang" determination via a configurable timeout application mechanism that limits the execution time of any given execution of the SUT and controls whether to retry and how to mark such timed-out executions.
+
+To illustrate this process, when a testcase is run against the SUT using the `AFLForkserverExecutor`, the following events happen:
+
+1. A timeout duration is selected
+1. The testcase is executed in a while loop using a timeout (`timeoutInMs`) value
+
+At this point 3 things could happen:
+
+1. If the testcase completes execution without crashing it is marked as `RAN_SUCCESSFULLY` and analyzed for fitness
+1. If the testcase crashes it is marked as `CRASHED` and analyzed for fitness
+1. If the testcase times out it is marked as `HUNG` and analyzed for fitness.  In this case the SUT may be retried with an expanded timeout value to determine if it is truly "hung".
+
+These are the default behaviors of the executor.  This process can be configured to change how hangs are determined and how timeouts are determined or calibrated.
+
+### Hang determination
+
+Hang determination is controlled by the following parameter:
+
+1. [confirmHangsCount](./core_modules_configuration.md#aflforkserverexecutorconfirmhangscount)
+
+When set, this will cause the executor to retry the testcase the specified number of times to determine if it is the hang persists at increased timeout values.  In each re-execution the timeout value will be expanded subject to the diagramed calculation below.  If the testcase still hangs it will be marked as `HUNG`.  THis configuration cannot be used in conjunction with [`ignoreTimeouts`](./core_modules_configuration.md#aflforkserverexecutorignoretimeouts), see [the configuration documentation](./core_modules_configuration.md#aflforkserverexecutorconfirmhangscount).  The relation of these configurations can be diagramed as such:
+
+![Hang Retry Decision Chart](../img/exec-hang-and-timeout-improvements-2.png)  
+
+### Timeout determination
+
+Timeout determination is controlled by the following parameter:
+
+1. [ignoreTimeouts](./core_modules_configuration.md#aflforkserverexecutorignoretimeouts)
+1. [timeoutInMs](./core_modules_configuration.md#aflforkserverexecutortimeoutinms)
+
+When the testcase is executed on the SUT, the timeout is determined by not receiving either a crashing or successfully exiting process after `timeoutInMs` milliseconds.  The default for this value is 1000 ms.  If the `ignoreTimeouts` configuration is true, the executor will not re-execute testcases that timeout and mark them as `INCOMPLETE`.  This configuration cannot be used in conjunction with [`confirmHangsCount`](./core_modules_configuration.md#aflforkserverexecutorconfirmhangscount).
+
+### Timeout calibration
+
+1. [useHeuristicTimeout](./core_modules_configuration.md#aflforkserverexecutoruseheuristictimeout)
+1. [maxCalibrationCases](./core_modules_configuration.md#aflforkserverexecutormaxcalibrationcases)
+
+The timeout value to be used for a testcase need not only be manually specified at start time but can be calculated using an average of observed runtimes using a known crash and hang free input corpus.  The relationship between these configurations and `ignoreTimeouts` can be visualized with the following decision chart:  
+
+![Hang Determination Decision Chart](../img/exec-hang-and-timeout-improvements.png)  
+
+Attempting to run calibration with no input corpus will result in an exception in VMF.
+
+# FridaExecutor
+
+The `FridaExecutor` allow for dynamic instrumentation of executables run in both windows and linux.  It's configuration parameters can be found [here](./core_modules_configuration.md#section-fridaexecutor)
+
+## Hang determination and timeout calibration
+
+Similar to the [`AFLForkserverExecutor`](#aflforkserverexecutor) the `FridaExecutor` supports configuration of timeout determination and hang confirmation.
+
+### Hang determination
+
+Similar to the [`AFLForkserverExecutor`](#hang-determination) the `FridaExecutor` supports configuration of hang confirmation with the following paramters:
+
+1. [confirmHangsCount](./core_modules_configuration.md#fridaexecutorconfirmhangs)
+
+### Timeout determination
+
+Similar to the [`AFLForkserverExecutor`](#timeout-determination) the `FridaExecutor` supports configuration of timeout determination with the following paramters:
+
+1. [ignoreTimeouts](./core_modules_configuration.md#fridaexecutorignoretimeouts)
+1. [timeoutInMs](./core_modules_configuration.md#fridaexecutortimeoutinms)
+
 # AFLFeedback and AFLFavoredFeedback 
 AFLFeedback and AFLFavoredFeedback supports adjusting the relative weights of the components used to compute the fitness of each test case.  Because test cases are sorted in storage by their fitness, and the Input Generators provided by VMF use a weighted random selection that favors more fit test cases, changing the fitness computation changes which test cases are selected for mutation.
 
@@ -228,6 +318,27 @@ The AFLCloneMutator clones a randomly selected portion of the input data, such t
 The AFLDeleteMutator removed a randomly selection portion of the input data.  This mutator can only work on input that are at least 2 bytes in length.  If it is called on shorter inputs, it will simply duplicate the input without mutation.
 
 The AFLSpliceMutator take the input test buffer, and splices in data from a second unrelated test case.  The size of the resulting test case buffer will match the size of the second unrelated test cases, but the buffer will start with bytes from the input test buffer and end with bytes from the second test case.
+
+## Interesting 8/16/32 Mutators
+
+Each of these mutators replaces a random byte with an "interesting" value.
+
+Interesting values contain one-off common buffer sizes(8-16-32 bit), signed overflow one-offs, large postive and negitive, and float infinite values.
+These values have been deemed "interesting" because they have been shown to produce strange behavior when included in testcases.
+
+See `AFLMuatorCommon.hpp` for defined values.
+
+## Overwrite Copy, and Fixed Mutators
+
+Each of these mutators overwrites a section of the input buffer.
+
+The AFLOverwriteFixedMuator overwrites a random length block with either a random byte or a pre-existing byte. Rather or not a random byte is used is choosen with a 50% chance for each case.
+
+The AFLOverwriteCopyMutator chooses a random length block to copy and insert into a random location of the input buffer.
+
+## Word and Dword AddSubtract Mutators
+
+Each of theses mutators adds and subtracts a random value (16-bit or 32-bit respectfully) from the same place in the input buffer.
 
 # Dictionary Mutator
 The DictionaryMutator reads in a list of strings defined by either the user or generated by the DictionaryInitialization module that are deemed "pertinent" to the fuzzer.  During test case mutation time a random string is pulled from the list and inserted in a random location within the test case to produce a new test case.  This testcase will be larger than the base test case.  The user provided list of strings is expected to conform to the following format:
@@ -432,15 +543,26 @@ MOPTInputGenerator:
   pilotPeriodLength: 50000   # Number of testcases executed during pilot phase
   corePeriodLength:  500000  # Number of testcases executed during core period
   pMin: 0                    # Minimum mutator probability (0 means ignore and use adaptive value)
-  ```
+```
 
 # Liveness-Only Fuzzing
-The option to ignore test cases that produce hangs in the system under test is provided under all executors with the boolean option `ignoreHangs`.  Setting it to true will cause all test cases that do hang to be marked as hung, be tagged with metadata that they are an ignored hanging test case using the `INCOMPLETE` tag, and their coverage additions are not added to the coverage map.  If it is provided with a specified timeout value the presence of a timeout value will be assumed to override it, in otherwords setting `ignoreHangs` to `false`.
+The option to ignore test cases that produce hangs in the system under test is provided under all executors with the boolean option `ignoreTimeouts`.  Setting it to true will cause all test cases that do hang to be marked as hung, be tagged with metadata that they are an ignored hanging test case using the `INCOMPLETE` tag, and their coverage additions are not added to the coverage map.
+
+# Testcase Lineage Tracking
+
+All input generators (`MOPT`, `GeneticAlgorithmInputGenerator`, and `Red-Pawn`) support tracking of testcase lineage.  This information is stored inside the storage module during the fuzzing run and [can be partially output](./core_modules_configuration.md#savecorpusoutputrecordtestmetadata) by the `SaveCorpusOutput` output module.  It tracks the following 3 items:
+
+* Reference to the parent testcase
+* The "generation" (or distance from initial seed testcase)
+* The number of immediate children that have been produced from a given testcase
+  * This field is not output by `SaveCorpusOutput` due to time-dependent nature of this value
+
+This information can be used to construct family trees of testcase IDs.  If used with `CorpusMinimization`, nodes in the family tree may be deleted in favor of more "fit" testcases over the course of fuzzing.
 
 # RedPawn
 RedPawn is an input-to-state (I2S) analysis tool comparable to [RedQueen](https://www.ndss-symposium.org/wp-content/uploads/2019/02/ndss2019_04A-2_Aschermann_paper.pdf). Input-to-State analysis provides a lightweight alternative to full-blown taint tracking for overcoming common fuzzing bottlenecks such as "magic bytes", where there is a single correct value that random bitflip mutations are exceedingly unlikely to guess. RedPawn is able to extract or solve for the required value by inspecting comparison log data from the SUT, thus overcoming these limitations and achieving higher coverage. RedPawn is implemented as an InputGenerator module, the RedPawnInputGenerator.
 
-**Note: RedPawn is compatible with AFL++ v4.30c instrumentation. It is not compatible with prior instrumentation versions.**
+**Note: RedPawn is compatible with AFL++ v4.30c-v5.00c instrumentation. It is not compatible with prior instrumentation versions.**
 
 ### Requirements and usage
 RedPawn uses [AFL++'s CmpLog instrumentation](https://github.com/AFLplusplus/AFLplusplus/blob/stable/instrumentation/README.cmplog.md), which when added to the SUT causes a log of compare operations that take place to be sent to RedPawn for analysis. The use of RedPawn requires compiling two versions of the SUT: one built with normal AFL instrumentation, and a second with the CmpLog instrumentation (requires setting `AFL_LLVM_CMPLOG` at compile time, see CmpLog documentation).
@@ -565,6 +687,17 @@ In addition to the distributed fuzzing configuration options, this controller su
 IterativeController:
   runTimeInMinutes: 60 #This would configure the fuzzer to run for an hour
 ```
+## BalancedController
+The BalancedController is similar to the IterativeController, except that it can be configured with any number of InputGenerator modules. It balances their usage on each cycle of the controller, enabling multiple testcase generation strategies to be blended and deployed simultaneously.
+
+It can be set to one of three balancing metrics ("time", "uses" or "testcasesGenerated") which it uses to pick the next InputGenerator module to use. When set to "time", the BalancedController will equalize the amount of time spent both generating and executing testcases from each InputGenerator. When set to "uses", it will invoke each InputGenerator the same number of times. When set to "testcasesGenerated" it will attempt to equalize the amount of total testcases generated from each InputGenerator.
+
+```yaml
+BalancedController:
+  balanceMetric: time # Spend the same amount of time using each InputGenerator
+```
+
+Note: "time" is the recommended and default balancing metric for most use cases. Some InputGenerators may be either (1) very slow or (2) not always produce any new testcases (eg RedPawn), which can make balancing over either uses or testcasesGenerated highly skewed to one InputGenerator.
 
 ## NewCoverageController
 The NewCoverageController is similar to the IterativeController, except that it supports two InputGenerator modules.  This controller will temporarily toggle to an alternative input generator every time there is are new, interesting test cases saved in storage (typically this occurs due to new coverage, though the exact decision is made in the feedback module).  The examineTestCaseResults() method is called on both input generators during each pass through the fuzzing loop, but the addNewTestCases() method is called on only the active input generator.
