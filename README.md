@@ -14,9 +14,10 @@ See [migration.md](docs/migration.md) for a list of the API changes in the lates
 
 ## VMF Compatibility
 
-As of now, VMF can be run in Docker and on the following distributions of Linux:
+As of now, VMF can be run in Docker and on the following distributions of Linux and BSD:
 
 - CentOS 8 and 9
+- FreeBSD 15.0 and 15.1
 - Kali
 - Oracle Linux 8 and 9
 - RedHat 8 and 9
@@ -115,6 +116,26 @@ cmake --build . --target INSTALL --config Release
 You may alternatively open the VMF.sln file that has been generated in the build directory and build the INSTALL  target in the GUI.
 
 More information on the build system is available in our [Build System Documentation](docs/build_system.md).
+
+### Building VMF (FreeBSD)
+
+Install dependencies for the build with `pkg install curl cmake gmake`. 
+
+When building and installing AFL++, support for FreeBSD has been merged into the official repository. The most recent tested commit is e33e7cd4f4b1da9cc76c19b7766deea790a2c5ee.
+
+Execute the following commands to build and install VMF. Note the use of the `gmake` command instead of `make`, the BSD make is incompatible and the GNU make must be used.
+
+*Note: The -DCMAKE_INSTALL_PREFIX may be used to optionally specify an install location other than the default (build/vmf_install).*
+
+```bash
+# from /path/to/vmf/ directory:
+mkdir build
+cd build
+cmake ..
+#Or optionally use this version instead to specify an install path
+#cmake -DCMAKE_INSTALL_PREFIX=<your install path here> ..
+gmake install -j8
+```
 
 ### Running VMF
 VMF can be run in a standalone mode, with a single fuzzing instance, as well as in a distributed mode where multiple VMF instances work together to fuzz something.

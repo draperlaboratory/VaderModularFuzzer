@@ -132,7 +132,12 @@ void AFLForkserverExecutor::init(ConfigInterface& config) {
     parseSUTDebugInfo();
     validateVersionCompatibility();
 
+    #ifndef __FreeBSD__
     bool useCoreDumpCheck = config.getBoolParam(getModuleName(),"enableCoreDumpCheck", true);
+    #else //FreeBSD
+    /* /proc/sys/kernel/core_pattern does not exist on FreeBSD, cannot verify core pattern. */
+    bool useCoreDumpCheck = config.getBoolParam(getModuleName(),"enableCoreDumpCheck", false);
+    #endif
     if(useCoreDumpCheck)
     {
         verifyCorePattern();
@@ -170,6 +175,10 @@ bool AFLForkserverExecutor::verifyCorePattern(void) {
     /* Check that the core dump pattern does not begin with a pipe.
        This causes crashes to be sent to an external utility, which is very slow
        and causes VMF to misinterpret them as timeouts. As such, this is a fatal error. */
+    ///proc/sys/kernel/core_pattern does not exist on FreeBSD.
+    #ifdef __FreeBSD__
+    throw RuntimeException("/proc/sys/kernel/core_pattern does not exist on FreeBSD, cannot verify core pattern.", RuntimeException::CONFIGURATION_ERROR);
+    #endif
     int corepattern_fd = open("/proc/sys/kernel/core_pattern", O_RDONLY);
 
     if (corepattern_fd < 0)
@@ -182,7 +191,7 @@ bool AFLForkserverExecutor::verifyCorePattern(void) {
                                "to be misinterpreted as timeouts.\nTo fix, please log in as root "
                                "and run the following command: \n"
                                "    echo core >/proc/sys/kernel/core_pattern",
-                               RuntimeException::UNEXPECTED_ERROR);
+                               RuntimeException::CONFIGURATION_ERROR);
     return true;
 }
 
@@ -1429,10 +1438,18 @@ void AFLForkserverExecutor::setResourceLimits(void) {
      * values as high as our default constants for pipes */
     long unsigned max_fd = std::max({CTRL_PIPE_RD, CTRL_PIPE_WR, STAT_PIPE_RD, STAT_PIPE_WR});
     getrlimit(RLIMIT_NOFILE, &r);
+    #ifdef __FreeBSD__
+    /* freebsd r.rlim_cur is signed long, and clang cares about unsigned vs signed comparison */
+    if (static_cast<unsigned long>(r.rlim_cur) < max_fd + 1) {
+        r.rlim_cur = max_fd + 2;
+        setrlimit(RLIMIT_NOFILE, &r);
+    }
+    #else
     if (r.rlim_cur < max_fd + 1) {
         r.rlim_cur = max_fd + 2;
         setrlimit(RLIMIT_NOFILE, &r);
     }
+    #endif
 
     /* Memory Limit */
     if (sut_mem_limit > 0) {

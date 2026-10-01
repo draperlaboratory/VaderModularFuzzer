@@ -130,7 +130,7 @@ class OSAPI
          * @param handler this is the pointer to a function that will be run when an interrupt signal is received by
          * VMF.
          */
-	virtual void setSignalHandlers(sighandler_t handler) = 0;
+	virtual void setSignalHandlers(__sighandler_t handler) = 0;
 #endif
 
         virtual ~OSAPI() {};
