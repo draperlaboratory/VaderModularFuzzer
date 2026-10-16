@@ -567,6 +567,12 @@ std::vector<Module*> ConfigManager::getSubModules(std::string parentModuleName)
     return list;
 }
 
+//see ConfigInterface::getSuperModule
+Module* ConfigManager::getSuperModule(std::string childName)
+{
+    return moduleManager->getRootModule();
+}
+
 //see ConfigInterface::isParam
 bool ConfigManager::isParam(std::string moduleName, std::string paramName)
 {

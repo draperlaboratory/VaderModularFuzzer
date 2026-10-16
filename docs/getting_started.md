@@ -162,3 +162,60 @@ This is entirely equivalent to having put this in basicModules.yaml instead (the
 AFLForkserverExecutor:
   sutArgv: ["test/haystackSUT/haystack"]
 ```
+
+## Example Differential Fuzzing VMF Configuration 
+VMF's configuration-driven paradigm has driven new advancements in fuzzing capabilities. The following modules must be included to enable differential fuzzing of two Systems Under Test (SUTs):
+
+```yaml
+vmfVariables: # ... no changes ...
+
+vmfFramework: # ... no changes ...
+
+vmfModules:
+  storage: # SimpleStorage MUST be specified 
+    className: SimpleStorage
+  controller: 
+    # DifferentialController MUST specify AT LEAST TWO AFLForkserverExecutor modules
+    className: DifferentialController
+    children:
+        # Each AFLForkserverExecutor MUST have a unique id
+      - id: knownGoodSutA
+        className: AFLForkserverExecutor
+      - id: unknownSutB
+        className: AFLForkserverExecutor
+        # DiffInputGenerator MUST specify their children
+      - className: DiffInputGenerator
+        # AFLDiffFeedback MUST specify module-specific params
+      - className: AFLDiffFeedback
+        # ComputeDiffStats MAY specify statsRateInSeconds (default is 1)
+      - className: ComputeDiffStats
+        statsRateInSeconds: 2
+        # StatsDiffOutput MAY specify outputRateInSeconds (default is 5)
+      - className: StatsDiffOutput
+        outputRateInSeconds: 10
+
+  # DiffInputGenerator MUST have one or more Mutator module children
+  DiffInputGenerator:
+    children:
+      - className: # ex: AFLRandomByteMutator
+      - # ... 
+      
+### Module-specific parameters ###
+
+# Each AFLForkserverExecutor MUST specify their command-line arguments
+sutA:
+  sutArgv: # ...
+sutB:
+  sutArgv: # ...
+
+# AFLDiffFeedback MUST specify the ID of ONE trusted SUT, as a reference for the system
+AFLDiffFeedback:
+  systemOfTruth: # ...
+  # The module MAY specify custom fitness weights to favor different test attributes. 
+  # NOTE: not specifying customWeights will weigh feedback with regards to the SUT's 
+  #   average statistics over the campaign
+  useCustomWeights: # default is false
+  diffWeight: # default is 10.0
+  sizeWeight: # default is 1.0
+  speedWeight: # default is 5.0
+```

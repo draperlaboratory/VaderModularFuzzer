@@ -52,6 +52,15 @@ public:
      * @param entries 
      */
     virtual void evaluateTestCaseResults(StorageModule& storage, std::unique_ptr<Iterator>& entries) = 0;
+
+    /**
+     * @brief Evaluate test case results of a differential fuzzing campaign
+     * The method is nearly identical to a regular evaluateTestCaseResults, except on N entries at once.
+     *
+     * @param storage
+     * @param entries - vector of list<Entries> instead of an Iterator, one per executor in differential campaign 
+     */
+    virtual void evaluateDiffTestCaseResults(StorageModule& storage, std::vector<std::unique_ptr<Iterator>>& entries) = 0;
     virtual ~FeedbackModule() {};
     
       /**
@@ -93,7 +102,7 @@ public:
      * @brief Helper method to return a single Feedback submodule from config by name
      * This method will retrieve a single Feedback submodule by name for the specified parent modules.
      * If there are no Feedback submodules with the specified name, then an nullptr will be returned.  
-     * 
+     *
      * @param config the ConfigInterface object
      * @param parentName the name of the parent module
      * @param childName the name of the child module to finde
@@ -129,7 +138,7 @@ public:
      * @brief Helper method to get the Feedback Submodules from config
      * This method will retrieve all of the Feedback submodules for the specified parent modules.
      * If there are no Feedback submodules, then an empty list will be returned.
-     * 
+     *
      * @param config the ConfigInterface object
      * @param parentName the name of the parent module
      * @return std::vector<FeedbackModule*> the list of submodules

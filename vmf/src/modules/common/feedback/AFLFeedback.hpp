@@ -39,7 +39,13 @@ public:
     virtual void init(ConfigInterface& config);
 
     virtual void registerStorageNeeds(StorageRegistry& registry);
-    virtual void evaluateTestCaseResults(StorageModule& storage, std::unique_ptr<Iterator>& entries); 
+    virtual void evaluateTestCaseResults(StorageModule& storage, std::unique_ptr<Iterator>& entries);
+
+    /**
+     * @warning This function does nothing.
+     * AFLFeedback does not support fitness feedback on Differential testcases / executors
+     */
+    virtual void evaluateDiffTestCaseResults(StorageModule& storage, std::vector<std::unique_ptr<Iterator>>& entries);
 
     /**
      * @brief Construct a new AFLFeedback object
