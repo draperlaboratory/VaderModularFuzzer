@@ -51,6 +51,7 @@ set(TEST_SRCS
   StorageModuleTest.cpp
   StorageModuleTestFloat.cpp
   AFLMutatorTest.cpp
+  GramatronMutatorTest.cpp
   GAInputGenTest.cpp
   MOPTInputGeneratorTest.cpp
   DictionaryMutatorTest.cpp
@@ -83,6 +84,8 @@ else()
 endif()
 
 add_executable(VmfTest ${TEST_SRCS})
+target_compile_definitions(VmfTest PRIVATE
+  GRAMATRON_TEST_PDA="${CMAKE_CURRENT_SOURCE_DIR}/inputs/gramatron.json")
 
 set_target_properties(VmfTest PROPERTIES LINKER_LANGUAGE CXX)
 
