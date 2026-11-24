@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -38,6 +38,7 @@
  *  a lot of features that AFL++ already provides.
  */
 #include "AFLDeleteMutator.hpp"
+#include "AFLMutatorCommon.hpp"
 #include "RuntimeException.hpp"
 #include "VmfUtil.hpp"
 #include <algorithm>
@@ -120,7 +121,7 @@ void AFLDeleteMutator::mutateTestCase(StorageModule& storage, StorageEntry* base
         return;  //This is the libAFL implementation
     }
 
-    int del_len = choose_block_len(*rand, size - 1);
+    int del_len = vmf::choose_block_len(*rand, size - 1);
     int del_from = rand->randBelow(size - del_len + 1);
 
     int newSize = size - del_len;
@@ -130,39 +131,3 @@ void AFLDeleteMutator::mutateTestCase(StorageModule& storage, StorageEntry* base
     memcpy(newBuff + del_from, buffer + del_from + del_len, newSize - del_from);
 }
 
-
-/**
- * @brief Helper method to select a random block length
- * 
- * @param rand 
- * @param limit 
- * @return size_t 
- */
-int AFLDeleteMutator::choose_block_len(VmfRand& rand, size_t limit) {
-
-    int min_value, max_value;
-    switch (rand.randBelow(3)) {
-
-    case 0:
-        min_value = 1;
-        max_value = BLK_SMALL;
-        break;
-    case 1:
-        min_value = BLK_SMALL;
-        max_value = BLK_MEDIUM;
-        break;
-    default:
-        if (rand.randBelow(10)) {
-            min_value = BLK_MEDIUM;
-            max_value = BLK_LARGE;
-        } else {
-            min_value = BLK_LARGE;
-            max_value = BLK_XL;
-        }
-    }
-
-    if (min_value >= (int)limit) { min_value = 1; }
-
-    return rand.randBetween(min_value, std::min(max_value, (int)limit));
-
-}

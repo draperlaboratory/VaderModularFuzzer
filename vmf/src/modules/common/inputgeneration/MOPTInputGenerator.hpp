@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -59,6 +59,12 @@ private:
     int mutatorIdKey;
     int normalTag;
     int testCaseKey;
+    
+    int testcaseParentIdKey = 0;
+    int generationKey = 0;
+    int numChildrenKey = 0;
+
+
 
     std::vector<MutatorModule*> mutators; ///< The list of mutators being managed by this input generator
 

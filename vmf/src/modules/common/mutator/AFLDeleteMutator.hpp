@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -59,10 +59,6 @@ namespace vmf
  *  a lot of features that AFL++ already provides.
  */
 
-#define BLK_SMALL 32
-#define BLK_MEDIUM 128
-#define BLK_LARGE 1500
-#define BLK_XL 32768
 
 /**
  * @brief This mutator deletes a random chunk from the test case buffer
@@ -107,8 +103,6 @@ public:
     virtual ~AFLDeleteMutator();
     virtual void registerStorageNeeds(StorageRegistry& registry);
     virtual void mutateTestCase(StorageModule& storage, StorageEntry* baseEntry, StorageEntry* newEntry, int testCaseKey);
-
-    static int choose_block_len(VmfRand &rand, size_t limit);
     
 private:
     VmfRand* rand;

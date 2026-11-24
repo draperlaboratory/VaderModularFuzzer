@@ -1,6 +1,6 @@
 # =============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+# Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
 # <vmf@draper.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -141,7 +141,7 @@ def gen_function( name, buffer, fixups, ids ) :
 # generating bound ASM fragment instances.
 func_template = """/* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify

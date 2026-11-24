@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -26,6 +26,8 @@
 using namespace vmf;
 
 bool Logging::initialized = false;
+
+static plog::RollingFileAppender<plog::CsvFormatter> *fileAppender; //10MB file size
 
 /**
  * @brief Initialize console logging only
@@ -66,8 +68,8 @@ void Logging::init(ConfigInterface& config)
     plog::get()->setMaxSeverity(logLevel);
 
     //Add the file appender
-    static plog::RollingFileAppender<plog::CsvFormatter> fileAppender(logFile.c_str(), 10048576, 100); //10MB file size
-    plog::get()->addAppender(&fileAppender);
+    fileAppender = new plog::RollingFileAppender<plog::CsvFormatter>(logFile.c_str(), 10048576, 100);
+    plog::get()->addAppender(fileAppender);
 }
 
 /**
@@ -108,5 +110,6 @@ plog::Severity Logging::convertToLogLevel(int level)
  */
 void Logging::shutdown()
 {
+    fileAppender->setFileName(""); // calls .close() on the underlying file pointer
 }
 

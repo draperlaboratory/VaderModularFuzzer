@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -22,6 +22,7 @@
 #include <string.h>
 #include <limits.h> //for PATH_MAX
 #include <algorithm>
+#include "yaml-cpp/yaml.h" //for emitting YAML for metadata
 
 
 using namespace vmf;
@@ -67,6 +68,7 @@ void SaveCorpusOutput::init(ConfigInterface& config)
 
     //Unique is always created
     fdirUnique = fdir + "/unique";
+    LOG_INFO << "Creating output directory: " << fdirUnique;
     VmfUtil::createDirectory(fdirUnique.c_str());
 
     //Output mutator IDs used to generate each test case
@@ -113,6 +115,12 @@ void SaveCorpusOutput::registerStorageNeeds(StorageRegistry& registry)
     }
     testCaseKey = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_ONLY);
     mutatorIdKey = registry.registerKey("MUTATOR_ID", StorageRegistry::INT, StorageRegistry::READ_ONLY);
+    testcaseParentIdKey = registry.registerKey("PARENT_ID", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+    generationKey = registry.registerKey("GENERATION", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+    numChildrenKey = registry.registerKey("NUM_CHILDREN", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+    timestampKey = registry.registerKey("EXEC_TIMESTAMP_US", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+    execTimeKey = registry.registerKey("EXEC_TIME_US", StorageRegistry::UINT, StorageRegistry::READ_ONLY);
+
 }
 
 /**
@@ -168,18 +176,37 @@ void SaveCorpusOutput::outputTestCase(StorageEntry* entry, std::string dir)
 
     // Output test case metadata
     /* Create a separate file for test case metadata */
-    if (recordTestMetadata) {
-        std::string metadata = "";
-        filename = std::to_string(id) + "_metadata";
-
-        /* Get mutator information */
-        int mutator_id = entry->getIntValue(mutatorIdKey);
-        metadata += "Mutator: " + config->getModuleName(mutator_id) + "\n";
-
-        VmfUtil::writeBufferToFile(dir, filename, metadata.c_str(), metadata.size());
+    if (recordTestMetadata) {        
+        outputMetadata(filename, id, entry, dir);
     }
-
-
 }
 
+void SaveCorpusOutput::outputMetadata(std::string filename, unsigned long id, vmf::StorageEntry *entry, std::string &dir)
+{
+    YAML::Emitter out;
+    out << YAML::BeginMap;
+    filename += "_metadata";
+
+    /* Get mutator information */
+    int mutatorId = entry->getIntValue(mutatorIdKey);
+    if (mutatorId == -1)
+        out << YAML::Key << "mutator" << YAML::Value << "<NULL>";
+    else
+        out << YAML::Key << "mutator" << YAML::Value << config->getModuleName(mutatorId);
+    
+    /* Get test case parent information */
+    out << YAML::Key << "parent" << YAML::Value << entry->getUIntValue(testcaseParentIdKey);
+
+    /* Get test case generation information */
+    out << YAML::Key << "generation" << YAML::Value << entry->getUIntValue(generationKey);
+
+    
+    /* Get test case generation information */
+    out << YAML::Key << "timestamp" << YAML::Value << entry->getUIntValue(timestampKey);
+
+    out << YAML::Key << "exec_time" << YAML::Value << entry->getUIntValue(execTimeKey);
+ 
+    out << YAML::EndMap;
+    VmfUtil::writeBufferToFile(dir, filename, out.c_str(), out.size());
+}
 

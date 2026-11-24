@@ -2,15 +2,27 @@
 
 **For the purposes of getting started, the most important component is the "fuzz harness." All other components have sane defaults for the most common fuzzing paradigms.**
 
+
 ## Harnessing a System Under Test (SUT)
 
-Simplistically, the "fuzzing software" (e.g. VMF) provides test cases.  The "fuzz harness" must provide a way to run the SUT, a way to feed it test cases, and a way to retrieve the test results for analysis by the fuzzing software.  
+Simplistically, the "fuzzing software" (e.g. VMF) provides test cases.  The "fuzz harness" must provide a way to run the SUT, a way to feed it test cases, ideally a way to protect the host system from potentially harmful side-effects of the SUT, and a way to retrieve the test results for analysis by the fuzzing software.  
 
 The "fuzz harness" is responsible for:
 
 - managing the lifecycle of the SUT (e.g. starting and resetting for each new testcases)
 - inputting test cases from the fuzzing software into the SUT
 - returning data from the SUT to the fuzzing software (e.g. code coverage, exit status, ...)
+
+
+## Safety Considerations
+
+When fuzzing a SUT, the behavior of the SUT may cause unintended side effects to the host the fuzzing run is executed on. These side effects could include creating or deleting files outside of the intended working directory, changing file permissions, exhausting available memory, creating large numbers of concurrently open files or many others. As such, consideration should be taken to protect the host system from misbehaving programs.  
+
+One method of protecting the system is running fuzzing jobs from a separate user account that is created just for this purpose. Such an account can be given access to only its own home directory and have limited resources. This method has the advantage of incurring no overhead cost but may require managing multiple user accounts. Alternatively, the `AFLForkserverExecutor` [provides a mechanism](./coremodules/core_modules_configuration.md#aflforkserverexecutorsandboxer) for using a user provided sandboxing tool like [`firejail`](https://github.com/netblue30/firejail) to restrict the permissions of the SUT process. Firejail operates at the kernel level and incurs very little overhead cost. Lastly, one can execute VMF inside a minimally mapped container runtime like `gVisor` or Docker (e.g. `docker run -it --rm -v /path/to/vmf_install:/vmf_install ...`).  
+
+All methods should be considered with respect to efficiency of the fuzzing loop in order to provide maximal performance while providing the necessary protections of the host.
+
+## Examples of fuzzing harnesses
 
 An interesting aspect of common fuzz harness implementations that often confuses the meaning of a "fuzz harness" is that the fuzz harness may be either external to the SUT or compiled into the SUT itself.
 

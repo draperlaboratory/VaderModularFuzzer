@@ -1,6 +1,6 @@
 rem =============================================================================
 rem Vader Modular Fuzzer (VMF)
-rem Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+rem Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
 rem <vmf@draper.com>
 rem
 rem This program is free software: you can redistribute it and/or modify

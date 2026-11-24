@@ -1,13 +1,23 @@
-//! @cond Doxygen_Suppress
-#pragma once
-#include <cstdint>
-#include <cstring>
-#include <array>
-#include <type_traits>
-#include <vector>
-#include <string>
-
-/*
+/* =============================================================================
+ * Vader Modular Fuzzer (VMF)
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
+ * <vmf@draper.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 (only) as 
+ * published by the Free Software Foundation.
+ *  
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *  
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *  
+ * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
+ * ===========================================================================*/
+/* *************
 xxHash - Extremely Fast Hash algorithm
 Header File
 Copyright (C) 2012-2024, Yann Collet.
@@ -38,7 +48,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 You can contact the author at :
 - xxHash source repository : https://github.com/Cyan4973/xxHash
 - xxHash C++ port repository : https://github.com/RedSpah/xxhash_cpp
-*/
+ * ************/
+//! @cond Doxygen_Suppress
+#pragma once
+#include <cstdint>
+#include <cstring>
+#include <array>
+#include <type_traits>
+#include <vector>
+#include <string>
+
 
 /* Intrinsics
 * Sadly has to be included in the global namespace or literally everything breaks

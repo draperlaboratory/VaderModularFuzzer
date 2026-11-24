@@ -1,6 +1,6 @@
 #===============================================================================
 # Vader Modular Fuzzer (VMF)
-# Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+# Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
 # <vmf@draper.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -73,9 +73,12 @@ endif()
 
 set(Framework_PRIVATE_LINKLIST )
 
-#getopt is not included automatically on windows
 if(WIN32)
+  #getopt is not included automatically on windows
   list(APPEND Framework_PRIVATE_LINKLIST getopt)
+else()
+  #OSAPIImp: Uses dlopen/dlclose/dlerror to dynamically load VMF modules at runtime. The POSIX libdl library was separate until glibc 2.34 merged it into libc, so explicit -ldl is required on older glibc versions and is harmless on newer ones. This work around is to support u20, centos8, oracle8, and rhel8 distributions.
+  list(APPEND Framework_PRIVATE_LINKLIST ${CMAKE_DL_LIBS})
 endif()
 
 target_link_libraries(VMFFramework

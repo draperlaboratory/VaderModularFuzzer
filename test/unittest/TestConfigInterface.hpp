@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -63,6 +63,8 @@ public:
     virtual int getIntParam(std::string moduleName, std::string paramName, int defaultValue);
     virtual std::vector<int> getIntVectorParam(std::string moduleName, std::string paramName);
     virtual std::vector<int> getIntVectorParam(std::string moduleName, std::string paramName, std::vector<int> defaultValue);
+    virtual unsigned getUnsignedIntParam(std::string moduleName, std::string paramName);
+    virtual unsigned getUnsignedIntParam(std::string moduleName, std::string paramName, unsigned defaultValue);
     virtual float getFloatParam(std::string moduleName, std::string paramName);
     virtual float getFloatParam(std::string moduleName, std::string paramName, float defaultValue);
     virtual std::vector<float> getFloatVectorParam(std::string moduleName, std::string paramName);

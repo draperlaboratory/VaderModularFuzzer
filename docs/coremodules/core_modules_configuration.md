@@ -21,6 +21,7 @@ Input Generator and Mutator modules
 
 Executor and Feedback modules
 * [`AFLForkserverExecutor`](#section-aflforkserverexecutor)
+* [`FridaExecutor`](#section-fridaexecutor)
 * [`AFLFeedback`](#section-aflfeedback)
 * [`AFLFavoredFeedback`](#section-aflfavoredfeedback)
 
@@ -37,12 +38,16 @@ Output modules
 Controller modules
 * [`Parameters Common to All Controller Modules`](#section-parameters-common-to-all-controller-modules)
 * [`AnalysisController`](#section-analysiscontroller)
+* [`BalancedController`](#section-balancedcontroller)
 * [`IterativeController`](#section-iterativecontroller)
 * [`NewCoverageController`](#section-newcoveragecontroller)
 * [`RunOnceController`](#section-runoncecontroller)
 
+
 Mutator modules
 * [`DictionaryMutator`](#section-dictionarymutator)
+* [`StackedMutator`](#section-stackedmutator)
+<!-- * [`AFLMutator`](#section-aflmutator) -->
 * [`AFLCloneMutator`](#section-aflclonemutator)
 * [`AFLDeleteMutator`](#section-afldeletemutator)
 * [`AFLFlipBitMutator`](#section-aflflipbitmutator)
@@ -54,12 +59,19 @@ Mutator modules
 * [`AFLRandomByteAddSubMutator`](#section-aflrandombyteaddsubmutator)
 * [`AFLRandomByteMutator`](#section-aflrandombytemutator)
 * [`AFLSpliceMutator`](#section-aflsplicemutator)
+* [`AFLDWordAddSubMutator`](#section-afldwordaddsubmutator)
+* [`AFLInteresting8Mutator`](#section-aflinteresting8mutator)
+* [`AFLInteresting16Mutator`](#section-aflinteresting16mutator)
+* [`AFLInteresting32Mutator`](#section-aflinteresting32mutator)
+* [`AFLOverwriteCopyMutator`](#section-afloverwritecopymutator)
+* [`AFLOverwriteFixedMutator`](#section-afloverwritefixedmutator)
+* [`AFLWordAddSubMutator`](#section-aflwordaddsubmutator)
 <!-- * [`GramatronMutator`](#section-grammatronmutator) -->
 * [`GramatronGenerateMutator`](#section-gramatrongeneratemutator)
 * [`GramatronRandomMutator`](#section-gramatronrandommutator)
 * [`GramatronRecursiveMutator`](#section-gramatronrecursivemutator)
 * [`GramatronSpliceMutator`](#section-gramatronsplicemutator)
-* [`StackedMutator`](#section-stackedmutator)
+
 
 ## <a id="DirectoryBasedSeedGen"></a>Section: `DirectoryBasedSeedGen`
 
@@ -461,6 +473,17 @@ Status: Required
 
 Usage: A list (array) of strings that represent the command line with arguments for the system under test (SUT). The first parameter must be the application itself, either with a relative path or an absolute path. Other command-line arguments for the application are given in order as separate strings. The special argument `"@@"` is used when test case data should be passed from the fuzzer to the SUT in a file. The `"@@"` will be replaced at runtime with the filename.
 
+### `AFLForkserverExecutor.useHeuristicTimeout`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default: false
+
+Usage: Specifies whether or not to create an adaptive timeout using the SUT's runtime as a guide. If true, the executor does test runs of the SUT and uses those runs to set the timeout value.  These test cases must not crash or timeout for calibration to to be calculated.
+
+
 ### `AFLForkserverExecutor.timeoutInMs`
 
 Value type: `<int>`
@@ -471,7 +494,22 @@ Default: Computed based on initial seeds
 
 Usage: Specifies the time in milliseconds that VMF will use to determine whether execution of the SUT has hung.  This is an optional parameter, and when not specified the executor will instead automatically compute a timeout value based on the initial seeds. Care must be taken when manually specifying this value, as a timeout that is too short will result in test cases being erroneously identified as hanging.
 
+### `AFLForkserverExecutor.confirmHangsCount`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default: 1
+
+Usage: Specifies whether or not to confirm that a SUT timeout is a genuine hang or taking longer than the default timeout. When a SUT times out the executor backs off the timeout and runs the SUT additional times before marking the SUT as hung.  This configuration cannot be used with [`ignoreTimeouts`](#aflforkserverexecutorignoretimeouts) also set to true.  The calculation of the back-off time is explained in [the core modules README](./core_modules_readme.md#hang-determination)
+
+
 ### `AFLForkserverExecutor.ignoreHangs`
+
+Warning: This parameter may be removed in a future release of VMF.  Please use [`ignoreTimeouts`](./core_modules_configuration.md#aflforkserverexecutorignoretimeouts).
+
+### `AFLForkserverExecutor.ignoreTimeouts`
 
 Value type: `<bool>`
 
@@ -479,7 +517,7 @@ Status: Optional
 
 Default: false
 
-Usage: Specifies to ignore hanging test cases during fuzzing.  While hanging testcases may be executed and marked as hanging they will not be marked as producing new coverage.  This will be overriden to false if `timeoutInMs` is specified in the user-provided configuration.  All testcases that hang in this mode will additionally be marekd as `INCOMPLETE`.
+Usage: Specifies to ignore hanging test cases during fuzzing.  When `true` this will cause the Executor to ignore test cases that time out during fuzzing. Executed test cases that time out will not be tagged as `HUNG` and will not be evaluated for new coverage. All testcases that time out in this mode will be tagged as `INCOMPLETE`.  This cannot be used in conjunction with [`confirmHangsCount`](#aflforkserverexecutorconfirmhangscount).
 
 ### `AFLForkserverExecutor.maxCalibrationCases`
 
@@ -651,6 +689,49 @@ Default value: `true`
 
 Usage: When enabled, the forkserver requires core dump notifications to not be sent to an external utility.  This is important for speed and to prevent crashes from being misinterpreted as timeouts.  Typically this setting should not be changed, but is is provided because it is not always possible to configure core dump notifications in all environments, due to permission issues.
 
+### `AFLForkserverExecutor.sandboxer`
+
+Value type: `<string>`
+
+Status: Optional
+
+Usage: When enabled, this will cause the forkserver to wrap the SUT with a sandboxing program (e.g. `firejail`) during execution to provide protection to the host system during fuzzing.  The SUT will be expected to successfully execute with:
+
+```
+<sandboxer> <sandboxerArgs> <sut>
+```
+
+for example:
+
+```
+/usr/bin/firejail --private=./ test/haystackSUT/haystack
+```
+
+Would cause VMF to run the haystack SUT using `firejail` with a private home directory at VMF's working directory. Operations such as reading a file from the parent directory will be prevented at the OS level and may appear to VMF as crashes.  Sandboxing can also be used to discard filesystem changes which may be useful in fuzzing to maintain a consistent baseline filesystem state for each execution. See other firejail arguments such `--private-cwd` and other documentation from the sandboxing tool.
+
+### `AFLForkserverExecutor.sandboxerArgs`
+
+Value type: `<list of string>`
+
+Status: Optional
+
+Default: []
+
+Usage: When enabled, if the sandboxer is specified then this will provide arguments to the sandboxer during SUT execution.
+```
+<sandboxer> <sandboxerArgs> <sut>
+```
+
+for example:
+
+```
+/usr/bin/firejail --private=./ --keep-fd=all test/haystackSUT/haystack
+```
+
+see [the sandboxed VMF example configuration](../../test/config/basicModules_sandboxed.yaml).
+
+NOTE:  See [the note on `firejail` in the core modules sandboxing overview](./core_modules_readme.md#sandboxing) for explanation of the `firejail` version-specific `--keep-fd` option.
+
 ### Configuration example
 ```yaml
 AFLForkserverExecutor:
@@ -658,6 +739,191 @@ AFLForkserverExecutor:
                                     # "@@" indicates that the test case data is passed via a temporary file
   timeoutInMs: 100                  # Use 100ms timeout value
   memoryLimitInMB: 0                # Unlimited memory usage
+```
+
+## <a id="FridaExecutor"></a>Section: `FridaExecutor`
+
+Configuration information specific to the Frida Executor module.  All configuration settings are shared between the `FridaExecutor` module and the VMF Frida runtime executable
+
+### `FridaExecutor.sutArgv`
+
+Value type: `<list of strings>`
+
+Status: Required
+
+Usage: A list (array) of strings that represent the command line with arguments for the system under test (SUT). The first parameter must be the application itself, either with a relative path or an absolute path. Other command-line arguments for the application are given in order as separate strings. The special argument `"@@"` is used when test case data should be passed from the fuzzer to the SUT in a file. The `"@@"` will be replaced at runtime with the filename.
+
+### `FridaExecutor.ignoreHangs`
+
+Warning: This parameter may be removed in a future release of VMF.  Please use [`ignoreTimeouts`](./core_modules_configuration.md#fridaexecutorignoretimeouts).
+
+
+### `FridaExecutor.confirmHangsCount`
+
+Value type: `<int>`
+
+Status: Optional
+
+Default: 0
+
+Usage: Specifies whether or not to confirm that a SUT timeout is a genuine hang or taking longer than the default timeout. If set, the executor backs off the timeout and runs the SUT the specified number of additional times before marking the SUT as hung.  This configuration cannot be used with [`ignoreTimeouts`](#fridaexecutorignoretimeouts) also set to true.  The back-off calcuation for this feature can be found [here](./core_modules_readme.md#hang-determination).
+
+### `FridaExecutor.ignoreTimeouts`
+
+Value type: `<bool>`
+
+Status: Optional
+
+Default: false
+
+Usage: Specifies to ignore hanging test cases during fuzzing.  When `true` this will cause the Executor to ignore test cases that time out during fuzzing. Executed test cases that time out will not be tagged as `HUNG` and will not be evaluated for new coverage. All testcases that time out in this mode will be tagged as `INCOMPLETE`.
+
+### `FridaExecutor.debugLog`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: `false`
+
+Usage: Records all SUT stdout/stderr to files. These file names default to `stdout` and `stderr` in the `frida_exec/` directory under the output directory.
+
+### `FridaExecutor.stdout`
+
+Value type: `<string>`
+
+Status: Optional
+
+Default value: "stdout"
+
+Usage: Specifies an alternate file name to capture SUT stdout logs. This config will only be used when the `debugLog` config option is set to `true`.
+
+### `FridaExecutor.stderr`
+
+Value type: `<string>`
+
+Status: Optional
+
+Default value: "stderr"
+
+Usage: Specifies an alternate file name to capture SUT stderr logs. This config will only be used when the `debugLog` config option is set to `true`.
+
+### `FridaExecutor.timeoutInMs`
+
+Status: Optional
+
+Default value: 1000 ms
+
+Usage: Specifies the number of milliseconds to wait for a response from the SUT.
+
+### `FridaExecutor.memoryLimitInMB`
+
+Status: Optional
+
+Default value: 128 MB
+
+Usage: Specifies the number of megabytes a SUT is allowed to consume for memory.
+
+### `FridaExecutor.alwaysWriteTraceBits`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: `false`
+
+Usage: Will cause coverage bits to be written for all test cases in the chosen storage module.
+
+### `FridaExecutor.traceBitsOnNewCoverage`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: `true`
+
+Usage: Will cause coverage bits to be written for all test cases marked as producing new coverage in the chosen storage module.
+
+### `FridaExecutor.writeStats`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: `true`
+
+Usage: Will write stats for code coverage data to metadata (for use by output modules).
+
+### `FridaExecutor.disableInstrumentation`
+
+Value type: `<boolean>`
+
+Status: Optional
+
+Default value: `false`
+
+Usage: Disable Frida instrumentation.
+
+### `FridaExecutor.maxTestSize`
+
+Status: Optional
+
+Default value: 1048576 bytes (1024 * 1024 bytes = 1 MB)
+
+Usage: Maximum size of testcase in bytes to pass to SUT during execution.
+
+### `FridaExecutor.numTestsPerProcess`
+
+Status: Optional
+
+Default value: 1,000,000
+
+Usage: Maximum number of testcases per execution of the [test entry function](#fridaexecutortestentry).
+
+### `FridaExecutor.instrument`
+
+Value type: `<std::vector<std::string>>`
+
+Status: Optional
+
+Default value: `LLVMFuzzerTestOneInput`
+
+Usage: Of the configured testEntry value.
+
+### `FridaExecutor.sutDLL`
+
+Value type: `std::string`
+
+Status: Mandatory
+
+Usage: Path to the SUT .dll exporting the [test entry](#fridaexecutortestentry) and [test init](#fridaexecutortestinit) functions.
+
+### `FridaExecutor.testEntry`
+
+Value type: `std::string`
+
+Status: Optional
+
+Default value: `LLVMFuzzerTestOneInput`
+
+Usage: The symbol implementing the SUT test entry function. Is expected to implement the function signature `(const unsigned char *, size_t) -> int`
+
+### `FridaExecutor.testInit`
+
+Value type: `std::string`
+
+Status: Optional
+
+Default value: `LLVMFuzzerInitialize`
+
+Usage: The symbol implementing the SUT test initialization function.  This is run once during start of the VMF Frida runtime executable.  It is expected to implement the function signature `(int *, char **) -> int`
+
+### Configuration example
+```yaml
+FridaExecutor:
+  sutDLL: *SUT_DLL
+  debugLog: true
+  numTestsPerProcess: 1000000 
 ```
 
 ## <a id="AFLFeedback"></a>Section: `AFLFeedback`
@@ -860,7 +1126,7 @@ Default value: false
 Usage: This parameter controls whether the module creates files per saved test case that
 contain metadata such as the mutators, notable input generators, etc. used to generate
 that test case. Seed test cases are labeled with the configuration's controller module
-name.
+name and the parent and generation are set to 0.  
 
 ### Configuration example
 ```yaml
@@ -1049,7 +1315,6 @@ DictionaryMutator:
   dictionaryPaths: test/unittest/inputs/DictionaryMutator/png.dict
 ```
 
-
 ## <a id="AFLCloneMutator"></a>Section: `AFLCloneMutator`
 
 This mutator does not take any configuration values.
@@ -1075,6 +1340,34 @@ This mutator does not take any configuration values.
 This mutator does not take any configuration values.
 
 ## <a id="AFLFlip4BitMutator"></a>Section: `AFLFlip4BitMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLDWordAddSubMutator"></a>Section: `AFLDWordAddSubMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLInteresting8Mutator"></a>Section: `AFLInteresting8Mutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLInteresting16Mutator"></a>Section: `AFLInteresting16Mutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLInteresting32Mutator"></a>Section: `AFLInteresting32Mutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLOverwriteCopyMutator"></a>Section: `AFLOverwriteCopyMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLOverwriteFixedMutator"></a>Section: `AFLOverwriteFixedMutator`
+
+This mutator does not take any configuration values.
+
+## <a id="AFLWordAddSubMutator"></a>Section: `AFLWordAddSubMutator`
 
 This mutator does not take any configuration values.
 

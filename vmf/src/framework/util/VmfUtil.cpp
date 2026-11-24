@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,6 +24,9 @@
 
 using namespace vmf;
 namespace fs = std::filesystem;
+
+static uint64_t campaignStartTime = 0;
+
 
 /**
  * @brief Creates a directory if it does not already exist
@@ -245,3 +248,24 @@ size_t VmfUtil::hashBuffer(char * buff, int len)
     }
     return hash;
 }
+
+/**
+ * @brief Utility method to set the start time of the fuzzing campaign.  
+ * 
+ * Time at invocation will be considered start time.  Any subsequent attempts to invoke will 
+ * throw an exception
+ */
+void VmfUtil::setStartTime(void)
+{
+    if (campaignStartTime == 0)
+        campaignStartTime = getCurTime();
+    else
+        throw RuntimeException("Cannot set the campaign starttime more than once", RuntimeException::USAGE_ERROR);
+}
+
+/**
+ * @brief Utility method to get the start time of the fuzzing campaign.  
+ * 
+ * @return uint64_t the starttime of the campaign in microseconds
+ */
+uint64_t VmfUtil::getStartTime() { return campaignStartTime; }

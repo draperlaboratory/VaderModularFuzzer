@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -39,7 +39,7 @@
  */
 
 #include "AFLCloneMutator.hpp"
-#include "AFLDeleteMutator.hpp" //For static choose_block_len method
+#include "AFLMutatorCommon.hpp" 
 #include "RuntimeException.hpp"
 #include <random>
 #include <algorithm>
@@ -125,7 +125,7 @@ void AFLCloneMutator::mutateTestCase(StorageModule& storage, StorageEntry* baseE
     if (actually_clone) {
         //Clone a small block of the original data
 
-        clone_len = AFLDeleteMutator::choose_block_len(*rand, size);
+        clone_len = vmf::choose_block_len(*rand, size);
         clone_from = rand->randBelow(size - clone_len + 1);
 
         int newSize = clone_len + size;
@@ -143,7 +143,7 @@ void AFLCloneMutator::mutateTestCase(StorageModule& storage, StorageEntry* baseE
     } else {
         //Clone a large block of the original value
 
-        clone_len = AFLDeleteMutator::choose_block_len(*rand, BLK_XL); //This constant is 32768
+        clone_len = vmf::choose_block_len(*rand, BLK_XL); //This constant is 32768
         int randomByte = rand->randBelow(255);
 
         int newSize = clone_len + size;
