@@ -43,6 +43,7 @@
 #include "GramatronSpliceMutator.hpp"
 #include <random>
 #include <algorithm>
+#include <vector>
 
 using namespace vmf;
 
@@ -177,28 +178,20 @@ void GramatronSpliceMutator::splice(StorageEntry* newEntry, StorageEntry* baseEn
     terminal* term_ptr;
     int state;
 
-    IdxMap_new* statemap_start = (IdxMap_new*)malloc(sizeof(IdxMap_new)*pda->num_states());
-    for (int x = 0; x < pda->num_states(); x++) {
-        statemap_ptr = & statemap_start[x];
-        utarray_new(statemap_ptr->nums, &ut_int_icd);
-    }
+    std::vector<IdxMap_new> statemap_start(pda->num_states());
     size_t offset = 0;
     while(offset < originput->used) {
         term_ptr = & originput->start[offset];
         state = term_ptr->state;
-        statemap_ptr = &statemap_start[state];
-        utarray_push_back(statemap_ptr->nums, &offset);
+        statemap_ptr = &statemap_start[(size_t)state];
+        statemap_ptr->nums.push_back((int)offset);
         offset += 1;
     }
 
-    Array* mutated = performSpliceOne(originput,statemap_start,splicecand);
+    Array* mutated = performSpliceOne(originput,statemap_start.data(),splicecand);
 
     storeTestCase(newEntry, mutated, testCaseKey, autRepKey);
 
-    for(int x = 0; x < pda->num_states(); x++) {
-        utarray_free(statemap_start[x].nums);
-    }
-    free(statemap_start);
     free(originput->start);
     free(originput);
     free(splicecand->start);
@@ -209,8 +202,6 @@ void GramatronSpliceMutator::splice(StorageEntry* newEntry, StorageEntry* baseEn
  * Start of code copied from Gramatron, source file
  * https://github.com/HexHive/Gramatron/blob/main/src/gramfuzz-mutator/gramfuzz-mutators.c
   -- */
-UT_icd intpair_icd = {sizeof(intpair_t), NULL, NULL, NULL};
-
 /**
  * @brief Tries to perform splice operation between two automaton walks
  *
@@ -219,43 +210,33 @@ UT_icd intpair_icd = {sizeof(intpair_t), NULL, NULL, NULL};
  * @param splicecand the second PDA walk to get a slice from
  */
 Array* GramatronSpliceMutator::performSpliceOne(Array* originput, IdxMap_new* statemap_orig, Array* splicecand) {
-    UT_array* stateptr, *pairs;
-    intpair_t ip;
-    intpair_t *cand;
+    std::vector<intpair_t> pairs;
 
     terminal* term_ptr;
     Array* prefix;
-
-    // Initialize the dynamic holding the splice indice pairs
-    utarray_new(pairs, &intpair_icd);
 
     // Iterate through the splice candidate identifying potential splice points
     // and pushing pair (orig_idx, splice_idx) to a dynamic array
     for(size_t x = 0; x < splicecand->used; x++ ) {
         term_ptr = & splicecand->start[x];
-        stateptr = statemap_orig[term_ptr->state].nums;
+        const std::vector<int>& stateptr = statemap_orig[(size_t)term_ptr->state].nums;
 
-        int length = utarray_len(stateptr);
+        int length = (int)stateptr.size();
 
         if (length) {
-            int* splice_idx = (int *)utarray_eltptr(stateptr, (unsigned int)(rand->randBelow(length)));
-
-            ip.orig_idx = *splice_idx;
-            ip.splice_idx = (int)x;
-            utarray_push_back(pairs, &ip);
+            int splice_idx = stateptr[(size_t)(rand->randBelow(length))];
+            pairs.push_back({splice_idx, (int)x});
         }
     }
 
     // Pick a random pair
-    int length = utarray_len(pairs);
-    cand = (intpair_t *)utarray_eltptr(pairs, (unsigned int)(rand -> randBelow(length)));
+    if (pairs.empty()) {
+        return slice(originput, (int)originput->used);
+    }
+    const intpair_t& cand = pairs[(size_t)(rand -> randBelow((int)pairs.size()))];
 
     // Perform the splicing
-    prefix = slice(originput, cand->orig_idx);
-    Array* spliced = spliceGF(prefix, splicecand, cand->splice_idx);
-
-    utarray_free(pairs);
-
-    return spliced;
+    prefix = slice(originput, cand.orig_idx);
+    return spliceGF(prefix, splicecand, cand.splice_idx);
 }
 /* -- End of code copied from Gramatron */

@@ -48,7 +48,7 @@
 #include "cstring"
 #include "fstream"
 #include "sstream"
-#include "utarray.h"
+#include <vector>
 
 namespace vmf
 {
@@ -111,7 +111,7 @@ typedef struct {
  *
  */
 typedef struct {
-    UT_array *nums; ///< Pointer to a dynamic array, a contiguous memory region into which the states in the test case are copied
+    std::vector<int> nums; ///< Dynamic array containing the matching state indices in the test case
 } IdxMap_new;
 
 /**

@@ -105,8 +105,6 @@ target_link_libraries(CoreModules
   PUBLIC
     VMFFramework
     yaml-cpp
-  PRIVATE        
-    uthash
 )
 
 set(CoreModules_INCLUDES )
@@ -150,4 +148,3 @@ set_vmf_compile_options(CoreModules)
 
 
 install(TARGETS CoreModules DESTINATION "${CMAKE_INSTALL_PREFIX}/plugins")
-

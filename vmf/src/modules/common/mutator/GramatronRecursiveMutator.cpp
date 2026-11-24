@@ -173,40 +173,33 @@ void GramatronRecursiveMutator::recursive(StorageEntry* newEntry, char* buffer, 
     IdxMap_new* statemap_ptr ;
     terminal *term_ptr;
     int state;
-    int recurlen = 0;
 
     Array* mutated;
 
-    IdxMap_new* statemap_start = (IdxMap_new*)malloc(sizeof(IdxMap_new)*pda->num_states());
-    for (int x = 0; x < pda->num_states(); x++) {
-        statemap_ptr = & statemap_start[x];
-        utarray_new(statemap_ptr->nums, &ut_int_icd);
-    }
+    std::vector<IdxMap_new> statemap_start(pda->num_states());
     size_t offset = 0;
     while(offset < input->used) {
         term_ptr = & input->start[offset];
         state = term_ptr->state;
-        statemap_ptr = &statemap_start[state];
-        utarray_push_back(statemap_ptr->nums, &offset);
+        statemap_ptr = &statemap_start[(size_t)state];
+        statemap_ptr->nums.push_back((int)offset);
         offset += 1;
     }
 
     // Create recursive feature map (if it exists)
-    UT_array **recurIdx = (UT_array**)malloc(sizeof(UT_array*)*pda->num_states());
+    std::vector<const std::vector<int>*> recurIdx;
     // Retrieve the duplicated states
     offset = 0;
     while(offset < (size_t)pda->num_states()) {
-        statemap_ptr = &statemap_start[offset];
-        int length = utarray_len(statemap_ptr->nums);
-        if (length >= 2) {
-            recurIdx[recurlen] = statemap_ptr->nums;
-            recurlen += 1;
+        statemap_ptr = &statemap_start[(size_t)offset];
+        if (statemap_ptr->nums.size() >= 2) {
+            recurIdx.push_back(&statemap_ptr->nums);
         }
         offset += 1;
     }
 
-    if(recurlen > 0) {
-        mutated = doMult(input, recurIdx, recurlen);
+    if(!recurIdx.empty()) {
+        mutated = doMult(input, recurIdx);
 
         storeTestCase(newEntry, mutated, testCaseKey, autRepKey);
 
@@ -215,11 +208,6 @@ void GramatronRecursiveMutator::recursive(StorageEntry* newEntry, char* buffer, 
         GramatronRecursiveMutator::random(newEntry, buffer, testCaseKey);
     }
 
-    for(int x = 0; x < pda->num_states(); x++) {
-        utarray_free(statemap_start[x].nums);
-    }
-    free(statemap_start);
-    free(recurIdx);
     free(input->start);
     free(input);
 }
@@ -233,21 +221,19 @@ void GramatronRecursiveMutator::recursive(StorageEntry* newEntry, char* buffer, 
  *
  * @param input the PDA walk to be mutated
  * @param recur recursive feature map for this input
- * @param recurlen number of recursive features
  */
-Array* GramatronRecursiveMutator::doMult(Array* input, UT_array** recur, int recurlen) {
+Array* GramatronRecursiveMutator::doMult(Array* input, const std::vector<const std::vector<int>*>& recur) {
     //select one of the recursive features
-    int idx = rand -> randBelow(recurlen);
-    UT_array* recurMap = recur[idx];
+    int idx = rand -> randBelow((int)recur.size());
+    const std::vector<int>& recurMap = *recur[(size_t)idx];
 
     Array* prefix;
     Array* feature;
 
     // Choose two indices to get the recursive feature
-    int recurIndices = utarray_len(recurMap);
     int firstIdx = 0;
     int secondIdx = 0;
-    getTwoIndices(recurMap, recurIndices, &firstIdx, &secondIdx);
+    getTwoIndices(recurMap, &firstIdx, &secondIdx);
 
     // Perform the recursive mut, the slice gets the part of the test case which will not be mutated
     prefix = slice(input, firstIdx);
@@ -269,47 +255,25 @@ Array* GramatronRecursiveMutator::doMult(Array* input, UT_array** recur, int rec
  * @brief Generate a new random walk from the PDA.
  *
  * @param recur the recursive feature map
- * @param recurlen the number of recursive features
  * @param firstIdx this will be set to the end of the portion of the test case to leave alone
  * @param secondIdx this will be set to the end of the recursive feature to pull out and mutate with
  */
-void GramatronRecursiveMutator::getTwoIndices(UT_array* recur, int recurlen, int* firstIdx, int* secondIdx) {
-    //int ArrayRecurIndices[recurlen];
-    std::vector <int> ArrayRecurIndices(recurlen);
-    int offset = 0, *p;
-    // Unroll into an array
-    for (p=(int*)utarray_front(recur); p!= NULL; p=(int*)utarray_next(recur,p)) {
-        //ArrayRecurIndices[offset] = *p;
-        ArrayRecurIndices.push_back(*p);
-        offset += 1;
-    }
+void GramatronRecursiveMutator::getTwoIndices(const std::vector<int>& recur, int* firstIdx, int* secondIdx) {
+    std::vector<int> ArrayRecurIndices = recur;
 
     /*Source: https://www.geeksforgeeks.org/shuffle-a-given-array-using-fisher-yates-shuffle-algorithm/ */
     // This shuffles the recursive sub walk to get two random indices so our selection of a recursive feature is done at random
-    for (int i = offset-1; i > 0; i--) {
+    for (int i = (int)ArrayRecurIndices.size() - 1; i > 0; i--) {
         // Pick a random index from 0 to i
         int j = rand -> randBelow(i + 1);
 
         // Swap arr[i] with the element at random index
-        swap(&ArrayRecurIndices[i], &ArrayRecurIndices[j]);
+        std::swap(ArrayRecurIndices[(size_t)i], ArrayRecurIndices[(size_t)j]);
     }
 
     // Get the first two indices
     *firstIdx = ArrayRecurIndices[0];
     *secondIdx = ArrayRecurIndices[1];
 
-}
-
-/**
- * @brief Switch pointer values
- *
- * @param a the first pointer
- * @param b the second pointer
- */
-void GramatronRecursiveMutator::swap (int *a, int *b)
-{
-    int temp = *a;
-    *a = *b;
-    *b = temp;
 }
 /* -- End of code copied from Gramatron */
