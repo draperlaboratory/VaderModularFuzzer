@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -48,11 +48,28 @@ public:
 
 private:
     void outputTestCase(StorageEntry* entry, std::string dir);
+    void outputMetadata(std::string filename, unsigned long id, vmf::StorageEntry *entry, std::string &dir);
+
     /// The handle for the test case buffer
     int testCaseKey;
 
     /// The handle for the mutator ID
     int mutatorIdKey;
+
+    /// The handle for the testcase's parent ID
+    int testcaseParentIdKey;
+
+    /// The handle for the distance from the seed for the testcase
+    int generationKey;
+
+    /// The handle for the number of immediate children of a testcase
+    int numChildrenKey;
+    
+    /// The handle for the timestamp of the testcase
+    int timestampKey;
+
+    /// The handle for the execution time of a testcase
+    int execTimeKey;
 
     /// The number of tags that this module is monitoring
     int numTags;

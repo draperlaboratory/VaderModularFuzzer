@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -79,8 +79,11 @@ GeneticAlgorithmInputGenerator::~GeneticAlgorithmInputGenerator()
 void GeneticAlgorithmInputGenerator::registerStorageNeeds(StorageRegistry& registry)
 {
    normalTag = registry.registerTag("RAN_SUCCESSFULLY", StorageRegistry::READ_ONLY);
-   mutatorIdKey = registry.registerIntKey("MUTATOR_ID", StorageRegistry::WRITE_ONLY, 1);
+   mutatorIdKey = registry.registerIntKey("MUTATOR_ID", StorageRegistry::WRITE_ONLY, -1);
    testCaseKey = registry.registerKey("TEST_CASE", StorageRegistry::BUFFER, StorageRegistry::READ_WRITE);
+   testcaseParentIdKey = registry.registerUIntKey("PARENT_ID", StorageRegistry::WRITE_ONLY, 0);
+   generationKey = registry.registerUIntKey("GENERATION", StorageRegistry::WRITE_ONLY, 0);
+   numChildrenKey = registry.registerUIntKey("NUM_CHILDREN", StorageRegistry::WRITE_ONLY, 0);
 }
 
 void GeneticAlgorithmInputGenerator::addNewTestCases(StorageModule& storage)
@@ -95,6 +98,9 @@ void GeneticAlgorithmInputGenerator::addNewTestCases(StorageModule& storage)
             MutatorModule* mutator = mutators[i];
             mutator->mutateTestCase(storage, baseTestCase, newEntry, testCaseKey);
             newEntry->setValue(mutatorIdKey, mutator->getID());
+            newEntry->setValue(testcaseParentIdKey, (unsigned int)baseTestCase->getID());
+            newEntry->setValue(generationKey, baseTestCase->getUIntValue(generationKey) + 1U);
+            baseTestCase->setValue(numChildrenKey, baseTestCase->getUIntValue(numChildrenKey) + 1U);
         }
     }
 }

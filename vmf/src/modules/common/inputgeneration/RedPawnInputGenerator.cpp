@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -147,7 +147,7 @@ void RedPawnInputGenerator::init(ConfigInterface& config)
     testCasesAdded = 0;
     testCasesAddedTotal = 0;
     testCasesAddedByLastSeed = 0;
-    currTestCaseID = 0;
+    baseTestCaseID = 0;
     timeStartedRunningTestcase = 0;
 
     // Initialize mode to starting from a fresh testcase
@@ -164,7 +164,7 @@ RedPawnInputGenerator::RedPawnInputGenerator(std::string name) :
 {
     colorized_testcase = nullptr;
     base_testcase = nullptr;
-    currTestCaseID = 0;
+    baseTestCaseID = 0;
     size = 0;
     testCasesGenerated = 0;
     testCasesGeneratedTotal = 0;
@@ -172,7 +172,7 @@ RedPawnInputGenerator::RedPawnInputGenerator(std::string name) :
     testCasesAddedTotal = 0;
     testCasesAddedByLastSeed = 0;
     timeStartedRunningTestcase = 0;
-    currTestCaseID = 0;
+    baseTestCaseID = 0;
     testCasesInQueue = 0;
 
     //These should be initialized during registration
@@ -224,7 +224,10 @@ void RedPawnInputGenerator::registerStorageNeeds(StorageRegistry& registry)
 
     // Write
     redPawnNewCoverageTag = registry.registerTag("REDPAWN_NEW_COVERAGE", StorageRegistry::READ_WRITE);
-    mutatorIdKey = registry.registerIntKey("MUTATOR_ID", StorageRegistry::WRITE_ONLY, 1);
+    mutatorIdKey = registry.registerIntKey("MUTATOR_ID", StorageRegistry::WRITE_ONLY, -1);
+    testcaseParentIdKey = registry.registerUIntKey("PARENT_ID", StorageRegistry::WRITE_ONLY, 0);
+    generationKey = registry.registerUIntKey("GENERATION", StorageRegistry::WRITE_ONLY, 0);
+    numChildrenKey = registry.registerUIntKey("NUM_CHILDREN", StorageRegistry::WRITE_ONLY, 0);
 }
 
 
@@ -240,7 +243,6 @@ void RedPawnInputGenerator::addNewTestCases(StorageModule& storage)
 
     std::unique_ptr<Iterator> storageIterator;
 
-    //storageIterator = storage.getNewEntriesByTag(newCoverageTag);
     storageIterator = storage.getSavedEntriesByTag(redPawnNewCoverageTag);
     testCasesInQueue = storageIterator->getSize();
 
@@ -271,7 +273,6 @@ void RedPawnInputGenerator::addNewTestCases(StorageModule& storage)
     }
 
     // ------- Start on a fresh testcase if we have at least one ---------
-
     if (testCasesInQueue > 0)
     {
         // Reset the stats for this testcase
@@ -290,11 +291,14 @@ void RedPawnInputGenerator::addNewTestCases(StorageModule& storage)
         // Untag this entry now that it has been processed by RedPawn
         entry -> removeTag(redPawnNewCoverageTag);
 
-        // Make a copy of the testcase data
+        // Make a copy of the testcase data. The StorageEntry may later be freed (such as by
+        // Corpus Minimization) so we must record any information that we need to complete
+        // processing this testcase.
         size = entry -> getBufferSize(testCaseKey);
         base_testcase = (char *) malloc(size);
         memcpy(base_testcase, entry -> getBufferPointer(testCaseKey), size);
-        currTestCaseID = entry -> getID();
+        baseTestCaseID = entry -> getID();
+        baseTestCaseGeneration = entry->getUIntValue(generationKey);
 
         // Create colorized version by first starting with a copy of the base testcase
         colorized_testcase = (char *) malloc(size);
@@ -956,9 +960,18 @@ void RedPawnInputGenerator::addCandidatesToStorage(StorageModule& storage)
         char * buff = newEntry -> getBufferPointer(testCaseKey);
         memcpy(buff, rp_testcase, size);
         free(rp_testcase);
+
         /* RedPawn doesn't use mutators -- set input-gen ID as the mutator ID */
         newEntry->setValue(mutatorIdKey, getID());
+        newEntry->setValue(testcaseParentIdKey, (unsigned int) baseTestCaseID);
+        newEntry->setValue(generationKey, baseTestCaseGeneration + 1U);
 
+        // Check if the baseEntry still exists, and if so then record an additional child
+        StorageEntry * baseEntry = storage.getSavedEntryByID(baseTestCaseID);
+        if (baseEntry != nullptr)
+        {
+            baseEntry->setValue(numChildrenKey, baseEntry->getUIntValue(numChildrenKey) + 1U);
+        }
     }
 
     candidates.clear();
@@ -1317,7 +1330,7 @@ void RedPawnInputGenerator::printStats()
 {
     static uint64_t lastPrint = 0;
     uint64_t curTime = VmfUtil::getCurTime();
-    if (currTestCaseID != 0 && curTime - lastPrint > 5 * 1000 * 1000)
+    if (baseTestCaseID != 0 && curTime - lastPrint > 5 * 1000 * 1000)
     {
         // Header
         LOG_INFO << "---------------------------------";
@@ -1326,7 +1339,7 @@ void RedPawnInputGenerator::printStats()
         LOG_INFO << "RedPawn testcases in queue: " << testCasesInQueue;
 
         // Current testcase stats
-        LOG_INFO << "Current testcase ID: " << currTestCaseID << ", of size: " << size;
+        LOG_INFO << "Current testcase ID: " << baseTestCaseID << ", of size: " << size;
 
         // How long we've been working from the same seed
         float secondsSpent = (float) timeSpentOnTestCase / 1000;

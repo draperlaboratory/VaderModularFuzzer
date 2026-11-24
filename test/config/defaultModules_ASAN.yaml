@@ -26,6 +26,13 @@ vmfModules:
       - className: AFLDeleteMutator
       - className: AFLCloneMutator
       - className: AFLSpliceMutator
+      - className: AFLDWordAddSubMutator
+      - className: AFLInteresting8Mutator
+      - className: AFLInteresting16Mutator
+      - className: AFLInteresting32Mutator
+      - className: AFLOverwriteCopyMutator
+      - className: AFLOverwriteFixedMutator
+      - className: AFLWordAddSubMutator
   CorpusMinimization:
     children:
       - className: AFLForkserverExecutor
@@ -41,6 +48,7 @@ CorpusMinExecutor:
   sutArgv: *SUT_ARGV
   alwaysWriteTraceBits: true
   useASAN: true
+  writeStats: false # Needed to prevent un-wanted modification of COVERED TUPLES
 
 DirectoryBasedSeedGen:
   inputDir: *INPUT_DIR

@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -56,6 +56,10 @@ private:
     int normalTag; ///< Handle for test cases that ran normally (without crashing or hanging)
     int testCaseKey; ///< Handle for the buffer that contains the test case
     int mutatorIdKey;
+    int testcaseParentIdKey = 0; ///< Handle for the testcase ID for the parent of the derived testcase
+    int generationKey = 0; ///< Handle for the generation (or distance from seed testcase)
+    int numChildrenKey = 0;  ///< Handle for the number of direct children this base testcase has
+
     std::vector<MutatorModule*> mutators; ///< The list of mutators being managed by this input generator
 };
 }

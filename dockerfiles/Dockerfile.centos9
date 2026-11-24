@@ -1,64 +1,82 @@
 FROM quay.io/centos/centos:stream9 AS deps
 
-
 # General dependencies
-RUN dnf install --assumeyes \
-       ca-certificates \
-       curl-minimal \
-       gdb \
-       git \
-       gnupg
+RUN set -eux \
+    && dnf install --assumeyes \
+        ca-certificates \
+        curl-minimal \
+        gdb \
+        git \
+        gnupg
 
 # Development dependencies
-RUN  dnf install --assumeyes  \
-        clang-18.1.8 \
+RUN set -eux \
+    && dnf install --assumeyes \
+        clang \
+        cmake \
         libcurl-devel \
-        llvm-18.1.8 \
+        lld \
+        llvm \
+        llvm-devel \
         python3-devel \
         python3-pip \
         python3-setuptools \
-        cmake \
-        zlib-devel
+        zlib-devel \
+        libselinux-devel
 
-# Remaining LLVM tools
-RUN dnf install --assumeyes \
-        lld-18.1.8 \
-        llvm-devel-18.1.8 
-
-ENV LLVM_CONFIG=llvm-config-18
+# Additional development dependencies
+# Install Doxygen and Graphviz from CentOS Stream 9 CRB
+RUN set -eux \
+    && dnf config-manager --add-repo=https://mirror.stream.centos.org/9-stream/CRB/x86_64/os/ \
+    && dnf config-manager --setopt='mirror.stream.centos.org_9-stream_CRB_x86_64_os_.gpgcheck=1' --setopt='mirror.stream.centos.org_9-stream_CRB_x86_64_os_.gpgkey=https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official' --save \
+    && dnf install --assumeyes \
+        doxygen \
+        graphviz \
+    && dnf config-manager --disable mirror.stream.centos.org_9-stream_CRB_x86_64_os_
 
 FROM deps AS aflpp
 
 # AFL++ build dependencies
-# Currently gcc plugin version don't match available gcc version. This is necessary for some AFL++ modes.
-RUN dnf install --assumeyes \
+RUN set -eux \
+    && dnf install --assumeyes \
         automake \
-        cpio \
-        glib2-devel \
-        flex \
         bison \
-        cargo
+        cargo \
+        cpio \
+        flex \
+        glib2-devel
 
+# Install firejail for example sandboxer
+RUN git clone --depth 1 https://github.com/netblue30/firejail.git /usr/local/src/firejail\
+    && cd /usr/local/src/firejail \
+    && ./configure --prefix=/usr --enable-selinux \
+    && make \
+    && make install-strip 
 
 # Clone and build AFL++
-RUN set -ex \
+RUN set -eux \
     && cd /usr/local/src \
-    && git clone --depth 1 -b v4.30c https://github.com/AFLplusplus/AFLplusplus.git \
+    && git clone --depth 1 -b v5.00c https://github.com/AFLplusplus/AFLplusplus.git \
     && cd AFLplusplus \
     && make all \
     && make install \
-    && set +ex
+    && command -v afl-cc \
+    && command -v afl-fuzz \
+    && command -v afl-showmap \
+    && afl-cc --version \
+    && afl-cc --help
 
 FROM aflpp AS vmf
 
 # Clone, build, install VMF
-RUN set -ex \
+RUN set -eux \
     && cd /usr/local/src \
-    && git clone --depth 1 https://github.com/draperlaboratory/vadermodularfuzzer.git vmf\
+    && mkdir vmf \
+    && git clone --depth 1 https://github.com/draperlaboratory/vadermodularfuzzer.git vmf \
     && cd vmf \
     && mkdir -p build \
     && cd build \
     && cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. \
-    && make -j 8 \
+    && make -j \
     && make install \
-    && set +ex
+    && command -v vader

@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *  
  * @license GPL-2.0-only <https://spdx.org/licenses/GPL-2.0-only.html>
- * ===========================================================================*/#include <stdint.h>
+ * ===========================================================================*/
+#include <stdint.h>
 #include <map>
 #include <set>
 #include <string>

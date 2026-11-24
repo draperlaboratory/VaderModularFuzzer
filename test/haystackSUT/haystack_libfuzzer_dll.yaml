@@ -12,7 +12,6 @@ vmfVariables:
 FridaExecutor:
   sutDLL: *SUT_DLL
   debugLog: true
-  showWindow: false
   numTestsPerProcess: 1000000 # typically, 20K/Sec so 50sec 
 
 # VMF Framework parameters 

@@ -1,6 +1,6 @@
 /* =============================================================================
  * Vader Modular Fuzzer (VMF)
- * Copyright (c) 2021-2025 The Charles Stark Draper Laboratory, Inc.
+ * Copyright (c) 2021-2026 The Charles Stark Draper Laboratory, Inc.
  * <vmf@draper.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -142,6 +142,18 @@ std::vector<int> TestConfigInterface::getIntVectorParam(std::string moduleName, 
 std::vector<int> TestConfigInterface::getIntVectorParam(std::string moduleName, std::string paramName, std::vector<int> defaultValue)
 {
     return getParam<std::vector<int>>(moduleName, paramName, defaultValue);
+}
+
+//see ConfigInterface::getUnsignedIntParam
+unsigned TestConfigInterface::getUnsignedIntParam(std::string moduleName, std::string paramName)
+{
+    return getParam<unsigned>(moduleName, paramName);
+}
+
+//see ConfigInterface::getUnsignedIntParam
+unsigned TestConfigInterface::getUnsignedIntParam(std::string moduleName, std::string paramName, unsigned defaultValue)
+{
+    return getParam<unsigned>(moduleName, paramName, defaultValue);
 }
 
 //see ConfigInterface::getFloatParam
